@@ -1,0 +1,578 @@
+Build a modern, production-ready full-stack web application called "Meditiya Sathi", the official digital platform for Meditiya Nagar.
+
+This is NOT just a Ganesh Utsav website. It is a complete digital society management platform that helps residents stay connected throughout the year while becoming the official festival portal during Ganesh Utsav.
+
+The website should have a premium, elegant, and modern design inspired by Apple, Airbnb, Stripe, and Notion while preserving Indian cultural aesthetics.
+
+==================================================
+BRANDING
+==================================================
+
+Website Name:
+Meditiya Sathi
+
+Meaning:
+A digital companion for every resident of Meditiya Nagar.
+
+Tagline:
+"One Society. One Family. One Platform."
+
+Use the provided Meditiya Sathi logo across the website.
+
+Theme Colors:
+- Saffron (#FF7A00)
+- Royal Blue (#1E3A8A)
+- White (#FFFFFF)
+- Gold (#F4B400)
+- Light Gray (#F8F9FA)
+
+Design Style:
+- Premium UI
+- Modern Cards
+- Rounded Corners
+- Glassmorphism
+- Soft Shadows
+- Elegant Gradients
+- Smooth Animations
+- Fully Responsive
+- Mobile First
+- Dark Mode
+- Light Mode
+
+==================================================
+USER MODULE
+==================================================
+
+HOME PAGE
+
+Beautiful Hero Section
+
+Display
+
+Welcome to Meditiya Nagar
+
+Connecting Every Home
+Celebrating Every Festival
+Building One Community
+
+Buttons
+
+Explore
+Donate
+Join Community
+
+Display
+
+Upcoming Events
+
+Latest Notices
+
+Today's Aarti
+
+Countdown to Ganesh Utsav
+
+Donation Progress
+
+Community Statistics
+
+Featured Gallery
+
+Committee Members
+
+Sponsors
+
+Testimonials
+
+Weather Widget
+
+Footer
+
+==================================================
+
+ABOUT
+
+History of Meditiya Nagar
+
+Mission
+
+Vision
+
+Committee
+
+Society Rules
+
+==================================================
+
+EVENTS
+
+Upcoming Events
+
+Past Events
+
+Festival Calendar
+
+Register Online
+
+Event Details
+
+Gallery
+
+Certificate Download
+
+==================================================
+
+FESTIVALS
+
+Dedicated pages for
+
+Ganesh Utsav
+
+Diwali
+
+Holi
+
+Independence Day
+
+Republic Day
+
+Christmas
+
+Eid
+
+Navratri
+
+Each festival should include
+
+Gallery
+
+Schedule
+
+Videos
+
+History
+
+Volunteers
+
+==================================================
+
+NOTICE BOARD
+
+Latest Notices
+
+Pinned Notices
+
+Search
+
+Categories
+
+Download PDF
+
+==================================================
+
+GALLERY
+
+Albums
+
+Photos
+
+Videos
+
+Lightbox
+
+Search
+
+Filter by Year
+
+==================================================
+
+DONATION
+
+UPI QR
+
+Razorpay
+
+Donation History
+
+Top Donors
+
+Donation Progress
+
+Receipt Download
+
+==================================================
+
+VOLUNTEERS
+
+Volunteer List
+
+Roles
+
+Join Volunteer
+
+Volunteer Certificates
+
+==================================================
+
+COMPETITIONS
+
+Residents can register for
+
+Drawing
+
+Rangoli
+
+Dance
+
+Singing
+
+Chess
+
+Cricket
+
+Indoor Games
+
+Quiz
+
+Winner List
+
+Certificates
+
+==================================================
+
+LIVE STREAM
+
+Embed YouTube Live
+
+Display Live Aarti
+
+==================================================
+
+COMMUNITY SERVICES
+
+Residents can request
+
+Electrician
+
+Plumber
+
+Cleaning
+
+Maintenance
+
+Water Issue
+
+Street Light Issue
+
+Security
+
+Complaint Tracking
+
+==================================================
+
+EMERGENCY CONTACTS
+
+Hospital
+
+Police
+
+Fire Brigade
+
+Ambulance
+
+Electrician
+
+Committee Members
+
+==================================================
+
+MARKETPLACE
+
+Residents can buy, sell or donate
+
+Furniture
+
+Books
+
+Electronics
+
+Cycles
+
+Other Items
+
+==================================================
+
+LOST & FOUND
+
+Upload Lost Item
+
+Upload Found Item
+
+Images
+
+Contact Details
+
+==================================================
+
+CONTACT
+
+Contact Form
+
+Google Maps
+
+Social Media
+
+FAQ
+
+==================================================
+USER DASHBOARD
+==================================================
+
+After Login
+
+Display
+
+Profile
+
+Family Members
+
+Flat Details
+
+Registered Events
+
+Volunteer Status
+
+Donation History
+
+Notifications
+
+Certificates
+
+Quick Actions
+
+==================================================
+ADMIN PANEL
+==================================================
+
+Secure Login
+
+Dashboard
+
+Statistics
+
+Residents
+
+Committee
+
+Events
+
+Festivals
+
+Gallery
+
+Notices
+
+Donations
+
+Complaints
+
+Marketplace
+
+Lost & Found
+
+Certificates
+
+Analytics
+
+Settings
+
+==================================================
+
+ADMIN FEATURES
+
+Manage Users
+
+Approve Users
+
+Assign Roles
+
+Manage Events
+
+Create Festival
+
+Manage Gallery
+
+Upload Photos
+
+Upload Videos
+
+Manage Notices
+
+Manage Donations
+
+Generate Donation Receipts
+
+Manage Volunteers
+
+Manage Competitions
+
+Generate Certificates
+
+Manage Complaints
+
+Content Management
+
+Push Notifications
+
+Analytics Dashboard
+
+Visitor Statistics
+
+Monthly Reports
+
+Export Data
+
+Backup Database
+
+==================================================
+AUTHENTICATION
+
+Resident Login
+
+Admin Login
+
+Forgot Password
+
+Email Verification
+
+JWT Authentication
+
+Role Based Access
+
+==================================================
+TECH STACK
+
+Frontend
+
+React.js
+
+Tailwind CSS
+
+Framer Motion
+
+React Router
+
+Axios
+
+Backend
+
+Java Spring Boot
+
+Spring Security
+
+JWT
+
+REST APIs
+
+Database
+
+MySQL
+
+Cloud Storage
+
+Cloudinary
+
+Payments
+
+Razorpay
+
+Maps
+
+Google Maps API
+
+Charts
+
+Chart.js
+
+==================================================
+SPECIAL FEATURES
+
+Dark Mode
+
+Light Mode
+
+Progressive Web App (PWA)
+
+Offline Support
+
+QR Code Resident ID
+
+QR Code Event Check-in
+
+WhatsApp Sharing
+
+Email Notifications
+
+Push Notifications
+
+Responsive Design
+
+Search Everywhere
+
+Advanced Filters
+
+Loading Skeletons
+
+Toast Notifications
+
+SEO Optimized
+
+Lazy Loading
+
+Image Compression
+
+Accessibility Support
+
+==================================================
+UI REQUIREMENTS
+
+The website should feel like premium software rather than a simple society website.
+
+Use:
+- Sticky Navbar
+- Animated Hero Section
+- Smooth Scroll
+- Glass Cards
+- Hover Effects
+- Modern Icons
+- Beautiful Dashboard
+- Professional Forms
+- Elegant Tables
+- Responsive Sidebar
+- Dashboard Analytics
+- Clean Typography
+- Fast Performance
+- Reusable Components
+
+==================================================
+PROJECT STRUCTURE
+
+Follow clean architecture.
+
+Use reusable components.
+
+Use proper folder structure.
+
+Write clean, maintainable code.
+
+Implement proper validation.
+
+Use REST APIs.
+
+Use MVC architecture in Spring Boot.
+
+Comment important sections.
+
+==================================================
+GOAL
+
+The final product should look like a professional society management platform that can actually be deployed and used by the residents of Meditiya Nagar. It should combine modern technology with the cultural identity of the community and provide an exceptional user experience.
