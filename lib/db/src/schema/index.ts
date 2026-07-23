@@ -1,5 +1,7 @@
+export * from "./admins";
 export * from "./users";
 export * from "./festivals";
+export * from "./festivalDonations";
 export * from "./events";
 export * from "./notices";
 export * from "./gallery";
@@ -12,3 +14,6 @@ export * from "./lostfound";
 export * from "./committee";
 export * from "./emergency";
 export * from "./sponsors";
+export * from "./buildings";
+export * from "./wings";
+export * from "./residents";

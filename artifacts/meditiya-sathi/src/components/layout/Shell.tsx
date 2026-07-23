@@ -12,7 +12,7 @@ export default function Shell({ children }: { children: ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { theme, setTheme } = useTheme();
   const [location] = useLocation();
-  const { isAuthenticated, logout } = useAdminAuth();
+  const { isAuthenticated, logout, isSuperAdmin } = useAdminAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -68,15 +68,24 @@ export default function Shell({ children }: { children: ReactNode }) {
           {/* Desktop Nav */}
           <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
             {isAuthenticated && (
-              <Link
-                href="/admin"
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md transition-colors text-primary bg-primary/10 hover:bg-primary/20"
-              >
-                <Shield className="w-4 h-4" /> Admin
-              </Link>
+              <>
+                <Link
+                  href="/admin"
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md transition-colors text-primary bg-primary/10 hover:bg-primary/20"
+                >
+                  <Shield className="w-4 h-4" /> Admin
+                </Link>
+                {isSuperAdmin && (
+                  <Link
+                    href="/admin/admin-management"
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md transition-colors text-amber-600 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/50"
+                  >
+                    <Shield className="w-4 h-4" /> Manage Admins
+                  </Link>
+                )}
+              </>
             )}
             {navLinks.map((link) => {
-
               if (link.isDropdown) {
                 return (
                   <div key="more" className="relative group">
@@ -186,8 +195,29 @@ export default function Shell({ children }: { children: ReactNode }) {
                 ))}
               </div>
               
+              {!isAuthenticated && (
+                <div className="flex flex-col gap-3 pt-4 border-t border-border mt-2">
+                  <Link
+                    href="/admin-login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full py-3 text-center rounded-xl font-bold bg-primary text-white hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Shield className="w-4 h-4" /> Admin Login
+                  </Link>
+                </div>
+              )}
+
               {isAuthenticated && (
                 <div className="flex flex-col gap-3 pt-4 border-t border-border mt-2">
+                  {isSuperAdmin && (
+                    <Link
+                      href="/admin/admin-management"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="w-full py-3 text-center rounded-xl font-bold bg-amber-500 text-white hover:bg-amber-600 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Shield className="w-4 h-4" /> Admin Management
+                    </Link>
+                  )}
                   <button
                     onClick={() => { setMobileMenuOpen(false); logout(); }}
                     className="w-full py-3 text-center rounded-xl font-bold bg-destructive/10 text-destructive"
@@ -264,4 +294,3 @@ export default function Shell({ children }: { children: ReactNode }) {
     </div>
   );
 }
-

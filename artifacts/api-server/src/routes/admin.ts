@@ -21,7 +21,7 @@ router.post("/admin/users/:clerkUserId/role", requireAdmin(), async (req, res): 
   const [updated] = await db
     .update(usersTable)
     .set({ role })
-    .where(eq(usersTable.clerkUserId, clerkUserId))
+    .where(eq(usersTable.clerkUserId, clerkUserId as string))
     .returning();
 
   if (!updated) {

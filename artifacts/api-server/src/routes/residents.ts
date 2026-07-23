@@ -1,44 +1,9 @@
 import { Router, type IRouter } from "express";
-import { db } from "@workspace/db";
-import { pgTable, text, serial, timestamp, boolean, integer, uniqueIndex } from "drizzle-orm/pg-core";
+import { db, buildingsTable, wingsTable, residentsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { requireAdminToken } from "../middlewares/requireAdminToken";
 
 const router: IRouter = Router();
-
-// ── Inline schema definitions for buildings, wings, residents ──────────────
-// These mirror the SQL migration tables.
-
-const buildingsTable = pgTable("buildings", {
-  id: serial("id").primaryKey(),
-  buildingName: text("building_name").notNull(),
-  hasWings: boolean("has_wings").notNull().default(false),
-  status: text("status").notNull().default("active"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
-
-const wingsTable = pgTable("wings", {
-  id: serial("id").primaryKey(),
-  buildingId: integer("building_id").notNull().references(() => buildingsTable.id, { onDelete: "cascade" }),
-  wingName: text("wing_name").notNull(),
-  status: text("status").notNull().default("active"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
-
-const residentsTable = pgTable("residents", {
-  id: serial("id").primaryKey(),
-  fullName: text("full_name").notNull(),
-  mobile: text("mobile").notNull().unique(),
-  buildingId: integer("building_id").notNull().references(() => buildingsTable.id),
-  wingId: integer("wing_id").references(() => wingsTable.id),
-  flatNo: text("flat_no").notNull(),
-  address: text("address"),
-  status: text("status").notNull().default("active"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-}, (table) => ({
-  buildingWingFlatUnique: uniqueIndex("idx_residents_building_wing_flat").on(table.buildingId, table.wingId, table.flatNo),
-}));
 
 // ── Helper: simple validation ──────────────────────────────────────────────
 
@@ -519,6 +484,143 @@ router.delete("/admin/buildings/:id/wings/:wingId", requireAdminToken(), async (
 // ══════════════════════════════════════════════════════════════════════════════
 // RESIDENTS LIST / CRUD ENDPOINTS
 // ══════════════════════════════════════════════════════════════════════════════
+
+// ── GET /api/admin/residents/:id/festival-history ─────────────────────────────
+// Get festival donation history for a specific resident
+
+router.get("/admin/residents/:id/festival-history", requireAdminToken(), async (req, res): Promise<void> => {
+  try {
+    const residentId = parseInt(req.params.id as string, 10);
+    if (isNaN(residentId)) {
+      res.status(400).json({ error: "Invalid resident ID" });
+      return;
+    }
+
+    const rows = await db.execute(
+      sql`SELECT f.name as festival_name, f.year, f.id as festival_id,
+          fd.payment_method, fd.amount, fd.receipt_number, fd.payment_date,
+          fd.collected_by_admin_name, fd.notes
+          FROM festival_donations fd
+          JOIN festivals f ON fd.festival_id = f.id
+          WHERE fd.resident_id = ${residentId}
+          ORDER BY f.year DESC, f.name`
+    );
+
+    const history = (rows.rows || []).map((row: any) => ({
+      festivalName: row.festival_name,
+      year: row.year,
+      festivalId: row.festival_id,
+      paymentMethod: row.payment_method,
+      amount: row.amount ? parseFloat(String(row.amount)) : null,
+      receiptNumber: row.receipt_number,
+      paymentDate: row.payment_date,
+      collectedBy: row.collected_by_admin_name,
+      notes: row.notes,
+    }));
+
+    res.json(history);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || "Failed to fetch festival history" });
+  }
+});
+
+// ── GET /api/admin/residents/search ───────────────────────────────────────────
+// Search residents for donation form (with festival history)
+
+router.get("/admin/residents/search", requireAdminToken(), async (req, res): Promise<void> => {
+  try {
+    const q = (req.query.q as string)?.trim() || "";
+    const buildingIdParam = req.query.buildingId as string | undefined;
+    const wingIdParam = req.query.wingId as string | undefined;
+    const festivalIdParam = req.query.festivalId as string | undefined;
+
+    if (q.length < 1 && !buildingIdParam) {
+      res.json({ residents: [], festivalHistory: {} });
+      return;
+    }
+
+    let query = sql`
+      SELECT r.id, r.full_name, r.mobile, r.flat_no, r.building_id, r.wing_id,
+             b.building_name, w.wing_name
+      FROM residents r
+      LEFT JOIN buildings b ON r.building_id = b.id
+      LEFT JOIN wings w ON r.wing_id = w.id
+      WHERE r.status = 'active'
+    `;
+
+    if (q) {
+      const searchPattern = `%${q.replace(/'/g, "''")}%`;
+      query = sql`${query} AND (
+        LOWER(r.full_name) LIKE LOWER(${searchPattern})
+        OR r.mobile LIKE ${searchPattern}
+        OR LOWER(r.flat_no) LIKE LOWER(${searchPattern})
+        OR LOWER(b.building_name) LIKE LOWER(${searchPattern})
+        OR LOWER(COALESCE(w.wing_name, '')) LIKE LOWER(${searchPattern})
+      )`;
+    }
+
+    if (buildingIdParam) {
+      const bid = parseInt(buildingIdParam, 10);
+      if (!isNaN(bid)) {
+        query = sql`${query} AND r.building_id = ${bid}`;
+      }
+    }
+
+    if (wingIdParam) {
+      const wid = parseInt(wingIdParam, 10);
+      if (!isNaN(wid)) {
+        query = sql`${query} AND r.wing_id = ${wid}`;
+      }
+    }
+
+    query = sql`${query} ORDER BY r.full_name LIMIT 20`;
+
+    const result = await db.execute(query);
+    const residents = (result.rows || []).map((row: any) => ({
+      id: row.id,
+      fullName: row.full_name,
+      mobile: row.mobile,
+      flatNo: row.flat_no,
+      buildingId: row.building_id,
+      wingId: row.wing_id,
+      buildingName: row.building_name,
+      wingName: row.wing_name,
+    }));
+
+    // If festivalId is provided, fetch festival history for each resident
+    let festivalHistory: Record<number, any[]> = {};
+    if (festivalIdParam) {
+      const fid = parseInt(festivalIdParam, 10);
+      if (!isNaN(fid) && residents.length > 0) {
+        const residentIds = residents.map(r => r.id);
+        // Use PostgreSQL ARRAY[] syntax so ANY() receives a single array argument
+        const historyResult = await db.execute(
+          sql`SELECT fd.resident_id, f.name as festival_name, f.year, fd.payment_method, fd.amount, fd.receipt_number
+              FROM festival_donations fd
+              JOIN festivals f ON fd.festival_id = f.id
+              WHERE fd.resident_id = ANY(ARRAY[${sql.join(residentIds, sql`, `)}])
+                AND fd.festival_id != ${fid}
+              ORDER BY f.year DESC, f.name`
+        );
+        for (const row of (historyResult.rows || []) as any[]) {
+          if (!festivalHistory[row.resident_id]) festivalHistory[row.resident_id] = [];
+          festivalHistory[row.resident_id].push({
+            festivalName: row.festival_name,
+            year: row.year,
+            paymentMethod: row.payment_method,
+            amount: row.amount ? parseFloat(String(row.amount)) : null,
+            receiptNumber: row.receipt_number,
+          });
+        }
+      }
+    }
+
+    res.json({ residents, festivalHistory });
+  } catch (err: any) {
+    console.error("Error searching residents:", err);
+    res.status(500).json({ error: err?.message || "Failed to search residents" });
+  }
+});
 
 // ── GET /api/admin/residents ─────────────────────────────────────────────────
 // List residents with search, filter, sort, pagination -- includes building/wing names

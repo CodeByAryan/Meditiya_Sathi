@@ -1,4 +1,6 @@
-import { Router, type IRouter } from "express";
+const fs = require('fs');
+
+const content = `import { Router, type IRouter } from "express";
 import { createHmac } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { db, adminsTable } from "@workspace/db";
@@ -37,11 +39,11 @@ function createToken(payload: Omit<TokenPayload, "iat" | "exp">): string {
   const payloadB64 = base64UrlEncode(JSON.stringify(tokenPayload));
   const signature = base64UrlEncode(
     createHmac("sha256", JWT_SECRET)
-      .update(`${headerB64}.${payloadB64}`)
+      .update(\`\${headerB64}.\${payloadB64}\`)
       .digest()
       .toString("base64url")
   );
-  return `${headerB64}.${payloadB64}.${signature}`;
+  return \`\${headerB64}.\${payloadB64}.\${signature}\`;
 }
 
 export function verifyAdminToken(token: string): TokenPayload | null {
@@ -51,7 +53,7 @@ export function verifyAdminToken(token: string): TokenPayload | null {
     const [headerB64, payloadB64, signatureB64] = parts;
     const expectedSig = base64UrlEncode(
       createHmac("sha256", JWT_SECRET)
-        .update(`${headerB64}.${payloadB64}`)
+        .update(\`\${headerB64}.\${payloadB64}\`)
         .digest()
         .toString("base64url")
     );
@@ -156,3 +158,10 @@ router.post("/admin/verify", async (req, res): Promise<void> => {
 });
 
 export default router;
+`;
+
+fs.writeFileSync('c:\\Projects\\Meditiya_Sathi-main\\artifacts\\api-server\\src\\routes\\admin-auth.ts', content, 'utf8');
+console.log('admin-auth.ts written successfully');
+</parameter>
+</invoke>
+</｜｜DSML｜｜tool_calls>

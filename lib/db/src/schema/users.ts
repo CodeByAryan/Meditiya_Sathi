@@ -9,6 +9,8 @@ export const usersTable = pgTable("users", {
   email: text("email").notNull(),
   phone: text("phone"),
   flatNumber: text("flat_number"),
+  bldgName: text("bldg_name"),
+  wing: text("wing"),
   role: text("role").notNull().default("resident"), // admin | resident | volunteer
   photoUrl: text("photo_url"),
   isApproved: boolean("is_approved").notNull().default(true),

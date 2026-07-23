@@ -1,8 +1,12 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 
-interface AdminUser {
+export interface AdminUser {
+  id: number;
+  fullName: string;
   username: string;
   role: string;
+  email?: string | null;
+  mobileNumber?: string | null;
   token: string;
 }
 
@@ -13,6 +17,7 @@ interface AdminAuthContextType {
   logout: () => void;
   isLoading: boolean;
   error: string | null;
+  isSuperAdmin: boolean;
 }
 
 const AdminAuthContext = createContext<AdminAuthContextType>({
@@ -22,6 +27,7 @@ const AdminAuthContext = createContext<AdminAuthContextType>({
   logout: () => {},
   isLoading: false,
   error: null,
+  isSuperAdmin: false,
 });
 
 const STORAGE_KEY = "admin_auth";
@@ -50,6 +56,8 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isSuperAdmin = user?.role === "Super Admin";
+
   const login = useCallback(async (username: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
@@ -69,8 +77,12 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
       const data = await res.json();
       const adminUser: AdminUser = {
+        id: data.id,
+        fullName: data.fullName,
         username: data.username,
         role: data.role,
+        email: data.email,
+        mobileNumber: data.mobileNumber,
         token: data.token,
       };
       setUser(adminUser);
@@ -98,6 +110,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         logout,
         isLoading,
         error,
+        isSuperAdmin,
       }}
     >
       {children}
@@ -108,4 +121,3 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 export function useAdminAuth() {
   return useContext(AdminAuthContext);
 }
-

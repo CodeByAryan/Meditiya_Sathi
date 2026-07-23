@@ -1,5 +1,5 @@
 import { useListLostFoundItems } from '@workspace/api-client-react';
-import { SearchBox, PackageSearch, PackageOpen } from 'lucide-react';
+import { Search, Package, PackageOpen } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatDate } from '@/lib/utils';
@@ -11,7 +11,7 @@ export default function LostFound() {
   return (
     <div className="w-full min-h-screen bg-muted/10 pb-20">
       <section className="bg-background pt-16 pb-12 px-4 border-b border-border shadow-sm text-center">
-        <PackageSearch className="w-12 h-12 text-primary mx-auto mb-4" />
+        <Search className="w-12 h-12 text-primary mx-auto mb-4" />
         <h1 className="text-4xl font-serif font-bold text-foreground mb-4">Lost & Found</h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
           Help reunite lost items with their owners within the society.

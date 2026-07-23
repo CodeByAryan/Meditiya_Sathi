@@ -1,4 +1,4 @@
-import { Building2, Users, Calendar, Bell, Image as ImageIcon, Heart, Trophy, Wrench, ShoppingBag, Package } from 'lucide-react';
+import { Building2, Users, Calendar, Bell, Image as ImageIcon, Heart, Trophy, Wrench, ShoppingBag, Package, MapPin } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link } from 'wouter';
 
@@ -7,6 +7,7 @@ export default function Admin() {
     { name: 'Buildings', icon: Building2, count: 0, color: 'text-amber-500' },
     { name: 'Residents', icon: Users, count: 0, color: 'text-blue-500' },
     { name: 'Events', icon: Calendar, count: 0, color: 'text-primary' },
+    { name: 'Festivals', icon: MapPin, count: 0, color: 'text-purple-500' },
     { name: 'Notices', icon: Bell, count: 0, color: 'text-orange-500' },
     { name: 'Gallery', icon: ImageIcon, count: 0, color: 'text-pink-500' },
     { name: 'Donations', icon: Heart, count: 0, color: 'text-red-500' },
@@ -34,13 +35,15 @@ export default function Admin() {
                 ? '/admin/buildings'
                 : section.name === 'Residents'
                   ? '/admin/residents-list'
-                  : section.name === 'Events'
-                    ? '/admin/events'
-                    : section.name === 'Notices'
-                      ? '/admin/notices'
-                      : section.name === 'Gallery'
-                        ? '/admin/gallery'
-                        : null;
+                  : section.name === 'Festivals'
+                    ? '/admin/festivals'
+                    : section.name === 'Events'
+                      ? '/admin/events'
+                      : section.name === 'Notices'
+                        ? '/admin/notices'
+                        : section.name === 'Gallery'
+                          ? '/admin/gallery'
+                          : null;
 
             const card = (
               <Card

@@ -4,6 +4,9 @@ import AdminResidents from '@/pages/admin/residents';
 import AdminEventsCrud from '@/pages/admin/events-crud';
 import AdminNoticesCrud from '@/pages/admin/notices-crud';
 import AdminGalleryCrud from '@/pages/admin/gallery-crud';
+import AdminFestivalsList from '@/pages/admin/festivals-list';
+import AdminFestivalCreate from '@/pages/admin/festival-create';
+import AdminFestivalDetail from '@/pages/admin/festival-detail';
 
 export {
   Shell,
@@ -12,5 +15,8 @@ export {
   AdminEventsCrud,
   AdminNoticesCrud,
   AdminGalleryCrud,
+  AdminFestivalsList,
+  AdminFestivalCreate,
+  AdminFestivalDetail,
 };
 

@@ -26,6 +26,10 @@ import AdminBuildings from '@/pages/admin/buildings';
 import AdminEventsCrud from '@/pages/admin/events-crud';
 import AdminNoticesCrud from '@/pages/admin/notices-crud';
 import AdminGalleryCrud from '@/pages/admin/gallery-crud';
+import AdminFestivalsList from '@/pages/admin/festivals-list';
+import AdminFestivalCreate from '@/pages/admin/festival-create';
+import AdminFestivalDetail from '@/pages/admin/festival-detail';
+import AdminManagement from '@/pages/admin/admin-management';
 import AdminLogin from '@/pages/admin-login';
 import NotFound from '@/pages/not-found';
 import { AdminAuthProvider, useAdminAuth } from '@/lib/AdminAuthContext';
@@ -93,6 +97,21 @@ function AppRoutes() {
         <Route path="/admin/gallery">
           <AdminShell><AdminGalleryCrud /></AdminShell>
         </Route>
+        <Route path="/admin/festivals">
+          <AdminShell><AdminFestivalsList /></AdminShell>
+        </Route>
+        <Route path="/admin/festivals/create">
+          <AdminShell><AdminFestivalCreate /></AdminShell>
+        </Route>
+        <Route path="/admin/festivals/:id/edit">
+          <AdminShell><AdminFestivalCreate /></AdminShell>
+        </Route>
+        <Route path="/admin/festivals/:id">
+          <AdminShell><AdminFestivalDetail /></AdminShell>
+        </Route>
+        <Route path="/admin/admin-management">
+          <AdminShell><AdminManagement /></AdminShell>
+        </Route>
 
         <Route>
           <Shell><NotFound /></Shell>
@@ -116,4 +135,3 @@ function App() {
 }
 
 export default App;
-
