@@ -170,11 +170,9 @@ router.post("/admin/manage", requireAdminToken(), requireSuperAdmin(), async (re
 // Edit admin details (Super Admin only)
 router.patch("/admin/manage/:id", requireAdminToken(), requireSuperAdmin(), async (req, res): Promise<void> => {
   try {
-    const adminId = parseInt(req.params.id as string, 10);
-    if (isNaN(adminId)) {
-      res.status(400).json({ error: "Invalid admin ID" });
-      return;
-    }
+    const rawId = req.params.id as string;
+    // The admins table uses UUID primary keys; do NOT parseInt
+    const adminId = rawId;
 
     const body = req.body || {};
     const updateData: Record<string, unknown> = {};
@@ -216,7 +214,7 @@ router.patch("/admin/manage/:id", requireAdminToken(), requireSuperAdmin(), asyn
     const [updated] = await db
       .update(adminsTable)
       .set(updateData)
-      .where(eq(adminsTable.id, adminId))
+      .where(eq(adminsTable.id, adminId as any))
       .returning({
         id: adminsTable.id,
         fullName: adminsTable.fullName,
@@ -250,11 +248,8 @@ router.patch("/admin/manage/:id", requireAdminToken(), requireSuperAdmin(), asyn
 // Enable/disable admin (Super Admin only)
 router.patch("/admin/manage/:id/status", requireAdminToken(), requireSuperAdmin(), async (req, res): Promise<void> => {
   try {
-    const adminId = parseInt(req.params.id as string, 10);
-    if (isNaN(adminId)) {
-      res.status(400).json({ error: "Invalid admin ID" });
-      return;
-    }
+    const rawId = req.params.id as string;
+    const adminId = rawId;
 
     const { isActive } = req.body || {};
     if (typeof isActive !== "boolean") {
@@ -272,7 +267,7 @@ router.patch("/admin/manage/:id/status", requireAdminToken(), requireSuperAdmin(
     const [updated] = await db
       .update(adminsTable)
       .set({ isActive })
-      .where(eq(adminsTable.id, adminId))
+      .where(eq(adminsTable.id, adminId as any))
       .returning({
         id: adminsTable.id,
         fullName: adminsTable.fullName,
@@ -294,11 +289,8 @@ router.patch("/admin/manage/:id/status", requireAdminToken(), requireSuperAdmin(
 // Reset admin password (Super Admin only)
 router.patch("/admin/manage/:id/reset-password", requireAdminToken(), requireSuperAdmin(), async (req, res): Promise<void> => {
   try {
-    const adminId = parseInt(req.params.id as string, 10);
-    if (isNaN(adminId)) {
-      res.status(400).json({ error: "Invalid admin ID" });
-      return;
-    }
+    const rawId = req.params.id as string;
+    const adminId = rawId;
 
     const { newPassword, confirmPassword } = req.body || {};
     if (!isNonEmptyString(newPassword) || newPassword.length < 6) {
@@ -315,7 +307,7 @@ router.patch("/admin/manage/:id/reset-password", requireAdminToken(), requireSup
     const [updated] = await db
       .update(adminsTable)
       .set({ password: hashedPassword })
-      .where(eq(adminsTable.id, adminId))
+      .where(eq(adminsTable.id, adminId as any))
       .returning({ id: adminsTable.id, fullName: adminsTable.fullName });
 
     if (!updated) {
@@ -333,11 +325,8 @@ router.patch("/admin/manage/:id/reset-password", requireAdminToken(), requireSup
 // Delete admin (Super Admin only)
 router.delete("/admin/manage/:id", requireAdminToken(), requireSuperAdmin(), async (req, res): Promise<void> => {
   try {
-    const adminId = parseInt(req.params.id as string, 10);
-    if (isNaN(adminId)) {
-      res.status(400).json({ error: "Invalid admin ID" });
-      return;
-    }
+    const rawId = req.params.id as string;
+    const adminId = rawId;
 
     // Prevent deleting own account
     const requestingAdmin = (req as any).admin;
@@ -348,7 +337,7 @@ router.delete("/admin/manage/:id", requireAdminToken(), requireSuperAdmin(), asy
 
     const [deleted] = await db
       .delete(adminsTable)
-      .where(eq(adminsTable.id, adminId))
+      .where(eq(adminsTable.id, adminId as any))
       .returning({ id: adminsTable.id });
 
     if (!deleted) {

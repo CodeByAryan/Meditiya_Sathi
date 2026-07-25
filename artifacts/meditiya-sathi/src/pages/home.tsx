@@ -340,7 +340,7 @@ export default function Home() {
                   </div>
                   <div className="flex-1">
                     <h3 className="text-lg font-bold text-foreground mb-2">{notice.title}</h3>
-                    <p className="text-foreground/60 text-sm mb-4 line-clamp-2">{notice.description}</p>
+                    <p className="text-foreground/60 text-sm mb-4 line-clamp-2">{(notice as any).description || ''}</p>
                     <div className="text-xs text-foreground/40 font-medium">
                       {new Date(notice.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </div>
@@ -442,7 +442,7 @@ export default function Home() {
                     ></div>
                   </div>
                   <p className="text-sm text-foreground/60 mt-4">
-                    Raised: <span className="font-bold text-accent">₹{donationProgress?.raised || '10'} L</span> of ₹{donationProgress?.target || '15'} L
+                    Raised: <span className="font-bold text-accent">₹{donationProgress?.raised || '10'} L</span> of ₹{(donationProgress as any)?.target || '15'} L
                   </p>
                 </div>
 

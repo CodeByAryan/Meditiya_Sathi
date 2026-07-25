@@ -1,6 +1,6 @@
 import { useListServiceRequests } from '@workspace/api-client-react';
 import { motion } from 'framer-motion';
-import { Tool, Wrench, Zap, Droplets, ShieldAlert, CheckCircle2, Clock, Info } from 'lucide-react';
+import { Wrench, Zap, Droplets, ShieldAlert, CheckCircle2, Clock, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatDate } from '@/lib/utils';

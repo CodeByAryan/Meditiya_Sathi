@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'wouter';
-import { ArrowLeft, MapPin, CalendarDays, IndianRupee, Users, Search, Plus, Eye, Edit3, Trash2, Building2, Home, Phone, User, X, CheckCircle, XCircle, Clock, Filter, RefreshCw, AlertTriangle, Wallet, Banknote, CreditCard, Receipt, ChevronLeft, ChevronRight, Check, Send, ChevronDown, MessageSquare, ListFilter } from 'lucide-react';
+import { ArrowLeft, MapPin, CalendarDays, IndianRupee, Users, Search, Plus, Eye, Edit3, Trash2, Building2, Home, Phone, User, X, CheckCircle, XCircle, Clock, Filter, RefreshCw, AlertTriangle, Wallet, Banknote, CreditCard, Receipt, ChevronLeft, ChevronRight, Check, Send, ChevronDown, MessageSquare, ListFilter, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { PENDING_REASONS } from '@/lib/pending-reasons';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -20,6 +21,7 @@ interface Donation {
   paymentMethod: string;
   amount: number | null; paymentDate: string | null; receiptNumber: string | null;
   receiptGeneratedAt: string | null;
+  pendingReason: string | null;
   notes: string | null;
   collectedByAdminId: string; collectedByAdminName: string;
   createdAt: string; updatedAt: string;
@@ -144,9 +146,9 @@ function openWhatsApp(mobile: string, message: string) {
 }
 
 // ── Searchable Resident Dropdown ─────────────────────────────────────────────
+// Queries residents table only. Festival history is fetched after selection.
 
-function ResidentSearchDropdown({ festivalId, onSelect, selectedResident, onClear }: {
-  festivalId: number;
+function ResidentSearchDropdown({ onSelect, selectedResident, onClear }: {
   onSelect: (resident: SearchResident) => void;
   selectedResident: SearchResident | null;
   onClear: () => void;
@@ -155,7 +157,6 @@ function ResidentSearchDropdown({ festivalId, onSelect, selectedResident, onClea
   const [results, setResults] = useState<SearchResident[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [history, setHistory] = useState<Record<number, FestivalHistory[]>>({});
   const [selectedIdx, setSelectedIdx] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -179,11 +180,10 @@ function ResidentSearchDropdown({ festivalId, onSelect, selectedResident, onClea
     searchTimeout.current = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`/api/admin/residents/search?q=${encodeURIComponent(query)}&festivalId=${festivalId}`, { headers: authHeaders() });
+        const res = await fetch(`/api/admin/residents/search?q=${encodeURIComponent(query)}`, { headers: authHeaders() });
         if (res.ok) {
           const data = await res.json();
           setResults(data.residents || []);
-          setHistory(data.festivalHistory || {});
           setIsOpen(true);
           setSelectedIdx(-1);
         } else {
@@ -196,7 +196,7 @@ function ResidentSearchDropdown({ festivalId, onSelect, selectedResident, onClea
       finally { setIsSearching(false); }
     }, 300);
     return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current); };
-  }, [query, festivalId, selectedResident]);
+  }, [query, selectedResident]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!isOpen || results.length === 0) return;
@@ -214,11 +214,10 @@ function ResidentSearchDropdown({ festivalId, onSelect, selectedResident, onClea
     setIsOpen(false);
   };
 
-  const handleClear = () => {
+const handleClear = () => {
     onClear();
     setQuery('');
     setResults([]);
-    setHistory({});
     setIsOpen(false);
     inputRef.current?.focus();
   };
@@ -276,28 +275,7 @@ function ResidentSearchDropdown({ festivalId, onSelect, selectedResident, onClea
                 <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0 mt-1" />
               </div>
 
-              {/* Festival History */}
-              {history[r.id] && history[r.id].length > 0 && (
-                <div className="mt-2 pl-12 border-t border-border/30 pt-1.5">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Previous Festivals</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {history[r.id].slice(0, 3).map((h, hi) => (
-                      <span key={hi} className={cn(
-                        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium",
-                        h.status === 'paid'
-                          ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400'
-                          : 'bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400'
-                      )}>
-                        {h.festivalName} {h.year}
-                        {h.status === 'paid' ? ` ₹${h.amount?.toLocaleString('en-IN') || '0'}` : ' Pending'}
-                      </span>
-                    ))}
-                    {history[r.id].length > 3 && (
-                      <span className="text-[10px] text-muted-foreground">+{history[r.id].length - 3} more</span>
-                    )}
-                  </div>
-                </div>
-              )}
+              {/* Festival History is shown in SelectedResidentCard after selection */}
             </button>
           ))}
         </div>
@@ -378,10 +356,39 @@ function AddDonationModal({ festivalId, festivalName, onClose, onSaved }: {
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [notes, setNotes] = useState('');
+  const [pendingReason, setPendingReason] = useState('');
+  const [pendingCustomReason, setPendingCustomReason] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Validation error states
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const clearForm = () => {
+    setSelectedResident(null);
+    setFestivalHistory([]);
+    setDonationStatus('pending');
+    setAmount('');
+    setPaymentMethod('cash');
+    setNotes('');
+    setPendingReason('');
+    setPendingCustomReason('');
+    setErrors({});
+  };
+
+  const validate = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    if (!selectedResident) newErrors.resident = 'Please select a resident';
+    if (donationStatus === 'paid') {
+      if (!amount || parseFloat(amount) <= 0) newErrors.amount = 'Valid amount is required';
+      if (!paymentMethod || paymentMethod === 'pending') newErrors.paymentMethod = 'Payment method is required';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleResidentSelect = async (resident: SearchResident) => {
     setSelectedResident(resident);
+    setErrors(prev => { const { resident, ...rest } = prev; return rest; });
     // Fetch festival history
     try {
       const res = await fetch(`/api/admin/residents/${resident.id}/festival-history`, { headers: authHeaders() });
@@ -394,21 +401,22 @@ function AddDonationModal({ festivalId, festivalName, onClose, onSaved }: {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedResident) { toast.error('Please select a resident'); return; }
-    if (donationStatus === 'paid' && (!amount || parseFloat(amount) <= 0)) {
-      toast.error('Valid donation amount is required for Paid status');
-      return;
-    }
+    if (!validate()) return;
+
     setIsSaving(true);
     try {
       const body: any = {
-        residentId: selectedResident.id,
+        residentId: selectedResident!.id,
         paymentMethod: donationStatus === 'paid' ? paymentMethod : 'pending',
         notes: notes.trim() || null,
       };
       if (donationStatus === 'paid') {
         body.amount = parseFloat(amount);
         body.paymentDate = paymentDate;
+      } else {
+        // Include pending reason for pending donations
+        const reasonValue = pendingReason === 'Other' ? pendingCustomReason : pendingReason;
+        body.pendingReason = reasonValue.trim() || null;
       }
       const res = await fetch(`/api/admin/festivals/${festivalId}/donations`, {
         method: 'POST', headers: authHeaders(),
@@ -423,9 +431,10 @@ function AddDonationModal({ festivalId, festivalName, onClose, onSaved }: {
         }
         return;
       }
-      toast.success(donationStatus === 'paid' ? 'Donation recorded successfully' : 'Pending donation recorded');
+      toast.success(donationStatus === 'paid' ? '🎉 Donation recorded successfully!' : '✅ Pending donation recorded');
       onSaved();
-      onClose();
+      // Clear editable fields but keep festival selected for quick next entry
+      clearForm();
     } catch (err: any) {
       toast.error(err?.message || 'Failed to save donation');
     } finally { setIsSaving(false); }
@@ -434,6 +443,7 @@ function AddDonationModal({ festivalId, festivalName, onClose, onSaved }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
       <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-lg w-full my-8" onClick={e => e.stopPropagation()}>
+        {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-border">
           <h2 className="text-lg font-serif font-bold text-foreground flex items-center gap-2">
             <Plus className="w-5 h-5 text-primary" /> Add Donation
@@ -442,92 +452,196 @@ function AddDonationModal({ festivalId, festivalName, onClose, onSaved }: {
             <X className="w-5 h-5" />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          {/* Resident Search */}
-          <ResidentSearchDropdown
-            festivalId={festivalId}
-            selectedResident={selectedResident}
-            onSelect={handleResidentSelect}
-            onClear={() => { setSelectedResident(null); setFestivalHistory([]); }}
-          />
 
-          {/* Selected Resident Info */}
-          {selectedResident && (
-            <SelectedResidentCard resident={selectedResident} festivalHistory={festivalHistory} />
-          )}
-
-          {/* Donation Status Toggle */}
-          <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">Donation Status <span className="text-destructive">*</span></label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setDonationStatus('pending')}
-                className={cn(
-                  "flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all flex items-center justify-center gap-2",
-                  donationStatus === 'pending'
-                    ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400'
-                    : 'border-border text-muted-foreground hover:border-muted-foreground/30'
-                )}
-              >
-                <Clock className="w-4 h-4" /> Pending
-              </button>
-              <button
-                type="button"
-                onClick={() => setDonationStatus('paid')}
-                className={cn(
-                  "flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all flex items-center justify-center gap-2",
-                  donationStatus === 'paid'
-                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
-                    : 'border-border text-muted-foreground hover:border-muted-foreground/30'
-                )}
-              >
-                <Check className="w-4 h-4" /> Paid
-              </button>
+        <form onSubmit={handleSubmit} className="p-5 space-y-5">
+          {/* Festival Banner */}
+          <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <MapPin className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Collecting for</p>
+              <p className="font-bold text-foreground text-sm">{festivalName}</p>
             </div>
           </div>
 
-          {/* Paid Fields */}
+          {/* Resident Search */}
+          <div className="space-y-3">
+            <ResidentSearchDropdown
+              selectedResident={selectedResident}
+              onSelect={handleResidentSelect}
+              onClear={() => { setSelectedResident(null); setFestivalHistory([]); setErrors(prev => { const { resident, ...rest } = prev; return rest; }); }}
+            />
+            {errors.resident && <p className="text-xs text-destructive">{errors.resident}</p>}
+
+            {/* Selected Resident Info */}
+            {selectedResident && (
+              <SelectedResidentCard resident={selectedResident} festivalHistory={festivalHistory} />
+            )}
+          </div>
+
+          {/* Donation Status Dropdown */}
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">Donation Status <span className="text-destructive">*</span></label>
+            <div className="relative">
+              <select
+                value={donationStatus}
+                onChange={e => {
+                  setDonationStatus(e.target.value as 'paid' | 'pending');
+                  if (e.target.value === 'pending') {
+                    setAmount('');
+                    setPaymentMethod('cash');
+                  }
+                  setErrors(prev => { const { amount, paymentMethod, ...rest } = prev; return rest; });
+                }}
+                className={cn(
+                  "w-full px-4 py-2.5 text-sm rounded-xl border bg-background focus:ring-2 focus:ring-primary outline-none appearance-none cursor-pointer transition-all",
+                  donationStatus === 'paid'
+                    ? 'border-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 font-semibold'
+                    : 'border-amber-400 bg-amber-50/50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 font-semibold'
+                )}
+              >
+                <option value="pending" className="text-amber-700 bg-background">⏳ Pending</option>
+                <option value="paid" className="text-emerald-700 bg-background">✅ Paid</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-muted-foreground" />
+            </div>
+          </div>
+
+          {/* Payment Card (shown when Paid) */}
           {donationStatus === 'paid' && (
-            <>
+            <div className="p-4 bg-emerald-50/30 dark:bg-emerald-950/10 border border-emerald-200/50 dark:border-emerald-900/30 rounded-xl space-y-4">
+              <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                <CheckCircle className="w-3.5 h-3.5" /> Payment Details
+              </p>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-foreground mb-1.5">Amount (₹) <span className="text-destructive">*</span></label>
                   <div className="relative">
                     <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                    <input type="number" value={amount} onChange={e => setAmount(e.target.value)} min={1} step={0.01} placeholder="0.00" className="w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none" />
+                    <input
+                      type="number"
+                      value={amount}
+                      onChange={e => { setAmount(e.target.value); setErrors(prev => { const { amount, ...rest } = prev; return rest; }); }}
+                      min={1} step={0.01}
+                      placeholder="0.00"
+                      className={cn(
+                        "w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border bg-background focus:ring-2 focus:ring-primary outline-none",
+                        errors.amount ? 'border-destructive' : 'border-border'
+                      )}
+                    />
                   </div>
+                  {errors.amount && <p className="text-xs text-destructive mt-1">{errors.amount}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-foreground mb-1.5">Payment Method <span className="text-destructive">*</span></label>
-                  <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none">
-                    <option value="cash">Cash</option>
-                    <option value="upi">UPI</option>
-                    <option value="bank_transfer">Bank Transfer</option>
-                    <option value="cheque">Cheque</option>
+                  <select
+                    value={paymentMethod}
+                    onChange={e => { setPaymentMethod(e.target.value); setErrors(prev => { const { paymentMethod, ...rest } = prev; return rest; }); }}
+                    className={cn(
+                      "w-full px-3 py-2.5 text-sm rounded-lg border bg-background focus:ring-2 focus:ring-primary outline-none",
+                      errors.paymentMethod ? 'border-destructive' : 'border-border'
+                    )}
+                  >
+                    <option value="cash">💵 Cash</option>
+                    <option value="upi">📱 UPI</option>
+                    <option value="bank_transfer">🏦 Bank Transfer</option>
+                    <option value="cheque">📄 Cheque</option>
                   </select>
+                  {errors.paymentMethod && <p className="text-xs text-destructive mt-1">{errors.paymentMethod}</p>}
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">Payment Date</label>
-                <input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none" />
+                <input
+                  type="date"
+                  value={paymentDate}
+                  onChange={e => setPaymentDate(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
+                />
               </div>
-            </>
+            </div>
+          )}
+
+          {/* Payment Method (disabled, shown when Pending) */}
+          {donationStatus === 'pending' && (
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">Payment Method</label>
+              <select
+                disabled
+                value="pending"
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-muted/50 text-muted-foreground outline-none cursor-not-allowed"
+              >
+                <option value="pending">⏳ Will be collected later</option>
+              </select>
+              <p className="text-xs text-muted-foreground mt-1">Set status to Paid to enable payment method selection</p>
+            </div>
+          )}
+
+          {/* Pending Reason Dropdown (shown when Pending) */}
+          {donationStatus === 'pending' && (
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">Pending Reason</label>
+              <select
+                value={pendingReason}
+                onChange={e => { setPendingReason(e.target.value); setPendingCustomReason(''); }}
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
+              >
+                <option value="">Select a reason...</option>
+                {PENDING_REASONS.map(r => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+              {pendingReason === 'Other' && (
+                <div className="mt-2">
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">Custom Reason</label>
+                  <input
+                    type="text"
+                    value={pendingCustomReason}
+                    onChange={e => setPendingCustomReason(e.target.value)}
+                    placeholder="Enter custom reason..."
+                    className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
+                    autoFocus
+                  />
+                </div>
+              )}
+            </div>
           )}
 
           {/* Notes */}
           <div>
             <label className="block text-xs font-semibold text-foreground mb-1.5">Notes <span className="text-muted-foreground">(optional)</span></label>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder={donationStatus === 'pending' ? 'Resident said they will pay later...' : 'Any additional notes...'} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none resize-none" />
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              rows={2}
+              placeholder={donationStatus === 'pending' ? 'e.g. Will pay next week, Paid through committee member...' : 'e.g. Paid via UPI, Receipt requested later...'}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none resize-none"
+            />
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-2">
-            <button type="submit" disabled={isSaving || !selectedResident} className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
-              {isSaving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Plus className="w-4 h-4" />}
-              {donationStatus === 'paid' ? 'Record Donation' : 'Mark as Pending'}
+          <div className="flex gap-3 pt-2 border-t border-border">
+            <button
+              type="submit"
+              disabled={isSaving || !selectedResident}
+              className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-60 flex items-center justify-center gap-2 shadow-lg"
+            >
+              {isSaving ? (
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              {donationStatus === 'paid' ? 'Save Donation' : 'Mark as Pending'}
             </button>
-            <button type="button" onClick={onClose} className="px-5 py-2.5 border border-border rounded-xl text-sm font-semibold hover:bg-muted/50 transition-all">Cancel</button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 border border-border rounded-xl text-sm font-semibold hover:bg-muted/50 transition-all"
+            >
+              Cancel
+            </button>
           </div>
         </form>
       </div>
@@ -546,6 +660,10 @@ function EditDonationModal({ donation, festivalName, onClose, onSaved }: {
   const [paymentDate, setPaymentDate] = useState(donation.paymentDate || new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState(isPaid(donation) ? donation.paymentMethod : 'cash');
   const [notes, setNotes] = useState(donation.notes || '');
+  const [pendingReason, setPendingReason] = useState(donation.pendingReason || '');
+  const [pendingCustomReason, setPendingCustomReason] = useState(
+    donation.pendingReason && !PENDING_REASONS.some(r => r.value === donation.pendingReason) ? donation.pendingReason : ''
+  );
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -563,6 +681,12 @@ function EditDonationModal({ donation, festivalName, onClose, onSaved }: {
       if (isPaidStatus) {
         body.amount = parseFloat(amount);
         body.paymentDate = paymentDate;
+        // Clear pending reason when changing to paid
+        body.pendingReason = null;
+      } else {
+        // Include pending reason for pending donations
+        const reasonValue = pendingReason === 'Other' ? pendingCustomReason : pendingReason;
+        body.pendingReason = reasonValue.trim() || null;
       }
       const res = await fetch(`/api/admin/festivals/${donation.festivalId}/donations/${donation.id}`, {
         method: 'PATCH', headers: authHeaders(),
@@ -640,6 +764,39 @@ function EditDonationModal({ donation, festivalName, onClose, onSaved }: {
             <label className="block text-xs font-semibold text-foreground mb-1.5">Notes</label>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none resize-none" />
           </div>
+
+          {/* Pending Reason - shown when status is pending */}
+          {!isPaidStatus && (
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">Pending Reason</label>
+              <select
+                value={pendingReason === 'Other' && pendingCustomReason ? 'Other' : pendingReason}
+                onChange={e => { setPendingReason(e.target.value); setPendingCustomReason(''); }}
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
+              >
+                <option value="">Select a reason...</option>
+                {PENDING_REASONS.map(r => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+              {pendingReason === 'Other' && (
+                <div className="mt-2">
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">Custom Reason</label>
+                  <input
+                    type="text"
+                    value={pendingCustomReason}
+                    onChange={e => setPendingCustomReason(e.target.value)}
+                    placeholder="Enter custom reason..."
+                    className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
+                    autoFocus
+                  />
+                </div>
+              )}
+              {donation.pendingReason && !PENDING_REASONS.some(r => r.value === donation.pendingReason) && !pendingReason && (
+                <p className="text-xs text-muted-foreground mt-1">Previous reason: "{donation.pendingReason}"</p>
+              )}
+            </div>
+          )}
 
           <div className="flex gap-3 pt-2">
             <button type="submit" disabled={isSaving} className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
@@ -871,6 +1028,7 @@ export default function AdminFestivalDetail() {
   const [filterAmountMin, setFilterAmountMin] = useState('');
   const [filterAmountMax, setFilterAmountMax] = useState('');
   const [filterAdminId, setFilterAdminId] = useState('');
+  const [filterPendingReason, setFilterPendingReason] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
   // Buildings & Wings for filters
@@ -949,12 +1107,13 @@ export default function AdminFestivalDetail() {
       params.set('page', String(pageNum ?? donationPagination.page));
       params.set('limit', '20');
       if (donationSearch) params.set('search', donationSearch);
-      params.set('sortBy', donationSortBy);
+params.set('sortBy', donationSortBy);
       params.set('sortOrder', donationSortOrder);
       if (filterDonationStatus) params.set('donationStatus', filterDonationStatus);
       if (filterBuildingId) params.set('buildingId', filterBuildingId);
       if (filterWingId) params.set('wingId', filterWingId);
       if (filterPaymentMethod) params.set('paymentMethod', filterPaymentMethod);
+      if (filterPendingReason) params.set('pendingReason', filterPendingReason);
       if (filterDateFrom) params.set('dateFrom', filterDateFrom);
       if (filterDateTo) params.set('dateTo', filterDateTo);
       if (filterAmountMin) params.set('amountMin', filterAmountMin);
@@ -968,7 +1127,7 @@ export default function AdminFestivalDetail() {
       setDonationPagination(data.pagination);
     } catch { /* silent */ }
     finally { setIsLoadingDonations(false); }
-  }, [festivalId, donationPagination.page, donationSearch, donationSortBy, donationSortOrder, filterDonationStatus, filterBuildingId, filterWingId, filterPaymentMethod, filterDateFrom, filterDateTo, filterAmountMin, filterAmountMax, filterAdminId]);
+  }, [festivalId, donationPagination.page, donationSearch, donationSortBy, donationSortOrder, filterDonationStatus, filterBuildingId, filterWingId, filterPaymentMethod, filterPendingReason, filterDateFrom, filterDateTo, filterAmountMin, filterAmountMax, filterAdminId]);
 
   useEffect(() => { if (festivalId) { fetchFestival(); fetchStats(); } }, [festivalId, fetchFestival, fetchStats]);
   useEffect(() => { fetchDonations(); }, [fetchDonations]);
@@ -987,6 +1146,7 @@ export default function AdminFestivalDetail() {
     setFilterDonationStatus(''); setFilterBuildingId(''); setFilterWingId('');
     setFilterPaymentMethod(''); setFilterDateFrom(''); setFilterDateTo('');
     setFilterAmountMin(''); setFilterAmountMax(''); setFilterAdminId('');
+    setFilterPendingReason('');
     setDonationPagination(p => ({ ...p, page: 1 }));
   };
 
@@ -1041,7 +1201,7 @@ export default function AdminFestivalDetail() {
   }
 
   const StatusIcon = statusIcons[festival.status] || Clock;
-  const hasActiveFilters = filterDonationStatus || filterBuildingId || filterWingId || filterPaymentMethod || filterDateFrom || filterDateTo || filterAmountMin || filterAmountMax || filterAdminId;
+  const hasActiveFilters = filterDonationStatus || filterBuildingId || filterWingId || filterPaymentMethod || filterDateFrom || filterDateTo || filterAmountMin || filterAmountMax || filterAdminId || filterPendingReason;
 
   return (
     <div className="w-full min-h-screen bg-muted/10 pb-20">

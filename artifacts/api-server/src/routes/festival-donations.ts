@@ -61,12 +61,27 @@ router.get("/admin/festivals/:festivalId/donations", requireAdminToken(), async 
     const dateTo = req.query.dateTo as string | undefined;
     const amountMin = req.query.amountMin as string | undefined;
     const amountMax = req.query.amountMax as string | undefined;
+    const donationStatus = req.query.donationStatus as string | undefined;
+    const pendingReasonFilter = req.query.pendingReason as string | undefined;
 
     // Build WHERE conditions
     let whereClause = `WHERE fd.festival_id = ${festivalId}`;
 
     if (paymentMethodFilter && ["pending", "cash", "upi", "bank_transfer", "cheque"].includes(paymentMethodFilter)) {
       whereClause += ` AND fd.payment_method = '${paymentMethodFilter.replace(/'/g, "''")}'`;
+    }
+
+    // Donation Status filter (paid = any non-pending method, pending = 'pending')
+    if (donationStatus === "paid") {
+      whereClause += ` AND fd.payment_method != 'pending'`;
+    } else if (donationStatus === "pending") {
+      whereClause += ` AND fd.payment_method = 'pending'`;
+    }
+
+    // Pending Reason filter
+    if (pendingReasonFilter) {
+      const safeReason = pendingReasonFilter.replace(/'/g, "''");
+      whereClause += ` AND fd.pending_reason = '${safeReason}'`;
     }
 
     if (search) {
@@ -160,6 +175,7 @@ router.get("/admin/festivals/:festivalId/donations", requireAdminToken(), async 
       paymentDate: row.payment_date,
       receiptNumber: row.receipt_number,
       receiptGeneratedAt: row.receipt_generated_at?.toISOString?.() || row.receipt_generated_at,
+      pendingReason: row.pending_reason || null,
       notes: row.notes,
       collectedByAdminId: row.collected_by_admin_id,
       collectedByAdminName: row.collected_by_admin_name,
@@ -271,6 +287,7 @@ router.post("/admin/festivals/:festivalId/donations", requireAdminToken(), async
         paymentDate: isPaid ? (body.paymentDate || new Date().toISOString().split("T")[0]) : null,
         receiptNumber,
         receiptGeneratedAt,
+        pendingReason: !isPaid && body.pendingReason ? body.pendingReason.trim() : null,
         notes: body.notes?.trim() || null,
         collectedByAdminId: admin?.username || admin?.id || "unknown",
         collectedByAdminName: admin?.username || admin?.name || "Unknown Admin",
@@ -348,6 +365,8 @@ router.patch("/admin/festivals/:festivalId/donations/:id", requireAdminToken(), 
         } else if (!current) {
           updateData.paymentDate = new Date().toISOString().split("T")[0];
         }
+        // Clear pendingReason when transitioning to paid
+        updateData.pendingReason = null;
       } else {
         // Changing to pending — clear payment details
         updateData.amount = null;

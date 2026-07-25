@@ -12,6 +12,7 @@ export const festivalDonationsTable = pgTable("festival_donations", {
   paymentDate: date("payment_date", { mode: "string" }), // nullable for pending
   receiptNumber: text("receipt_number").unique(),
   receiptGeneratedAt: timestamp("receipt_generated_at", { withTimezone: true }),
+  pendingReason: text("pending_reason"),
   notes: text("notes"),
   collectedByAdminId: text("collected_by_admin_id").notNull(),
   collectedByAdminName: text("collected_by_admin_name").notNull(),

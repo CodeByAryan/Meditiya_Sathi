@@ -138,4 +138,5 @@ overrides:
 
 allowBuilds:
   '@clerk/shared': true
+  core-js: false
   esbuild: true
