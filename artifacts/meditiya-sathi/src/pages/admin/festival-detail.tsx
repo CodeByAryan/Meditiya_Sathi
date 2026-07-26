@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'wouter';
 import { ArrowLeft, MapPin, CalendarDays, IndianRupee, Users, Search, Plus, Eye, Edit3, Trash2, Building2, Home, Phone, User, X, CheckCircle, XCircle, Clock, Filter, RefreshCw, AlertTriangle, Wallet, Banknote, CreditCard, Receipt, ChevronLeft, ChevronRight, Check, Send, ChevronDown, MessageSquare, ListFilter, Save } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, getApiUrl } from '@/lib/utils';
 import { PENDING_REASONS } from '@/lib/pending-reasons';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -180,7 +180,7 @@ function ResidentSearchDropdown({ onSelect, selectedResident, onClear }: {
     searchTimeout.current = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`/api/admin/residents/search?q=${encodeURIComponent(query)}`, { headers: authHeaders() });
+        const res = await fetch(`${getApiUrl()}/api/admin/residents/search?q=${encodeURIComponent(query)}`, { headers: authHeaders() });
         if (res.ok) {
           const data = await res.json();
           setResults(data.residents || []);
@@ -391,7 +391,7 @@ function AddDonationModal({ festivalId, festivalName, onClose, onSaved }: {
     setErrors(prev => { const { resident, ...rest } = prev; return rest; });
     // Fetch festival history
     try {
-      const res = await fetch(`/api/admin/residents/${resident.id}/festival-history`, { headers: authHeaders() });
+      const res = await fetch(`${getApiUrl()}/api/admin/residents/${resident.id}/festival-history`, { headers: authHeaders() });
       if (res.ok) {
         const data = await res.json();
         setFestivalHistory(data || []);
@@ -418,7 +418,7 @@ function AddDonationModal({ festivalId, festivalName, onClose, onSaved }: {
         const reasonValue = pendingReason === 'Other' ? pendingCustomReason : pendingReason;
         body.pendingReason = reasonValue.trim() || null;
       }
-      const res = await fetch(`/api/admin/festivals/${festivalId}/donations`, {
+      const res = await fetch(`${getApiUrl()}/api/admin/festivals/${festivalId}/donations`, {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify(body),
       });
@@ -688,7 +688,7 @@ function EditDonationModal({ donation, festivalName, onClose, onSaved }: {
         const reasonValue = pendingReason === 'Other' ? pendingCustomReason : pendingReason;
         body.pendingReason = reasonValue.trim() || null;
       }
-      const res = await fetch(`/api/admin/festivals/${donation.festivalId}/donations/${donation.id}`, {
+      const res = await fetch(`${getApiUrl()}/api/admin/festivals/${donation.festivalId}/donations/${donation.id}`, {
         method: 'PATCH', headers: authHeaders(),
         body: JSON.stringify(body),
       });
@@ -958,7 +958,7 @@ function PendingResidentsModal({ festivalId, onClose }: { festivalId: number; on
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/admin/festivals/${festivalId}/pending-residents`, { headers: authHeaders() })
+    fetch(`${getApiUrl()}/api/admin/festivals/${festivalId}/pending-residents`, { headers: authHeaders() })
       .then(r => r.json())
       .then(data => setPending(data))
       .catch(() => toast.error('Failed to load pending residents'))
@@ -1046,7 +1046,7 @@ export default function AdminFestivalDetail() {
 
   // Fetch buildings for filters
   useEffect(() => {
-    fetch('/api/admin/buildings/manage', { headers: authHeaders() })
+    fetch(`${getApiUrl()}/api/admin/buildings/manage`, { headers: authHeaders() })
       .then(r => r.json())
       .then((data: Building[]) => setBuildings(data))
       .catch(() => {});
@@ -1055,7 +1055,7 @@ export default function AdminFestivalDetail() {
   // Fetch wings when filter building changes
   useEffect(() => {
     if (!filterBuildingId) { setFilterWings([]); return; }
-    fetch(`/api/admin/buildings/${filterBuildingId}/wings/manage`, { headers: authHeaders() })
+    fetch(`${getApiUrl()}/api/admin/buildings/${filterBuildingId}/wings/manage`, { headers: authHeaders() })
       .then(r => r.json())
       .then((data: Wing[]) => setFilterWings(data))
       .catch(() => setFilterWings([]));
@@ -1064,7 +1064,7 @@ export default function AdminFestivalDetail() {
   // Fetch unique admins from donations
   useEffect(() => {
     if (!festivalId) return;
-    fetch(`/api/admin/festivals/${festivalId}/donations?limit=500`, { headers: authHeaders() })
+    fetch(`${getApiUrl()}/api/admin/festivals/${festivalId}/donations?limit=500`, { headers: authHeaders() })
       .then(r => r.json())
       .then(data => {
         const unique = new Map<string, string>();
@@ -1081,7 +1081,7 @@ export default function AdminFestivalDetail() {
     if (!festivalId) return;
     setIsLoadingFestival(true);
     try {
-      const res = await fetch(`/api/admin/festivals/${festivalId}`, { headers: authHeaders() });
+      const res = await fetch(`${getApiUrl()}/api/admin/festivals/${festivalId}`, { headers: authHeaders() });
       if (!res.ok) throw new Error('Failed to fetch festival');
       setFestival(await res.json());
     } catch (err: any) {
@@ -1093,7 +1093,7 @@ export default function AdminFestivalDetail() {
   const fetchStats = useCallback(async () => {
     if (!festivalId) return;
     try {
-      const res = await fetch(`/api/admin/festivals/${festivalId}/stats`, { headers: authHeaders() });
+      const res = await fetch(`${getApiUrl()}/api/admin/festivals/${festivalId}/stats`, { headers: authHeaders() });
       if (res.ok) setStats(await res.json());
     } catch { /* silent */ }
   }, [festivalId]);
@@ -1120,7 +1120,7 @@ params.set('sortBy', donationSortBy);
       if (filterAmountMax) params.set('amountMax', filterAmountMax);
       if (filterAdminId) params.set('adminId', filterAdminId);
 
-      const res = await fetch(`/api/admin/festivals/${festivalId}/donations?${params.toString()}`, { headers: authHeaders() });
+      const res = await fetch(`${getApiUrl()}/api/admin/festivals/${festivalId}/donations?${params.toString()}`, { headers: authHeaders() });
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
       setDonations(data.donations);
@@ -1154,7 +1154,7 @@ params.set('sortBy', donationSortBy);
     if (!deleteDonation) return;
     setIsDeletingDonation(true);
     try {
-      const res = await fetch(`/api/admin/festivals/${deleteDonation.festivalId}/donations/${deleteDonation.id}`, { method: 'DELETE', headers: authHeaders() });
+      const res = await fetch(`${getApiUrl()}/api/admin/festivals/${deleteDonation.festivalId}/donations/${deleteDonation.id}`, { method: 'DELETE', headers: authHeaders() });
       if (!res.ok) throw new Error('Failed to delete');
       toast.success('Donation deleted');
       setDeleteDonation(null);

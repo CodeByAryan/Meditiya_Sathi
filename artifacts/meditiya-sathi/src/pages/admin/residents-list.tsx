@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'wouter';
 import { ArrowLeft, Building2, Plus, Search, Eye, Edit3, Trash2, ChevronLeft, ChevronRight, X, RefreshCw, AlertTriangle, User, Phone, MapPin, CalendarDays, Hash, Home, Filter } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, getApiUrl } from '@/lib/utils';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface Building {
@@ -212,7 +212,7 @@ function EditResidentModal({ resident, buildings, onClose, onSaved }: {
       return;
     }
     setLoadingWings(true);
-    fetch(`/api/admin/buildings/${form.buildingId}/wings`, { headers: authHeaders() })
+fetch(getApiUrl() + `/api/admin/buildings/${form.buildingId}/wings`, { headers: authHeaders() })
       .then(r => r.json())
       .then((data: Wing[]) => setWings(data))
       .catch(() => setWings([]))
@@ -223,7 +223,7 @@ function EditResidentModal({ resident, buildings, onClose, onSaved }: {
     e.preventDefault();
     setIsSaving(true);
     try {
-      const res = await fetch(`/api/admin/residents/${resident.id}`, {
+const res = await fetch(getApiUrl() + `/api/admin/residents/${resident.id}`, {
         method: 'PATCH',
         headers: authHeaders(),
         body: JSON.stringify({
@@ -442,7 +442,7 @@ export default function AdminResidentsList() {
 
   // Fetch buildings for filter
   useEffect(() => {
-    fetch('/api/admin/buildings/manage', { headers: authHeaders() })
+fetch(getApiUrl() + '/api/admin/buildings/manage', { headers: authHeaders() })
       .then(r => r.json())
       .then((data: Building[]) => setBuildings(data))
       .catch(() => {});
@@ -454,7 +454,7 @@ export default function AdminResidentsList() {
       setFilterWings([]);
       return;
     }
-    fetch(`/api/admin/buildings/${filterBuildingId}/wings/manage`, { headers: authHeaders() })
+fetch(getApiUrl() + `/api/admin/buildings/${filterBuildingId}/wings/manage`, { headers: authHeaders() })
       .then(r => r.json())
       .then((data: Wing[]) => setFilterWings(data))
       .catch(() => setFilterWings([]));
@@ -475,7 +475,7 @@ export default function AdminResidentsList() {
       params.set('sortBy', sortBy);
       params.set('sortOrder', sortOrder);
 
-      const res = await fetch(`/api/admin/residents?${params.toString()}`, { headers: authHeaders() });
+const res = await fetch(getApiUrl() + `/api/admin/residents?${params.toString()}`, { headers: authHeaders() });
       if (!res.ok) throw new Error('Failed to fetch residents');
       const data: ListResponse = await res.json();
       setResidents(data.residents);
@@ -514,7 +514,7 @@ export default function AdminResidentsList() {
     if (!deleteResident) return;
     setIsDeleting(true);
     try {
-      const res = await fetch(`/api/admin/residents/${deleteResident.id}`, {
+const res = await fetch(getApiUrl() + `/api/admin/residents/${deleteResident.id}`, {
         method: 'DELETE',
         headers: authHeaders(),
       });

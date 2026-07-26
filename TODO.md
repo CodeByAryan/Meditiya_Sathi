@@ -1,13 +1,25 @@
-# Pending Donation Implementation - Progress
+# API Route 404 Fix - Implementation Plan
 
-## Steps
+## Status - ✅ ALL COMPLETED
 
-- [x] 1. Understand codebase and create plan
-- [ ] 2. Add PENDING_REASONS import to festival-detail.tsx
-- [ ] 3. Add pending reason dropdown to AddDonationModal
-- [ ] 4. Add pending reason support to EditDonationModal
-- [ ] 5. Add "Reason" column to Donations Table
-- [ ] 6. Show pending reason in ViewDonationModal
-- [ ] 7. Update API PATCH route to handle pendingReason
-- [ ] 8. Done - verify all changes
+### ✅ Backend Route Verification
+- [x] All admin routes exist and are correctly configured in backend
+- [x] Route chain: `app.use("/api", router)` → `router.use(residentsRouter)` → routes defined with `/admin/...` prefix
+
+### ✅ Frontend Fix - All Admin Pages Updated
+
+| File | Fetch Calls | Status |
+|---|---|---|
+| **utils.ts** | Added `getApiUrl()` helper function | ✅ |
+| **buildings.tsx** | 9 fetch() calls → `getApiUrl() + '/api/...'` | ✅ |
+| **residents.tsx** | 5 fetch() calls → `` `${getApiUrl()}/api/...` `` | ✅ |
+| **residents-list.tsx** | 5 fetch() calls → `getApiUrl() + '/api/...'` | ✅ |
+| **festivals-list.tsx** | 1 fetch() call → `` `${getApiUrl()}/api/...` `` | ✅ |
+| **festival-create.tsx** | 1 fetch() call → `` `${getApiUrl()}/api/...` `` | ✅ |
+| **festival-detail.tsx** | 14+ fetch() calls → `` `${getApiUrl()}/api/...` `` | ✅ |
+| **add-donation.tsx** | 5 fetch() calls → `` `${getApiUrl()}/api/...` `` | ✅ |
+| **admin-management.tsx** | 7 fetch() calls → `` `${getApiUrl()}/api/...` `` | ✅ |
+
+### ✅ Root Cause
+Frontend admin pages were using raw `fetch('/api/...')` with relative URLs, sending requests to **Vercel domain** instead of **Render backend**. Added `getApiUrl()` helper that reads `VITE_API_URL` env var and falls back to `https://meditiya-sathi.onrender.com`.
 

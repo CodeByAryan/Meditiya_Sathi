@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'wouter';
 import { ArrowLeft, Building2, Plus, Search, Eye, Edit3, Trash2, CalendarDays, MapPin, Filter, RefreshCw, AlertTriangle, CheckCircle, XCircle, Clock, IndianRupee, Users } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, getApiUrl } from '@/lib/utils';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface Festival {
@@ -150,7 +150,7 @@ export default function AdminFestivalsList() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/admin/festivals', { headers: authHeaders() });
+      const res = await fetch(`${getApiUrl()}/api/admin/festivals`, { headers: authHeaders() });
       if (!res.ok) throw new Error('Failed to fetch festivals');
       const data: Festival[] = await res.json();
       setFestivals(data);
@@ -209,8 +209,8 @@ export default function AdminFestivalsList() {
     setIsDeleting(true);
     try {
       const url = force
-        ? `/api/admin/festivals/${deleteFestival.id}/force`
-        : `/api/admin/festivals/${deleteFestival.id}`;
+        ? `${getApiUrl()}/api/admin/festivals/${deleteFestival.id}/force`
+        : `${getApiUrl()}/api/admin/festivals/${deleteFestival.id}`;
       const res = await fetch(url, { method: 'DELETE', headers: authHeaders() });
 
       if (res.status === 409) {

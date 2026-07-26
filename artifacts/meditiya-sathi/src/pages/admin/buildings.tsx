@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ArrowLeft, Building2, Plus, Trash2, ToggleLeft, ToggleRight, Layers, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, getApiUrl } from '@/lib/utils';
 
 interface Building {
   id: number;
@@ -56,7 +56,7 @@ export default function AdminBuildings() {
   const fetchBuildings = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/admin/buildings/manage', { headers: authHeaders() });
+      const res = await fetch(getApiUrl() + '/api/admin/buildings/manage', { headers: authHeaders() });
       if (!res.ok) throw new Error('Failed to fetch buildings');
       const data: Building[] = await res.json();
       setBuildings(data);
@@ -74,7 +74,7 @@ export default function AdminBuildings() {
   // Fetch wings for a building
   const fetchWings = useCallback(async (buildingId: number) => {
     try {
-      const res = await fetch(`/api/admin/buildings/${buildingId}/wings/manage`, { headers: authHeaders() });
+      const res = await fetch(getApiUrl() + `/api/admin/buildings/${buildingId}/wings/manage`, { headers: authHeaders() });
       if (!res.ok) throw new Error('Failed to fetch wings');
       const data: Wing[] = await res.json();
       setWingsMap(prev => ({ ...prev, [buildingId]: data }));
@@ -104,7 +104,7 @@ export default function AdminBuildings() {
 
     setIsAddingBuilding(true);
     try {
-      const res = await fetch('/api/admin/buildings', {
+      const res = await fetch(getApiUrl() + '/api/admin/buildings', {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({ buildingName: newBuildingName.trim(), hasWings: newHasWings }),
@@ -139,7 +139,7 @@ export default function AdminBuildings() {
   const toggleBuildingStatus = async (building: Building) => {
     const newStatus = building.status === 'active' ? 'inactive' : 'active';
     try {
-      const res = await fetch(`/api/admin/buildings/${building.id}`, {
+      const res = await fetch(getApiUrl() + `/api/admin/buildings/${building.id}`, {
         method: 'PATCH',
         headers: authHeaders(),
         body: JSON.stringify({ status: newStatus }),
@@ -158,7 +158,7 @@ export default function AdminBuildings() {
     if (!confirm(`Delete "${building.buildingName}"? This will also remove all wings and residents in this building.`)) return;
 
     try {
-      const res = await fetch(`/api/admin/buildings/${building.id}`, {
+      const res = await fetch(getApiUrl() + `/api/admin/buildings/${building.id}`, {
         method: 'DELETE',
         headers: authHeaders(),
       });
@@ -180,7 +180,7 @@ export default function AdminBuildings() {
 
     setIsAddingWing(true);
     try {
-      const res = await fetch(`/api/admin/buildings/${buildingId}/wings`, {
+      const res = await fetch(getApiUrl() + `/api/admin/buildings/${buildingId}/wings`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({ wingName: newWingName.trim() }),
@@ -213,7 +213,7 @@ export default function AdminBuildings() {
   const toggleWingStatus = async (buildingId: number, wing: Wing) => {
     const newStatus = wing.status === 'active' ? 'inactive' : 'active';
     try {
-      const res = await fetch(`/api/admin/buildings/${buildingId}/wings/${wing.id}`, {
+const res = await fetch(getApiUrl() + `/api/admin/buildings/${buildingId}/wings/${wing.id}`, {
         method: 'PATCH',
         headers: authHeaders(),
         body: JSON.stringify({ status: newStatus }),
@@ -232,7 +232,7 @@ export default function AdminBuildings() {
     if (!confirm(`Delete wing "${wing.wingName}"? This may affect existing residents.`)) return;
 
     try {
-      const res = await fetch(`/api/admin/buildings/${buildingId}/wings/${wing.id}`, {
+      const res = await fetch(getApiUrl() + `/api/admin/buildings/${buildingId}/wings/${wing.id}`, {
         method: 'DELETE',
         headers: authHeaders(),
       });

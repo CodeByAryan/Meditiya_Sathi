@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'wouter';
 import { ArrowLeft, Building2, Save, RotateCcw, Shield, User, Phone, Hash, MapPin, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, getApiUrl } from '@/lib/utils';
 
 interface Building {
   id: number;
@@ -72,7 +72,7 @@ export default function AdminAddResident() {
   const fetchBuildings = useCallback(async () => {
     setIsLoadingBuildings(true);
     try {
-      const res = await fetch('/api/admin/buildings', { headers: authHeaders() });
+      const res = await fetch(`${getApiUrl()}/api/admin/buildings`, { headers: authHeaders() });
       if (!res.ok) throw new Error('Failed to fetch buildings');
       const data: Building[] = await res.json();
       setBuildings(data);
@@ -107,7 +107,7 @@ export default function AdminAddResident() {
     }
 
     setIsLoadingWings(true);
-    fetch(`/api/admin/buildings/${selectedBuildingId}/wings`, { headers: authHeaders() })
+    fetch(`${getApiUrl()}/api/admin/buildings/${selectedBuildingId}/wings`, { headers: authHeaders() })
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch wings');
         return res.json();
@@ -133,7 +133,7 @@ export default function AdminAddResident() {
     }
     setIsCheckingMobile(true);
     try {
-      const res = await fetch(`/api/admin/residents/check-mobile/${encodeURIComponent(trimmed)}`, {
+      const res = await fetch(`${getApiUrl()}/api/admin/residents/check-mobile/${encodeURIComponent(trimmed)}`, {
         headers: authHeaders(),
       });
       if (!res.ok) throw new Error('Check failed');
@@ -160,7 +160,7 @@ export default function AdminAddResident() {
     if (selectedWingId) params.set('wingId', selectedWingId);
 
     setIsCheckingFlat(true);
-    fetch(`/api/admin/residents/check-flat?${params.toString()}`, { headers: authHeaders() })
+    fetch(`${getApiUrl()}/api/admin/residents/check-flat?${params.toString()}`, { headers: authHeaders() })
       .then(res => {
         if (!res.ok) throw new Error('Check failed');
         return res.json();
@@ -249,7 +249,7 @@ export default function AdminAddResident() {
         status,
       };
 
-      const res = await fetch('/api/admin/residents', {
+      const res = await fetch(`${getApiUrl()}/api/admin/residents`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify(body),

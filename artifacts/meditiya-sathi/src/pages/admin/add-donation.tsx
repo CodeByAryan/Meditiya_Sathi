@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'wouter';
 import { ArrowLeft, MapPin, Search, Plus, X, CheckCircle, Clock, Building2, Home, Phone, User, IndianRupee, Save, ChevronDown, AlertTriangle, MessageCircleMore } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, getApiUrl } from '@/lib/utils';
 import { PENDING_REASONS } from '@/lib/pending-reasons';
 import { generatePendingNoticePDF, downloadPDF } from '@/lib/pdf-generator';
 import { sendPendingReminderViaWhatsApp } from '@/lib/whatsapp-service';
@@ -76,7 +76,7 @@ function FestivalDropdown({ selectedId, onSelect }: {
   }, []);
 
   useEffect(() => {
-    fetch('/api/admin/festivals', { headers: authHeaders() })
+    fetch(`${getApiUrl()}/api/admin/festivals`, { headers: authHeaders() })
       .then(r => r.json())
       .then((data: FestivalOption[]) => {
         setFestivals(data);
@@ -201,7 +201,7 @@ function ResidentSearchDropdown({ onSelect, selectedResident, onClear }: {
     searchTimeout.current = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`/api/admin/residents/search?q=${encodeURIComponent(query)}`, { headers: authHeaders() });
+        const res = await fetch(`${getApiUrl()}/api/admin/residents/search?q=${encodeURIComponent(query)}`, { headers: authHeaders() });
         if (res.ok) {
           const data = await res.json();
           setResults(data.residents || []);
@@ -372,7 +372,7 @@ const [donationStatus, setDonationStatus] = useState<'paid' | 'pending'>('pendin
     setSelectedResident(resident);
     setErrors(prev => { const { ...rest } = prev; delete rest.resident; return rest; });
     try {
-      const res = await fetch(`/api/admin/residents/${resident.id}/festival-history`, { headers: authHeaders() });
+      const res = await fetch(`${getApiUrl()}/api/admin/residents/${resident.id}/festival-history`, { headers: authHeaders() });
       if (res.ok) {
         const data = await res.json();
         setFestivalHistory(data || []);
@@ -424,7 +424,7 @@ const [donationStatus, setDonationStatus] = useState<'paid' | 'pending'>('pendin
         const reasonValue = pendingReason === 'Other' ? pendingCustomReason : pendingReason;
         body.pendingReason = reasonValue.trim() || null;
       }
-      const res = await fetch(`/api/admin/festivals/${selectedFestival!.id}/donations`, {
+      const res = await fetch(`${getApiUrl()}/api/admin/festivals/${selectedFestival!.id}/donations`, {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify(body),
       });

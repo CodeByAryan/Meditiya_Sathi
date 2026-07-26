@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Shield, UserPlus, Settings, ToggleLeft, ToggleRight, Lock, Trash2, Pencil, X, Check, AlertCircle } from "lucide-react";
 import { useAdminAuth } from "@/lib/AdminAuthContext";
+import { getApiUrl } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,7 @@ export default function AdminManagement() {
   const fetchAdmins = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/manage", { headers: getAuthHeaders() });
+      const res = await fetch(`${getApiUrl()}/api/admin/manage`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
         setAdmins(data);
@@ -80,7 +81,7 @@ export default function AdminManagement() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch("/api/admin/manage", {
+      const res = await fetch(`${getApiUrl()}/api/admin/manage`, {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify(formData),
@@ -104,7 +105,7 @@ export default function AdminManagement() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch(`/api/admin/manage/${editAdmin.id}`, {
+      const res = await fetch(`${getApiUrl()}/api/admin/manage/${editAdmin.id}`, {
         method: "PATCH",
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -133,7 +134,7 @@ export default function AdminManagement() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch(`/api/admin/manage/${admin.id}/status`, {
+      const res = await fetch(`${getApiUrl()}/api/admin/manage/${admin.id}/status`, {
         method: "PATCH",
         headers: getAuthHeaders(),
         body: JSON.stringify({ isActive: !admin.isActive }),
@@ -164,7 +165,7 @@ export default function AdminManagement() {
       return;
     }
     try {
-      const res = await fetch(`/api/admin/manage/${resetPasswordAdmin.id}/reset-password`, {
+      const res = await fetch(`${getApiUrl()}/api/admin/manage/${resetPasswordAdmin.id}/reset-password`, {
         method: "PATCH",
         headers: getAuthHeaders(),
         body: JSON.stringify(passwordForm),
@@ -187,7 +188,7 @@ export default function AdminManagement() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch(`/api/admin/manage/${admin.id}`, {
+      const res = await fetch(`${getApiUrl()}/api/admin/manage/${admin.id}`, {
         method: "DELETE",
         headers: getAuthHeaders(),
       });

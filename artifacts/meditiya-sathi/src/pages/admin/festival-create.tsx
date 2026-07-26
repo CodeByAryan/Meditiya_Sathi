@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useLocation, Link } from 'wouter';
 import { ArrowLeft, Save, RotateCcw, CalendarDays, MapPin, IndianRupee, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, getApiUrl } from '@/lib/utils';
 
 // ── Auth helpers ─────────────────────────────────────────────────────────────
 function getAdminToken(): string | null {
@@ -51,7 +51,7 @@ export default function AdminFestivalCreate() {
     const fetchFestival = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/admin/festivals/${festivalId}`, { headers: authHeaders() });
+        const res = await fetch(`${getApiUrl()}/api/admin/festivals/${festivalId}`, { headers: authHeaders() });
         if (!res.ok) throw new Error('Failed to fetch festival');
         const data = await res.json();
         setFestivalName(data.name);
@@ -99,8 +99,8 @@ export default function AdminFestivalCreate() {
       };
 
       const url = isEditMode
-        ? `/api/admin/festivals/${festivalId}`
-        : '/api/admin/festivals';
+        ? `${getApiUrl()}/api/admin/festivals/${festivalId}`
+        : `${getApiUrl()}/api/admin/festivals`;
       const method = isEditMode ? 'PATCH' : 'POST';
 
       const res = await fetch(url, {
