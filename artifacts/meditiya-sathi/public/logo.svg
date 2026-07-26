@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120">
-  <path d="M40 20 L20 60 L40 100 L80 100 L100 60 L80 20 Z" fill="#FF7A00" />
-  <circle cx="60" cy="60" r="15" fill="#F4B400" />
-  <path d="M40 20 L60 60 L80 20 Z" fill="#FFFFFF" opacity="0.3" />
-  <path d="M20 60 L60 60 L40 100 Z" fill="#FFFFFF" opacity="0.2" />
-  <text x="130" y="70" font-family="'Playfair Display', Georgia, serif" font-size="44" font-weight="bold" fill="#1E3A8A">Meditiya Sathi</text>
-  <text x="132" y="95" font-family="'Plus Jakarta Sans', Arial, sans-serif" font-size="14" font-weight="600" fill="#FF7A00" letter-spacing="2">DIGITAL SOCIETY</text>
-</svg>

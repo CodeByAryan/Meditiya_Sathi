@@ -2,6 +2,8 @@ import { Building2, Users, Calendar, Bell, Image as ImageIcon, Heart, Trophy, Wr
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link } from 'wouter';
 
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 export default function Admin() {
   const sections = [
     { name: 'Buildings', icon: Building2, count: 0, color: 'text-amber-500' },
@@ -22,8 +24,17 @@ export default function Admin() {
     <div className="w-full min-h-screen bg-muted/10 pb-20">
       <div className="bg-secondary text-secondary-foreground py-8 px-4 border-b border-border shadow-sm">
         <div className="container mx-auto max-w-6xl">
-          <h1 className="text-3xl font-serif font-bold text-white">Admin Dashboard</h1>
-          <p className="text-white/70">Manage society operations and data</p>
+          <div className="flex items-center gap-4 mb-3">
+            <img
+              src={`${basePath}/logo.png`}
+              alt="Meditiya Sathi"
+              className="h-10 w-auto brightness-0 invert drop-shadow-md"
+            />
+            <div>
+              <h1 className="text-3xl font-serif font-bold text-white">Admin Dashboard</h1>
+              <p className="text-white/70">Manage society operations and data</p>
+            </div>
+          </div>
         </div>
       </div>
 

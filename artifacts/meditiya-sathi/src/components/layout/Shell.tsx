@@ -58,7 +58,7 @@ export default function Shell({ children }: { children: ReactNode }) {
       >
         <div className="container mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 z-50 relative">
-            <img src={`${basePath}/logo.svg`} alt="Meditiya Sathi" className="h-8 md:h-10 w-auto drop-shadow-sm" />
+            <img src={`${basePath}/logo.png`} alt="Meditiya Sathi" className="h-8 md:h-10 w-auto drop-shadow-sm" />
             <div className="flex flex-col hidden sm:flex">
               <span className="font-serif font-bold text-xl md:text-2xl text-secondary dark:text-white leading-none">Meditiya Sathi</span>
               <span className="text-[10px] font-sans font-bold tracking-widest text-primary leading-none mt-1">ONE SOCIETY • ONE FAMILY</span>
@@ -240,7 +240,7 @@ export default function Shell({ children }: { children: ReactNode }) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-3">
-                <img src={`${basePath}/logo.svg`} alt="Meditiya Sathi" className="h-10 w-auto brightness-0 invert" />
+                <img src={`${basePath}/logo.png`} alt="Meditiya Sathi" className="h-10 w-auto brightness-0 invert" />
                 <div className="flex flex-col">
                   <span className="font-serif font-bold text-2xl text-white leading-none">Meditiya Sathi</span>
                 </div>

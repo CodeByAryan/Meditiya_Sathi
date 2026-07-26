@@ -49,7 +49,7 @@ export default function AdminLogin() {
           {/* Header */}
           <div className="text-center mb-10">
             <img
-              src={`${basePath}/logo.svg`}
+              src={`${basePath}/logo.png`}
               alt="Meditiya Sathi"
               className="h-16 w-auto mx-auto brightness-0 invert drop-shadow-md mb-4"
             />

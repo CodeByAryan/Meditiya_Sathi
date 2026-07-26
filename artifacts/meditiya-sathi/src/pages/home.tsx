@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link } from 'wouter';
-import { motion } from 'framer-motion';
+import { motion, useInView, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { 
   ArrowRight, Calendar, Heart, Users, Bell, Sparkles, Shield, 
   MapPin, Zap, Star, HandshakeIcon, BookOpen, Gift, AlertCircle, 
@@ -12,6 +12,41 @@ import {
   useListNotices,
   useGetDonationProgress
 } from '@workspace/api-client-react';
+
+function AnimatedCounter({ value, prefix = '', suffix = '' }: { value: string | number; prefix?: string; suffix?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-100px" });
+  const numericValue = typeof value === 'string' && !isNaN(Number(value)) ? Number(value) : typeof value === 'number' ? value : 0;
+  const count = useMotionValue(0);
+  const rounded = useTransform(count, (latest) => Math.round(latest));
+  const springConfig = { stiffness: 50, damping: 20 };
+  const springValue = useSpring(count, springConfig);
+
+  useEffect(() => {
+    if (isInView && numericValue > 0) {
+      count.set(numericValue);
+    }
+  }, [isInView, numericValue, count]);
+
+  const displayValue = useTransform(rounded, (latest) => {
+    if (numericValue >= 100000) return `${(latest / 100000).toFixed(1)}`;
+    if (numericValue >= 1000) return `${(latest / 1000).toFixed(1)}K`;
+    return latest.toString();
+  });
+
+  // For string values like '500+' or '85+', just display them directly
+  if (typeof value === 'string' && !/^\d+$/.test(value)) {
+    return <span ref={ref}>{value}</span>;
+  }
+
+  return (
+    <span ref={ref}>
+      {prefix}
+      <motion.span>{displayValue}</motion.span>
+      {suffix}
+    </span>
+  );
+}
 
 function CountdownTimer({ targetDate }: { targetDate: string }) {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
@@ -161,10 +196,10 @@ export default function Home() {
         <div className="container mx-auto px-4 relative z-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
             {[
-              { label: 'Active Residents', value: stats?.totalResidents || '500+', icon: Users, color: 'text-blue-500' },
-              { label: 'Events Hosted', value: stats?.totalEvents || '120+', icon: Calendar, color: 'text-primary' },
-              { label: 'Donations Raised', value: `₹${stats?.totalDonations ? (stats.totalDonations/100000).toFixed(1) : '15.5'}L`, icon: Heart, color: 'text-red-500' },
-              { label: 'Volunteers', value: stats?.totalVolunteers || '85+', icon: Users, color: 'text-accent' },
+              { label: 'Active Residents', value: stats?.totalResidents ?? 500, icon: Users, color: 'text-blue-500', prefix: '', suffix: '+' },
+              { label: 'Events Hosted', value: stats?.totalEvents ?? 120, icon: Calendar, color: 'text-primary', prefix: '', suffix: '+' },
+              { label: 'Donations Raised', value: stats?.totalDonations ?? 1550000, icon: Heart, color: 'text-red-500', prefix: '₹', suffix: 'L' },
+              { label: 'Volunteers', value: stats?.totalVolunteers ?? 85, icon: Users, color: 'text-accent', prefix: '', suffix: '+' },
             ].map((stat, i) => (
               <motion.div 
                 key={stat.label}
@@ -177,7 +212,9 @@ export default function Home() {
                 <div className={`w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4 ${stat.color}`}>
                   <stat.icon className="w-6 h-6" />
                 </div>
-                <h3 className="text-3xl font-bold text-foreground mb-1">{stat.value}</h3>
+                <h3 className="text-3xl font-bold text-foreground mb-1">
+                  <AnimatedCounter value={stat.value} prefix={stat.prefix} suffix={stat.suffix} />
+                </h3>
                 <p className="text-sm text-muted-foreground font-medium">{stat.label}</p>
               </motion.div>
             ))}
