@@ -57,11 +57,11 @@ export default function Shell({ children }: { children: ReactNode }) {
         )}
       >
         <div className="container mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 z-50 relative">
-            <img src={`${basePath}/logo.png`} alt="Meditiya Sathi" className="h-8 md:h-10 w-auto drop-shadow-sm" />
-            <div className="flex flex-col hidden sm:flex">
-              <span className="font-serif font-bold text-xl md:text-2xl text-secondary dark:text-white leading-none">Meditiya Sathi</span>
-              <span className="text-[10px] font-sans font-bold tracking-widest text-primary leading-none mt-1">ONE SOCIETY • ONE FAMILY</span>
+          <Link href="/" className="flex items-center gap-2 sm:gap-3 z-50 relative min-w-0">
+            <img src={`${basePath}/logo.png`} alt="Meditiya Sathi" className="h-8 md:h-10 w-auto drop-shadow-sm shrink-0" />
+            <div className="flex flex-col min-w-0">
+              <span className="font-serif font-bold text-sm sm:text-xl md:text-2xl text-secondary dark:text-white leading-none truncate">Meditiya Sathi</span>
+              <span className="hidden sm:block text-[10px] font-sans font-bold tracking-widest text-primary leading-none mt-1">ONE SOCIETY • ONE FAMILY</span>
             </div>
           </Link>
 
@@ -193,6 +193,20 @@ export default function Shell({ children }: { children: ReactNode }) {
                     {link.name}
                   </Link>
                 ))}
+                {/* Admin button for mobile - visible to all users */}
+                <Link
+                  href={isAuthenticated ? "/admin" : "/admin-login"}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors",
+                    location === "/admin" || location === "/admin-login"
+                      ? "bg-primary text-white shadow-md"
+                      : "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
+                  )}
+                >
+                  <Shield className="w-4 h-4" />
+                  {isAuthenticated ? "Admin Panel" : "Admin Login"}
+                </Link>
               </div>
               
               {!isAuthenticated && (
@@ -229,9 +243,7 @@ export default function Shell({ children }: { children: ReactNode }) {
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
-
-      <main className="flex-1 w-full relative pt-16 md:pt-20">
+      </AnimatePresence>      <main className="flex-1 w-full relative pt-16 md:pt-20">
         {children}
       </main>
 

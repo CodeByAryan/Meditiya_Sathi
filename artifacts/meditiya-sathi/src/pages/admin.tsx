@@ -1,4 +1,4 @@
-import { Building2, Users, Calendar, Bell, Image as ImageIcon, Heart, Trophy, Wrench, ShoppingBag, Package, MapPin } from 'lucide-react';
+import { Building2, Users, Calendar, Bell, Image as ImageIcon, Heart, Trophy, Wrench, ShoppingBag, Package, MapPin, Shield } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link } from 'wouter';
 
@@ -6,14 +6,25 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export default function Admin() {
   const sections = [
+    // 1. Building Setup
     { name: 'Buildings', icon: Building2, count: 0, color: 'text-amber-500' },
+    // 2. Resident Management
     { name: 'Residents', icon: Users, count: 0, color: 'text-blue-500' },
-    { name: 'Events', icon: Calendar, count: 0, color: 'text-primary' },
+    // 3. Festival Management
     { name: 'Festivals', icon: MapPin, count: 0, color: 'text-purple-500' },
-    { name: 'Notices', icon: Bell, count: 0, color: 'text-orange-500' },
-    { name: 'Gallery', icon: ImageIcon, count: 0, color: 'text-pink-500' },
+    // 4. Events
+    { name: 'Events', icon: Calendar, count: 0, color: 'text-primary' },
+    // 5. Donations
     { name: 'Donations', icon: Heart, count: 0, color: 'text-red-500' },
+    // 6. Gallery
+    { name: 'Gallery', icon: ImageIcon, count: 0, color: 'text-pink-500' },
+    // 7. Notices
+    { name: 'Notices', icon: Bell, count: 0, color: 'text-orange-500' },
+    // 8. Committee Members
+    { name: 'Committee Members', icon: Shield, count: 0, color: 'text-cyan-500' },
+    // 9. Volunteers
     { name: 'Volunteers', icon: Users, count: 0, color: 'text-teal-500' },
+    // 10. Other Modules
     { name: 'Competitions', icon: Trophy, count: 0, color: 'text-yellow-500' },
     { name: 'Complaints', icon: Wrench, count: 0, color: 'text-slate-500' },
     { name: 'Marketplace', icon: ShoppingBag, count: 0, color: 'text-indigo-500' },
@@ -28,11 +39,15 @@ export default function Admin() {
             <img
               src={`${basePath}/logo.png`}
               alt="Meditiya Sathi"
-              className="h-10 w-auto brightness-0 invert drop-shadow-md"
+              className="h-12 w-auto brightness-0 invert drop-shadow-md"
             />
             <div>
               <h1 className="text-3xl font-serif font-bold text-white">Admin Dashboard</h1>
-              <p className="text-white/70">Manage society operations and data</p>
+              <p className="text-white/70 text-sm">
+                <span className="font-semibold text-accent">Meditiya Sathi</span>
+                <span className="text-white/30 mx-2">•</span>
+                Manage society operations and data
+              </p>
             </div>
           </div>
         </div>
@@ -50,11 +65,15 @@ export default function Admin() {
                     ? '/admin/festivals'
                     : section.name === 'Events'
                       ? '/admin/events'
-                      : section.name === 'Notices'
-                        ? '/admin/notices'
+                      : section.name === 'Donations'
+                        ? '/admin/donations/add'
                         : section.name === 'Gallery'
                           ? '/admin/gallery'
-                          : null;
+                          : section.name === 'Notices'
+                            ? '/admin/notices'
+                            : section.name === 'Committee Members'
+                              ? '/admin/committee'
+                              : null;
 
             const card = (
               <Card
@@ -105,4 +124,3 @@ export default function Admin() {
     </div>
   );
 }
-

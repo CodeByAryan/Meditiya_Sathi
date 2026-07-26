@@ -4,7 +4,7 @@ import { motion, useInView, useMotionValue, useSpring, useTransform } from 'fram
 import { 
   ArrowRight, Calendar, Heart, Users, Bell, Sparkles, Shield, 
   MapPin, Zap, Star, HandshakeIcon, BookOpen, Gift, AlertCircle, 
-  ChevronRight, Image as ImageIcon, Music, ShoppingBag 
+  ChevronRight, Image as ImageIcon, Music, ShoppingBag, Clock
 } from 'lucide-react';
 import { 
   useGetStatsSummary, 
@@ -12,6 +12,7 @@ import {
   useListNotices,
   useGetDonationProgress
 } from '@workspace/api-client-react';
+import { GANPATI_FESTIVAL } from '@/lib/festival-countdown';
 
 function AnimatedCounter({ value, prefix = '', suffix = '' }: { value: string | number; prefix?: string; suffix?: string }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -103,6 +104,12 @@ export default function Home() {
   const upcomingEventsList = upcomingEvents || [];
   const noticesList = notices || [];
 
+  // Festival countdown configuration
+  const festival = GANPATI_FESTIVAL;
+  const festivalDate = new Date(festival.date);
+  const festivalFormatted = festivalDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const isUpcoming = festivalDate.getTime() > new Date().getTime();
+
   return (
     <div className="w-full">
       {/* SLIDE 1: Hero Section */}
@@ -168,23 +175,47 @@ export default function Home() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="bg-secondary rounded-3xl p-8 md:p-12 shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-12 border border-secondary/20"
+            className="bg-gradient-to-br from-amber-800 via-amber-950 to-orange-950 rounded-3xl p-8 md:p-12 shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-12 border border-amber-600/30"
           >
             <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10"></div>
+            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-accent via-amber-400 to-accent"></div>
             
             <div className="flex-1 text-center md:text-left z-10">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/20 text-accent text-xs font-bold uppercase tracking-widest mb-4">
-                🎉 Upcoming Grand Festival
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold uppercase tracking-widest mb-4">
+                {festival.emoji} {isUpcoming ? 'Upcoming Grand Festival' : 'Festival'}
               </div>
-              <h2 className="text-4xl md:text-5xl font-serif font-bold text-white mb-4">Ganesh Utsav 2025</h2>
-              <p className="text-white/70 text-lg mb-8 max-w-md mx-auto md:mx-0">Join us for the most spectacular celebration of the year. Let's make it memorable together.</p>
-              <Link href="/donations" className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-secondary font-bold rounded-full hover:bg-accent/90 transition-all">
-                Contribute Now <ArrowRight className="w-4 h-4" />
-              </Link>
+              <h2 className="text-4xl md:text-5xl font-serif font-bold text-white mb-2">{festival.name} is Coming</h2>
+              <p className="text-amber-200/80 text-lg mb-2 font-medium">{festivalFormatted}</p>
+              {festival.tagline && (
+                <p className="text-amber-300/60 text-sm mb-8 italic">"{festival.tagline}"</p>
+              )}
+              <div className="flex flex-wrap gap-3 justify-center md:justify-start">
+                <Link href="/festivals" className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-secondary font-bold rounded-full hover:bg-accent/90 transition-all shadow-lg">
+                  Explore Festivals <ArrowRight className="w-4 h-4" />
+                </Link>
+                <Link href="/donations" className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 text-white font-bold rounded-full hover:bg-white/20 transition-all">
+                  <Heart className="w-4 h-4" /> Contribute
+                </Link>
+              </div>
             </div>
             
             <div className="flex-1 w-full z-10">
-              <CountdownTimer targetDate="2025-09-01T00:00:00" />
+              {isUpcoming ? (
+                <>
+                  <div className="text-center mb-4">
+                    <span className="text-amber-300/80 text-sm font-medium uppercase tracking-widest">Countdown Begins</span>
+                  </div>
+                  <CountdownTimer targetDate={festival.date} />
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="w-20 h-20 mx-auto bg-amber-500/20 rounded-full flex items-center justify-center mb-4">
+                    <Clock className="w-10 h-10 text-amber-400" />
+                  </div>
+                  <p className="text-amber-200 text-xl font-bold">Festival Celebrations Underway!</p>
+                  <p className="text-amber-200/60 mt-2">Join the celebrations now.</p>
+                </div>
+              )}
             </div>
           </motion.div>
         </div>

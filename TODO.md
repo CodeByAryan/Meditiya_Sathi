@@ -1,25 +1,17 @@
-# API Route 404 Fix - Implementation Plan
+# Implementation Tasks
 
-## Status - ✅ ALL COMPLETED
+## ✅ Task 1: Ganpati 2026 Countdown on Homepage
+- [x] Create config file `src/lib/festival-countdown.ts` with Ganpati 2026 date
+- [x] Update `home.tsx` to use Ganpati 2026 with configurable countdown
+- [x] Enhance visuals and responsiveness
 
-### ✅ Backend Route Verification
-- [x] All admin routes exist and are correctly configured in backend
-- [x] Route chain: `app.use("/api", router)` → `router.use(residentsRouter)` → routes defined with `/admin/...` prefix
+## ✅ Task 2: Admin Dashboard Menu Reordering
+- [x] Reorder sections in `admin.tsx` to: Buildings → Residents → Festivals → Events → Donations → Gallery → Notices → Committee Members → Volunteers → Competitions → Complaints → Marketplace → Lost & Found
+- [x] Add Committee Members card
+- [x] Keep all existing features and routes intact
 
-### ✅ Frontend Fix - All Admin Pages Updated
-
-| File | Fetch Calls | Status |
-|---|---|---|
-| **utils.ts** | Added `getApiUrl()` helper function | ✅ |
-| **buildings.tsx** | 9 fetch() calls → `getApiUrl() + '/api/...'` | ✅ |
-| **residents.tsx** | 5 fetch() calls → `` `${getApiUrl()}/api/...` `` | ✅ |
-| **residents-list.tsx** | 5 fetch() calls → `getApiUrl() + '/api/...'` | ✅ |
-| **festivals-list.tsx** | 1 fetch() call → `` `${getApiUrl()}/api/...` `` | ✅ |
-| **festival-create.tsx** | 1 fetch() call → `` `${getApiUrl()}/api/...` `` | ✅ |
-| **festival-detail.tsx** | 14+ fetch() calls → `` `${getApiUrl()}/api/...` `` | ✅ |
-| **add-donation.tsx** | 5 fetch() calls → `` `${getApiUrl()}/api/...` `` | ✅ |
-| **admin-management.tsx** | 7 fetch() calls → `` `${getApiUrl()}/api/...` `` | ✅ |
-
-### ✅ Root Cause
-Frontend admin pages were using raw `fetch('/api/...')` with relative URLs, sending requests to **Vercel domain** instead of **Render backend**. Added `getApiUrl()` helper that reads `VITE_API_URL` env var and falls back to `https://meditiya-sathi.onrender.com`.
+## Verification
+- [ ] Verify countdown works correctly
+- [ ] Verify admin navigation order is updated
+- [ ] Ensure no existing pages or routes are broken
 
