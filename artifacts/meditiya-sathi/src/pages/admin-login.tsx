@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { Shield, LogIn, Eye, EyeOff } from "lucide-react";
+import { Shield, LogIn, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { useAdminAuth } from "@/lib/AdminAuthContext";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -46,8 +46,17 @@ export default function AdminLogin() {
           transition={{ duration: 0.6 }}
           className="w-full max-w-md"
         >
-          {/* Header */}
-          <div className="text-center mb-10">
+{/* Header */}
+          <div className="text-center mb-8">
+            {/* Back to Home button */}
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.15] text-white/80 hover:text-white hover:bg-white/[0.15] transition-all duration-300 text-sm font-medium mb-6 group"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+              Back to Home
+            </Link>
+
             <img
               src={`${basePath}/logo.png`}
               alt="Meditiya Sathi"
