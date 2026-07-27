@@ -9,7 +9,7 @@ const router: IRouter = Router();
 const JWT_SECRET = process.env.JWT_SECRET || "meditiya-sathi-jwt-secret-change-in-production";
 
 interface TokenPayload {
-  id: number;
+  id: string;
   fullName: string;
   username: string;
   role: string;

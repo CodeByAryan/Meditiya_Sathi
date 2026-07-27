@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 interface Admin {
-  id: number;
+  id: string;
   fullName: string;
   username: string;
   email?: string | null;

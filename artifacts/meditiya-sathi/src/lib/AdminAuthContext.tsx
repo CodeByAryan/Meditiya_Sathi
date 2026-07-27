@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 
 export interface AdminUser {
-  id: number;
+  id: string;
   fullName: string;
   username: string;
   role: string;
