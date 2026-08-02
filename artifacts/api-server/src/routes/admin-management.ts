@@ -1,8 +1,8 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import { db, adminsTable } from "@workspace/db";
-import { eq, asc } from "drizzle-orm";
-import { requireAdminToken } from "../middlewares/requireAdminToken";
+import { eq, asc, or, and } from "drizzle-orm";
+import { requireRole } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
 
@@ -10,24 +10,16 @@ function isNonEmptyString(val: unknown): val is string {
   return typeof val === "string" && val.trim().length > 0;
 }
 
-function isPositiveInteger(val: unknown): val is number {
-  return typeof val === "number" && Number.isInteger(val) && val > 0;
-}
-
-// Super Admin check middleware
-function requireSuperAdmin(): IRouter extends (args: any[]) => infer R ? R : any {
-  return async (req: any, res: any, next: any) => {
-    if (!req.admin || req.admin.role !== "Super Admin") {
-      res.status(403).json({ error: "Only Super Admin can perform this action" });
-      return;
-    }
-    next();
-  };
-}
+/**
+ * ALLOWED ROLES per action:
+ * - Super Admin: full CRUD on all admin/volunteer accounts
+ * - Admin: can read all accounts, can manage Volunteer accounts only (create/edit/toggle/reset-password/delete)
+ * - Volunteer: cannot access this module at all
+ */
 
 // ── GET /api/admin/manage ─────────────────────────────────────────────────
-// List all admins
-router.get("/admin/manage", requireAdminToken(), async (_req, res): Promise<void> => {
+// List all admins/volunteers (Super Admin and Admin)
+router.get("/admin/manage", requireRole("Super Admin", "Admin"), async (_req, res): Promise<void> => {
   try {
     const admins = await db
       .select({
@@ -52,15 +44,16 @@ router.get("/admin/manage", requireAdminToken(), async (_req, res): Promise<void
       lastLogin: a.lastLogin?.toISOString?.() || a.lastLogin,
     })));
   } catch (err: any) {
-    res.status(500).json({ error: err?.message || "Failed to fetch admins" });
+    res.status(500).json({ error: err?.message || "Failed to fetch accounts" });
   }
 });
 
 // ── POST /api/admin/manage ────────────────────────────────────────────────
-// Add a new admin (Super Admin only)
-router.post("/admin/manage", requireAdminToken(), requireSuperAdmin(), async (req, res): Promise<void> => {
+// Add a new account (Super Admin: can add any role; Admin: can add Volunteers only)
+router.post("/admin/manage", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const body = req.body || {};
+    const requestingAdmin = (req as any).admin;
 
     if (!isNonEmptyString(body.fullName)) {
       res.status(400).json({ error: "Full name is required" });
@@ -87,7 +80,26 @@ router.post("/admin/manage", requireAdminToken(), requireSuperAdmin(), async (re
       return;
     }
 
-    const role = body.role === "Super Admin" ? "Super Admin" : "Admin";
+    // Validate role based on who is creating
+    let role = body.role;
+    const validRoles = ["Super Admin", "Admin", "Volunteer"];
+
+    if (!validRoles.includes(role)) {
+      role = "Volunteer";
+    }
+
+    // Admins can only create Volunteer accounts
+    if (requestingAdmin.role === "Admin" && role !== "Volunteer") {
+      res.status(403).json({ error: "Admins can only create Volunteer accounts" });
+      return;
+    }
+
+    // Only Super Admin can create other Super Admins
+    if (role === "Super Admin" && requestingAdmin.role !== "Super Admin") {
+      res.status(403).json({ error: "Only Super Admin can create Super Admin accounts" });
+      return;
+    }
+
     const isActive = body.isActive !== false;
     const fullName = body.fullName.trim();
     const username = body.username.trim().toLowerCase();
@@ -162,19 +174,38 @@ router.post("/admin/manage", requireAdminToken(), requireSuperAdmin(), async (re
       res.status(409).json({ error: "Duplicate value. Username, mobile, or email already exists." });
       return;
     }
-    res.status(500).json({ error: err?.message || "Failed to create admin" });
+    res.status(500).json({ error: err?.message || "Failed to create account" });
   }
 });
 
 // ── PATCH /api/admin/manage/:id ───────────────────────────────────────────
-// Edit admin details (Super Admin only)
-router.patch("/admin/manage/:id", requireAdminToken(), requireSuperAdmin(), async (req, res): Promise<void> => {
+// Edit account details
+router.patch("/admin/manage/:id", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const rawId = req.params.id as string;
-    // The admins table uses UUID primary keys; do NOT parseInt
     const adminId = rawId;
+    const requestingAdmin = (req as any).admin;
 
     const body = req.body || {};
+
+    // First, fetch the target account
+    const [targetAdmin] = await db
+      .select({ id: adminsTable.id, role: adminsTable.role })
+      .from(adminsTable)
+      .where(eq(adminsTable.id, adminId as any))
+      .limit(1);
+
+    if (!targetAdmin) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+
+    // Admins can only edit Volunteer accounts
+    if (requestingAdmin.role === "Admin" && targetAdmin.role !== "Volunteer") {
+      res.status(403).json({ error: "Admins can only edit Volunteer accounts" });
+      return;
+    }
+
     const updateData: Record<string, unknown> = {};
     const allowedFields = ["fullName", "username", "mobileNumber", "email", "role", "isActive"];
 
@@ -197,7 +228,18 @@ router.patch("/admin/manage/:id", requireAdminToken(), requireSuperAdmin(), asyn
           }
           updateData[field] = body[field].trim();
         } else if (field === "role") {
-          updateData[field] = body[field] === "Super Admin" ? "Super Admin" : "Admin";
+          // Admins cannot change roles to/from Super Admin or Admin
+          if (requestingAdmin.role === "Admin") {
+            res.status(403).json({ error: "Admins cannot change account roles" });
+            return;
+          }
+          // Only allow valid roles
+          const validRoles = ["Super Admin", "Admin", "Volunteer"];
+          if (!validRoles.includes(body[field])) {
+            res.status(400).json({ error: "Invalid role" });
+            return;
+          }
+          updateData[field] = body[field];
         } else if (field === "isActive") {
           updateData[field] = body[field] === true;
         } else {
@@ -226,11 +268,6 @@ router.patch("/admin/manage/:id", requireAdminToken(), requireSuperAdmin(), asyn
         updatedAt: adminsTable.updatedAt,
       });
 
-    if (!updated) {
-      res.status(404).json({ error: "Admin not found" });
-      return;
-    }
-
     res.json({
       ...updated,
       updatedAt: updated.updatedAt?.toISOString?.() || updated.updatedAt,
@@ -240,16 +277,35 @@ router.patch("/admin/manage/:id", requireAdminToken(), requireSuperAdmin(), asyn
       res.status(409).json({ error: "Username, mobile, or email already exists." });
       return;
     }
-    res.status(500).json({ error: err?.message || "Failed to update admin" });
+    res.status(500).json({ error: err?.message || "Failed to update account" });
   }
 });
 
 // ── PATCH /api/admin/manage/:id/status ────────────────────────────────────
-// Enable/disable admin (Super Admin only)
-router.patch("/admin/manage/:id/status", requireAdminToken(), requireSuperAdmin(), async (req, res): Promise<void> => {
+// Enable/disable account
+router.patch("/admin/manage/:id/status", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const rawId = req.params.id as string;
     const adminId = rawId;
+    const requestingAdmin = (req as any).admin;
+
+    // Fetch target account
+    const [targetAdmin] = await db
+      .select({ id: adminsTable.id, role: adminsTable.role })
+      .from(adminsTable)
+      .where(eq(adminsTable.id, adminId as any))
+      .limit(1);
+
+    if (!targetAdmin) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+
+    // Admins can only toggle Volunteer accounts
+    if (requestingAdmin.role === "Admin" && targetAdmin.role !== "Volunteer") {
+      res.status(403).json({ error: "Admins can only manage Volunteer account status" });
+      return;
+    }
 
     const { isActive } = req.body || {};
     if (typeof isActive !== "boolean") {
@@ -258,7 +314,6 @@ router.patch("/admin/manage/:id/status", requireAdminToken(), requireSuperAdmin(
     }
 
     // Prevent disabling own account
-    const requestingAdmin = (req as any).admin;
     if (requestingAdmin.id === adminId && !isActive) {
       res.status(400).json({ error: "You cannot disable your own account" });
       return;
@@ -274,11 +329,6 @@ router.patch("/admin/manage/:id/status", requireAdminToken(), requireSuperAdmin(
         isActive: adminsTable.isActive,
       });
 
-    if (!updated) {
-      res.status(404).json({ error: "Admin not found" });
-      return;
-    }
-
     res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: err?.message || "Failed to update status" });
@@ -286,11 +336,30 @@ router.patch("/admin/manage/:id/status", requireAdminToken(), requireSuperAdmin(
 });
 
 // ── PATCH /api/admin/manage/:id/reset-password ────────────────────────────
-// Reset admin password (Super Admin only)
-router.patch("/admin/manage/:id/reset-password", requireAdminToken(), requireSuperAdmin(), async (req, res): Promise<void> => {
+// Reset account password
+router.patch("/admin/manage/:id/reset-password", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const rawId = req.params.id as string;
     const adminId = rawId;
+    const requestingAdmin = (req as any).admin;
+
+    // Fetch target account
+    const [targetAdmin] = await db
+      .select({ id: adminsTable.id, role: adminsTable.role })
+      .from(adminsTable)
+      .where(eq(adminsTable.id, adminId as any))
+      .limit(1);
+
+    if (!targetAdmin) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+
+    // Admins can only reset passwords for Volunteer accounts
+    if (requestingAdmin.role === "Admin" && targetAdmin.role !== "Volunteer") {
+      res.status(403).json({ error: "Admins can only reset passwords for Volunteer accounts" });
+      return;
+    }
 
     const { newPassword, confirmPassword } = req.body || {};
     if (!isNonEmptyString(newPassword) || newPassword.length < 6) {
@@ -310,11 +379,6 @@ router.patch("/admin/manage/:id/reset-password", requireAdminToken(), requireSup
       .where(eq(adminsTable.id, adminId as any))
       .returning({ id: adminsTable.id, fullName: adminsTable.fullName });
 
-    if (!updated) {
-      res.status(404).json({ error: "Admin not found" });
-      return;
-    }
-
     res.json({ message: "Password reset successfully", id: updated.id });
   } catch (err: any) {
     res.status(500).json({ error: err?.message || "Failed to reset password" });
@@ -322,16 +386,34 @@ router.patch("/admin/manage/:id/reset-password", requireAdminToken(), requireSup
 });
 
 // ── DELETE /api/admin/manage/:id ──────────────────────────────────────────
-// Delete admin (Super Admin only)
-router.delete("/admin/manage/:id", requireAdminToken(), requireSuperAdmin(), async (req, res): Promise<void> => {
+// Delete account
+router.delete("/admin/manage/:id", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const rawId = req.params.id as string;
     const adminId = rawId;
+    const requestingAdmin = (req as any).admin;
+
+    // Fetch target account
+    const [targetAdmin] = await db
+      .select({ id: adminsTable.id, role: adminsTable.role })
+      .from(adminsTable)
+      .where(eq(adminsTable.id, adminId as any))
+      .limit(1);
+
+    if (!targetAdmin) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
 
     // Prevent deleting own account
-    const requestingAdmin = (req as any).admin;
     if (requestingAdmin.id === adminId) {
       res.status(400).json({ error: "You cannot delete your own account" });
+      return;
+    }
+
+    // Admins can only delete Volunteer accounts
+    if (requestingAdmin.role === "Admin" && targetAdmin.role !== "Volunteer") {
+      res.status(403).json({ error: "Admins can only delete Volunteer accounts" });
       return;
     }
 
@@ -341,13 +423,13 @@ router.delete("/admin/manage/:id", requireAdminToken(), requireSuperAdmin(), asy
       .returning({ id: adminsTable.id });
 
     if (!deleted) {
-      res.status(404).json({ error: "Admin not found" });
+      res.status(404).json({ error: "Account not found" });
       return;
     }
 
     res.status(204).end();
   } catch (err: any) {
-    res.status(500).json({ error: err?.message || "Failed to delete admin" });
+    res.status(500).json({ error: err?.message || "Failed to delete account" });
   }
 });
 

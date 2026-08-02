@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
-import { db, festivalsTable, festivalDonationsTable } from "@workspace/db";
+import { db, festivalsTable, festivalDonationsTable, adminsTable } from "@workspace/db";
 import { eq, and, sql, desc, asc } from "drizzle-orm";
-import { requireAdminToken } from "../middlewares/requireAdminToken";
+import { requireRole, canAccessFestival } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
 
@@ -17,13 +17,18 @@ function isPositiveInteger(val: unknown): val is number {
 
 // ── GET /api/admin/festivals ────────────────────────────────────────────────
 // List all festivals with stats (total collection, residents paid, pending)
+// All admin roles can view festivals
 
-router.get("/admin/festivals", requireAdminToken(), async (_req, res): Promise<void> => {
+router.get("/admin/festivals", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
   try {
-    const festivals = await db
-      .select()
-      .from(festivalsTable)
-      .orderBy(desc(festivalsTable.year), desc(festivalsTable.createdAt));
+    const admin = (req as any).admin;
+
+    // Volunteers only see festivals assigned to them
+    let query = db.select().from(festivalsTable);
+    if (admin.role === "Volunteer") {
+      query = query.where(eq(festivalsTable.assignedVolunteerId, admin.id));
+    }
+    const festivals = await query.orderBy(desc(festivalsTable.year), desc(festivalsTable.createdAt));
 
     // Attach stats to each festival
     const result = await Promise.all(
@@ -77,11 +82,19 @@ async function getFestivalStats(festivalId: number) {
 // ── GET /api/admin/festivals/:id ────────────────────────────────────────────
 // Get a single festival with full stats
 
-router.get("/admin/festivals/:id", requireAdminToken(), async (req, res): Promise<void> => {
+router.get("/admin/festivals/:id", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
   try {
     const festivalId = parseInt(req.params.id as string, 10);
     if (isNaN(festivalId)) {
       res.status(400).json({ error: "Invalid festival ID" });
+      return;
+    }
+
+    const admin = (req as any).admin;
+
+    // Volunteers can only access festivals assigned to them
+    if (!(await canAccessFestival(admin.role, admin.id, festivalId))) {
+      res.status(403).json({ error: "Forbidden - you do not have access to this festival" });
       return;
     }
 
@@ -105,8 +118,9 @@ router.get("/admin/festivals/:id", requireAdminToken(), async (req, res): Promis
 
 // ── POST /api/admin/festivals ───────────────────────────────────────────────
 // Create a new festival (with duplicate check: name + year)
+// Only Super Admin and Admin can create festivals
 
-router.post("/admin/festivals", requireAdminToken(), async (req, res): Promise<void> => {
+router.post("/admin/festivals", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const body = req.body || {};
 
@@ -151,6 +165,29 @@ router.post("/admin/festivals", requireAdminToken(), async (req, res): Promise<v
       finalSlug = slug + "-" + Date.now();
     }
 
+    // Validate assigned volunteer (if provided)
+    let assignedVolunteerId: string | null = null;
+    if (body.assignedVolunteerId != null) {
+      if (!isNonEmptyString(body.assignedVolunteerId)) {
+        res.status(400).json({ error: "Invalid assigned volunteer" });
+        return;
+      }
+      const volunteer = await db
+        .select({ id: adminsTable.id })
+        .from(adminsTable)
+        .where(and(
+          eq(adminsTable.id, body.assignedVolunteerId as string),
+          eq(adminsTable.role, "Volunteer"),
+          eq(adminsTable.isActive, true),
+        ))
+        .limit(1);
+      if (volunteer.length === 0) {
+        res.status(400).json({ error: "Assigned volunteer not found or not active" });
+        return;
+      }
+      assignedVolunteerId = body.assignedVolunteerId.trim();
+    }
+
     const [festival] = await db
       .insert(festivalsTable)
       .values({
@@ -163,6 +200,7 @@ router.post("/admin/festivals", requireAdminToken(), async (req, res): Promise<v
         expectedDonation: body.expectedDonation ? String(body.expectedDonation) : null,
         status: body.status || "upcoming",
         isActive: body.status === "active",
+        assignedVolunteerId,
       })
       .returning();
 
@@ -178,8 +216,9 @@ router.post("/admin/festivals", requireAdminToken(), async (req, res): Promise<v
 
 // ── PATCH /api/admin/festivals/:id ──────────────────────────────────────────
 // Update a festival
+// Only Super Admin and Admin can update festivals
 
-router.patch("/admin/festivals/:id", requireAdminToken(), async (req, res): Promise<void> => {
+router.patch("/admin/festivals/:id", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const festivalId = parseInt(req.params.id as string, 10);
     if (isNaN(festivalId)) {
@@ -221,6 +260,32 @@ router.patch("/admin/festivals/:id", requireAdminToken(), async (req, res): Prom
       return;
     }
 
+    // Handle assignedVolunteerId separately (accepts null to un-assign)
+    if (body.assignedVolunteerId !== undefined) {
+      const vol = body.assignedVolunteerId;
+      if (vol == null || (typeof vol === "string" && vol.trim() === "")) {
+        updateData.assignedVolunteerId = null;
+      } else if (isNonEmptyString(vol)) {
+        const volunteer = await db
+          .select({ id: adminsTable.id })
+          .from(adminsTable)
+          .where(and(
+            eq(adminsTable.id, vol as string),
+            eq(adminsTable.role, "Volunteer"),
+            eq(adminsTable.isActive, true),
+          ))
+          .limit(1);
+        if (volunteer.length === 0) {
+          res.status(400).json({ error: "Assigned volunteer not found or not active" });
+          return;
+        }
+        updateData.assignedVolunteerId = vol.trim();
+      } else {
+        res.status(400).json({ error: "Invalid assigned volunteer" });
+        return;
+      }
+    }
+
     // Update slug if name changed
     if (updateData.name) {
       const current = await db
@@ -257,8 +322,9 @@ router.patch("/admin/festivals/:id", requireAdminToken(), async (req, res): Prom
 
 // ── DELETE /api/admin/festivals/:id ─────────────────────────────────────────
 // Delete a festival with cascade check
+// Only Super Admin can delete festivals
 
-router.delete("/admin/festivals/:id", requireAdminToken(), async (req, res): Promise<void> => {
+router.delete("/admin/festivals/:id", requireRole("Super Admin"), async (req, res): Promise<void> => {
   try {
     const festivalId = parseInt(req.params.id as string, 10);
     if (isNaN(festivalId)) {
@@ -312,8 +378,9 @@ router.delete("/admin/festivals/:id", requireAdminToken(), async (req, res): Pro
 
 // ── DELETE /api/admin/festivals/:id/force ───────────────────────────────────
 // Force delete a festival and all its donations
+// Only Super Admin can force delete
 
-router.delete("/admin/festivals/:id/force", requireAdminToken(), async (req, res): Promise<void> => {
+router.delete("/admin/festivals/:id/force", requireRole("Super Admin"), async (req, res): Promise<void> => {
   try {
     const festivalId = parseInt(req.params.id as string, 10);
     if (isNaN(festivalId)) {

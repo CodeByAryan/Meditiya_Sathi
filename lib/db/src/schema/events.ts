@@ -15,6 +15,7 @@ export const eventsTable = pgTable("events", {
   status: text("status").notNull().default("upcoming"), // upcoming | ongoing | completed | cancelled
   maxParticipants: integer("max_participants"),
   festivalId: integer("festival_id").references(() => festivalsTable.id),
+  assignedVolunteerId: text("assigned_volunteer_id"), // references admin.id for volunteer assignment
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

@@ -10,7 +10,7 @@ export interface AdminUser {
   token: string;
 }
 
-interface AdminAuthContextType {
+export interface AdminAuthContextType {
   user: AdminUser | null;
   isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<boolean>;
@@ -18,6 +18,20 @@ interface AdminAuthContextType {
   isLoading: boolean;
   error: string | null;
   isSuperAdmin: boolean;
+  isAdmin: boolean;
+  isVolunteer: boolean;
+  canManageAdmins: boolean;
+  canManageVolunteers: boolean;
+  canManageBuildings: boolean;
+  canManageResidents: boolean;
+  canManageFestivals: boolean;
+  canCreateFestivals: boolean;
+  canDeleteFestivals: boolean;
+  canManageEvents: boolean;
+  canCreateEvents: boolean;
+  canDeleteEvents: boolean;
+  canViewReports: boolean;
+  canManageSystemSettings: boolean;
 }
 
 const AdminAuthContext = createContext<AdminAuthContextType>({
@@ -28,6 +42,20 @@ const AdminAuthContext = createContext<AdminAuthContextType>({
   isLoading: false,
   error: null,
   isSuperAdmin: false,
+  isAdmin: false,
+  isVolunteer: false,
+  canManageAdmins: false,
+  canManageVolunteers: false,
+  canManageBuildings: false,
+  canManageResidents: false,
+  canManageFestivals: false,
+  canCreateFestivals: false,
+  canDeleteFestivals: false,
+  canManageEvents: false,
+  canCreateEvents: false,
+  canDeleteEvents: false,
+  canViewReports: false,
+  canManageSystemSettings: false,
 });
 
 const STORAGE_KEY = "admin_auth";
@@ -56,7 +84,24 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isSuperAdmin = user?.role === "Super Admin";
+  const role = user?.role || "";
+  const isSuperAdmin = role === "Super Admin";
+  const isAdmin = role === "Admin";
+  const isVolunteer = role === "Volunteer";
+
+  // Permission helpers based on role
+  const canManageAdmins = isSuperAdmin;
+  const canManageVolunteers = isSuperAdmin || isAdmin;
+  const canManageBuildings = isSuperAdmin || isAdmin;
+  const canManageResidents = isSuperAdmin || isAdmin;
+  const canManageFestivals = isSuperAdmin || isAdmin;
+  const canCreateFestivals = isSuperAdmin || isAdmin;
+const canDeleteFestivals = isSuperAdmin; // Only Super Admin can delete festivals
+  const canManageEvents = isSuperAdmin || isAdmin || isVolunteer;
+  const canCreateEvents = isSuperAdmin || isAdmin;
+  const canDeleteEvents = isSuperAdmin || isAdmin;
+  const canViewReports = isSuperAdmin || isAdmin;
+  const canManageSystemSettings = isSuperAdmin;
 
   const login = useCallback(async (username: string, password: string): Promise<boolean> => {
     setIsLoading(true);
@@ -112,6 +157,20 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         error,
         isSuperAdmin,
+        isAdmin,
+        isVolunteer,
+        canManageAdmins,
+        canManageVolunteers,
+        canManageBuildings,
+        canManageResidents,
+        canManageFestivals,
+        canCreateFestivals,
+        canDeleteFestivals,
+        canManageEvents,
+        canCreateEvents,
+        canDeleteEvents,
+        canViewReports,
+        canManageSystemSettings,
       }}
     >
       {children}
@@ -122,3 +181,4 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 export function useAdminAuth() {
   return useContext(AdminAuthContext);
 }
+

@@ -20,5 +20,10 @@
 
 ## Deployment Fix (404 on https://meditiya-sathi.onrender.com)
 - [x] Diagnosed: Production back end runs last committed code; `collection-summary` route only exists in the working tree
-- [ ] Commit + push changes (incl. new `requireRole.ts`) so Render re-deploys with the new route
+- [x] Commit + push changes (incl. new `requireRole.ts`) so Render re-deploys with the new route
+  - Commit `2a1d24f` pushed to `origin/main` (`89905c2..2a1d24f`)
+  - HEAD now contains `collection-summary` route (verified: 2 occurrences)
+- [x] Confirm production endpoint no longer 404s after Render re-deploy
+  - Before: `GET /api/admin/festivals/2/collection-summary?date=2026-08-02` → 404
+  - After: same URL → 401 Unauthorized (route exists, admin auth middleware correctly requires a valid Bearer token)
 

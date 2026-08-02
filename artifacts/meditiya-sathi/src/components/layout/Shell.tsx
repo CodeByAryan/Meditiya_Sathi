@@ -1,5 +1,4 @@
 import { ReactNode, useState, useEffect } from 'react';
-
 import { Link, useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, Home, Calendar, Image as ImageIcon, Bell, Heart, Users, MapPin, AlertCircle, ShoppingBag, Radio, Moon, Sun, ChevronDown, Shield } from 'lucide-react';
@@ -48,11 +47,12 @@ export default function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-[100dvh] flex flex-col w-full overflow-x-hidden">
-      <header 
+      {/* Header */}
+      <header
         className={cn(
           "fixed top-0 inset-x-0 z-50 transition-all duration-300",
-          isScrolled 
-            ? "bg-white/80 dark:bg-slate-950/80 backdrop-blur-md shadow-sm border-b border-border" 
+          isScrolled
+            ? "bg-white/80 dark:bg-slate-950/80 backdrop-blur-md shadow-sm border-b border-border"
             : "bg-transparent"
         )}
       >
@@ -95,8 +95,8 @@ export default function Shell({ children }: { children: ReactNode }) {
                     <div className="absolute top-full right-0 w-48 pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 translate-y-2 group-hover:translate-y-0">
                       <div className="bg-popover border border-border shadow-lg rounded-xl overflow-hidden p-2 flex flex-col gap-1">
                         {moreLinks.map(sublink => (
-                          <Link 
-                            key={sublink.href} 
+                          <Link
+                            key={sublink.href}
                             href={sublink.href}
                             className={cn(
                               "px-3 py-2 text-sm rounded-md transition-colors",
@@ -107,19 +107,19 @@ export default function Shell({ children }: { children: ReactNode }) {
                           </Link>
                         ))}
                       </div>
-                    </div>
+                      </div>
                   </div>
                 );
               }
               const isActive = location === link.href;
               return (
-                <Link 
-                  key={link.href} 
+                <Link
+                  key={link.href}
                   href={link.href}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md transition-colors",
-                    isActive 
-                      ? "text-primary bg-primary/10" 
+                    isActive
+                      ? "text-primary bg-primary/10"
                       : "text-foreground/80 hover:text-primary hover:bg-muted/50"
                   )}
                 >
@@ -131,7 +131,7 @@ export default function Shell({ children }: { children: ReactNode }) {
           </nav>
 
           <div className="flex items-center gap-3 z-50">
-            <button 
+            <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               className="p-2 rounded-full text-foreground/70 hover:text-primary hover:bg-muted transition-colors"
               aria-label="Toggle theme"
@@ -157,7 +157,7 @@ export default function Shell({ children }: { children: ReactNode }) {
               </button>
             )}
 
-            <button 
+            <button
               className="lg:hidden p-2 text-foreground/80 hover:text-primary transition-colors"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
@@ -170,7 +170,7 @@ export default function Shell({ children }: { children: ReactNode }) {
       {/* Mobile Menu */}
       <AnimatePresence>
         {mobileMenuOpen && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
@@ -179,21 +179,20 @@ export default function Shell({ children }: { children: ReactNode }) {
             <div className="p-4 max-h-[calc(100vh-80px)] overflow-y-auto flex flex-col gap-6">
               <div className="grid grid-cols-2 gap-2">
                 {[...navLinks.filter(l => !l.isDropdown), ...moreLinks].map(link => (
-                  <Link 
-                    key={link.href} 
+                  <Link
+                    key={link.href}
                     href={link.href}
                     onClick={() => setMobileMenuOpen(false)}
                     className={cn(
                       "flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors",
-                      location === link.href 
-                        ? "bg-primary text-white shadow-md" 
+                      location === link.href
+                        ? "bg-primary text-white shadow-md"
                         : "bg-muted/50 text-foreground hover:bg-muted hover:text-primary"
                     )}
                   >
                     {link.name}
                   </Link>
                 ))}
-                {/* Admin button for mobile - visible to all users */}
                 <Link
                   href={isAuthenticated ? "/admin" : "/admin-login"}
                   onClick={() => setMobileMenuOpen(false)}
@@ -208,7 +207,7 @@ export default function Shell({ children }: { children: ReactNode }) {
                   {isAuthenticated ? "Admin Panel" : "Admin Login"}
                 </Link>
               </div>
-              
+
               {!isAuthenticated && (
                 <div className="flex flex-col gap-3 pt-4 border-t border-border mt-2">
                   <Link
@@ -243,10 +242,13 @@ export default function Shell({ children }: { children: ReactNode }) {
             </div>
           </motion.div>
         )}
-      </AnimatePresence>      <main className="flex-1 w-full relative pt-16 md:pt-20">
+      </AnimatePresence>
+
+      <main className="flex-1 w-full relative pt-16 md:pt-20">
         {children}
       </main>
 
+      {/* Footer */}
       <footer className="bg-secondary text-secondary-foreground pt-16 pb-8 border-t-4 border-primary">
         <div className="container mx-auto px-4 md:px-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
@@ -261,7 +263,6 @@ export default function Shell({ children }: { children: ReactNode }) {
                 The official digital platform for Meditiya Nagar society. Bridging gaps, celebrating culture, and building a stronger community together.
               </p>
             </div>
-            
             <div>
               <h4 className="font-serif font-bold text-lg text-accent mb-6">Quick Links</h4>
               <ul className="flex flex-col gap-3 text-sm">
@@ -271,7 +272,6 @@ export default function Shell({ children }: { children: ReactNode }) {
                 <li><Link href="/donations" className="text-secondary-foreground/80 hover:text-white transition-colors">Support & Donate</Link></li>
               </ul>
             </div>
-            
             <div>
               <h4 className="font-serif font-bold text-lg text-accent mb-6">Services</h4>
               <ul className="flex flex-col gap-3 text-sm">
@@ -281,7 +281,6 @@ export default function Shell({ children }: { children: ReactNode }) {
                 <li><Link href="/emergency" className="text-secondary-foreground/80 hover:text-white transition-colors">Emergency Contacts</Link></li>
               </ul>
             </div>
-            
             <div>
               <h4 className="font-serif font-bold text-lg text-accent mb-6">Contact</h4>
               <ul className="flex flex-col gap-3 text-sm text-secondary-foreground/80">
@@ -296,9 +295,8 @@ export default function Shell({ children }: { children: ReactNode }) {
               </ul>
             </div>
           </div>
-          
           <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-secondary-foreground/50">
-            <p>© {new Date().getFullYear()} Meditiya Nagar Society. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} Meditiya Nagar Society. All rights reserved.</p>
             <p>Designed with <Heart className="w-3 h-3 inline text-primary mx-1" /> for the community.</p>
           </div>
         </div>

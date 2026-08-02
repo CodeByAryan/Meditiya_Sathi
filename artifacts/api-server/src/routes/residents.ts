@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, buildingsTable, wingsTable, residentsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
-import { requireAdminToken } from "../middlewares/requireAdminToken";
+import { requireRole } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
 
@@ -18,7 +18,7 @@ function isPositiveInteger(val: unknown): val is number {
 // ── GET /api/admin/buildings ────────────────────────────────────────────────
 // Fetch all active buildings
 
-router.get("/admin/buildings", requireAdminToken(), async (_req, res): Promise<void> => {
+router.get("/admin/buildings", requireRole("Super Admin", "Admin"), async (_req, res): Promise<void> => {
   try {
     const buildings = await db
       .select()
@@ -38,7 +38,7 @@ router.get("/admin/buildings", requireAdminToken(), async (_req, res): Promise<v
 // ── GET /api/admin/buildings/:buildingId/wings ──────────────────────────────
 // Fetch wings for a specific building
 
-router.get("/admin/buildings/:buildingId/wings", requireAdminToken(), async (req, res): Promise<void> => {
+router.get("/admin/buildings/:buildingId/wings", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const buildingId = parseInt(req.params.buildingId as string, 10);
     if (isNaN(buildingId)) {
@@ -67,7 +67,7 @@ router.get("/admin/buildings/:buildingId/wings", requireAdminToken(), async (req
 // ── GET /api/admin/residents/check-mobile/:mobile ───────────────────────────
 // Check if a mobile number is already registered
 
-router.get("/admin/residents/check-mobile/:mobile", requireAdminToken(), async (req, res): Promise<void> => {
+router.get("/admin/residents/check-mobile/:mobile", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const mobile = req.params.mobile as string;
     if (!isNonEmptyString(mobile)) {
@@ -90,7 +90,7 @@ router.get("/admin/residents/check-mobile/:mobile", requireAdminToken(), async (
 // ── GET /api/admin/residents/check-flat ─────────────────────────────────────
 // Check if a flat is already registered in a building/wing
 
-router.get("/admin/residents/check-flat", requireAdminToken(), async (req, res): Promise<void> => {
+router.get("/admin/residents/check-flat", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const buildingId = parseInt(req.query.buildingId as string, 10);
     const flatNo = req.query.flatNo as string | undefined;
@@ -128,7 +128,7 @@ router.get("/admin/residents/check-flat", requireAdminToken(), async (req, res):
 // ── POST /api/admin/residents ───────────────────────────────────────────────
 // Create a new resident (with duplicate checks)
 
-router.post("/admin/residents", requireAdminToken(), async (req, res): Promise<void> => {
+router.post("/admin/residents", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const body = req.body || {};
 
@@ -234,7 +234,7 @@ router.post("/admin/residents", requireAdminToken(), async (req, res): Promise<v
 // ── GET /api/admin/buildings/manage ──────────────────────────────────────────
 // List ALL buildings (including inactive) for management
 
-router.get("/admin/buildings/manage", requireAdminToken(), async (_req, res): Promise<void> => {
+router.get("/admin/buildings/manage", requireRole("Super Admin", "Admin"), async (_req, res): Promise<void> => {
   try {
     const buildings = await db
       .select()
@@ -253,7 +253,7 @@ router.get("/admin/buildings/manage", requireAdminToken(), async (_req, res): Pr
 // ── POST /api/admin/buildings ───────────────────────────────────────────────
 // Create a new building
 
-router.post("/admin/buildings", requireAdminToken(), async (req, res): Promise<void> => {
+router.post("/admin/buildings", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const { buildingName, hasWings } = req.body || {};
 
@@ -283,7 +283,7 @@ router.post("/admin/buildings", requireAdminToken(), async (req, res): Promise<v
 // ── PATCH /api/admin/buildings/:id ──────────────────────────────────────────
 // Update a building (status)
 
-router.patch("/admin/buildings/:id", requireAdminToken(), async (req, res): Promise<void> => {
+router.patch("/admin/buildings/:id", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const buildingId = parseInt(req.params.id as string, 10);
     if (isNaN(buildingId)) {
@@ -325,7 +325,7 @@ router.patch("/admin/buildings/:id", requireAdminToken(), async (req, res): Prom
 // ── DELETE /api/admin/buildings/:id ─────────────────────────────────────────
 // Delete a building (cascades to wings and residents)
 
-router.delete("/admin/buildings/:id", requireAdminToken(), async (req, res): Promise<void> => {
+router.delete("/admin/buildings/:id", requireRole("Super Admin"), async (req, res): Promise<void> => {
   try {
     const buildingId = parseInt(req.params.id as string, 10);
     if (isNaN(buildingId)) {
@@ -352,7 +352,7 @@ router.delete("/admin/buildings/:id", requireAdminToken(), async (req, res): Pro
 // ── GET /api/admin/buildings/:id/wings/manage ───────────────────────────────
 // List ALL wings (including inactive) for management
 
-router.get("/admin/buildings/:id/wings/manage", requireAdminToken(), async (req, res): Promise<void> => {
+router.get("/admin/buildings/:id/wings/manage", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const buildingId = parseInt(req.params.id as string, 10);
     if (isNaN(buildingId)) {
@@ -378,7 +378,7 @@ router.get("/admin/buildings/:id/wings/manage", requireAdminToken(), async (req,
 // ── POST /api/admin/buildings/:id/wings ─────────────────────────────────────
 // Create a new wing for a building
 
-router.post("/admin/buildings/:id/wings", requireAdminToken(), async (req, res): Promise<void> => {
+router.post("/admin/buildings/:id/wings", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const buildingId = parseInt(req.params.id as string, 10);
     if (isNaN(buildingId)) {
@@ -413,7 +413,7 @@ router.post("/admin/buildings/:id/wings", requireAdminToken(), async (req, res):
 // ── PATCH /api/admin/buildings/:id/wings/:wingId ──────────────────────────
 // Update a wing (status)
 
-router.patch("/admin/buildings/:id/wings/:wingId", requireAdminToken(), async (req, res): Promise<void> => {
+router.patch("/admin/buildings/:id/wings/:wingId", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const buildingId = parseInt(req.params.id as string, 10);
     const wingId = parseInt(req.params.wingId as string, 10);
@@ -456,7 +456,7 @@ router.patch("/admin/buildings/:id/wings/:wingId", requireAdminToken(), async (r
 // ── DELETE /api/admin/buildings/:id/wings/:wingId ────────────────────────
 // Delete a wing
 
-router.delete("/admin/buildings/:id/wings/:wingId", requireAdminToken(), async (req, res): Promise<void> => {
+router.delete("/admin/buildings/:id/wings/:wingId", requireRole("Super Admin"), async (req, res): Promise<void> => {
   try {
     const buildingId = parseInt(req.params.id as string, 10);
     const wingId = parseInt(req.params.wingId as string, 10);
@@ -487,8 +487,9 @@ router.delete("/admin/buildings/:id/wings/:wingId", requireAdminToken(), async (
 
 // ── GET /api/admin/residents/:id/festival-history ─────────────────────────────
 // Get festival donation history for a specific resident
+// Volunteers can view festival history for donation entry purposes
 
-router.get("/admin/residents/:id/festival-history", requireAdminToken(), async (req, res): Promise<void> => {
+router.get("/admin/residents/:id/festival-history", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
   try {
     const residentId = parseInt(req.params.id as string, 10);
     if (isNaN(residentId)) {
@@ -527,7 +528,7 @@ router.get("/admin/residents/:id/festival-history", requireAdminToken(), async (
 // ── GET /api/admin/residents/search ───────────────────────────────────────────
 // Search residents for donation form (with festival history)
 
-router.get("/admin/residents/search", requireAdminToken(), async (req, res): Promise<void> => {
+router.get("/admin/residents/search", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
   try {
     const q = (req.query.q as string)?.trim() || "";
     const buildingIdParam = req.query.buildingId as string | undefined;
@@ -625,7 +626,7 @@ router.get("/admin/residents/search", requireAdminToken(), async (req, res): Pro
 // ── GET /api/admin/residents ─────────────────────────────────────────────────
 // List residents with search, filter, sort, pagination -- includes building/wing names
 
-router.get("/admin/residents", requireAdminToken(), async (req, res): Promise<void> => {
+router.get("/admin/residents", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 10));
@@ -746,7 +747,7 @@ router.get("/admin/residents", requireAdminToken(), async (req, res): Promise<vo
 // ── GET /api/admin/residents/:id ─────────────────────────────────────────────
 // Get a single resident with building/wing details
 
-router.get("/admin/residents/:id", requireAdminToken(), async (req, res): Promise<void> => {
+router.get("/admin/residents/:id", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const residentId = parseInt(req.params.id as string, 10);
     if (isNaN(residentId)) {
@@ -793,7 +794,7 @@ router.get("/admin/residents/:id", requireAdminToken(), async (req, res): Promis
 // ── PATCH /api/admin/residents/:id ───────────────────────────────────────────
 // Update a resident
 
-router.patch("/admin/residents/:id", requireAdminToken(), async (req, res): Promise<void> => {
+router.patch("/admin/residents/:id", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const residentId = parseInt(req.params.id as string, 10);
     if (isNaN(residentId)) {
@@ -872,7 +873,7 @@ router.patch("/admin/residents/:id", requireAdminToken(), async (req, res): Prom
 // ── DELETE /api/admin/residents/:id ─────────────────────────────────────────
 // Delete a resident (check for donation records first)
 
-router.delete("/admin/residents/:id", requireAdminToken(), async (req, res): Promise<void> => {
+router.delete("/admin/residents/:id", requireRole("Super Admin"), async (req, res): Promise<void> => {
   try {
     const residentId = parseInt(req.params.id as string, 10);
     if (isNaN(residentId)) {

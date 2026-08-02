@@ -9,7 +9,7 @@ export const adminsTable = pgTable("admins", {
   email: text("email"),
   mobileNumber: text("mobile_number").notNull().unique(),
   password: text("password").notNull(),
-  role: text("role").notNull().default("Admin"), // Super Admin | Admin
+  role: text("role").notNull().default("Volunteer"), // Super Admin | Admin | Volunteer
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

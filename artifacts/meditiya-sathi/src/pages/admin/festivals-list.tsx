@@ -3,6 +3,7 @@ import { Link } from 'wouter';
 import { ArrowLeft, Building2, Plus, Search, Eye, Edit3, Trash2, CalendarDays, MapPin, Filter, RefreshCw, AlertTriangle, CheckCircle, XCircle, Clock, IndianRupee, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, getApiUrl } from '@/lib/utils';
+import { useAdminAuth } from '@/lib/AdminAuthContext';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface Festival {
@@ -130,6 +131,7 @@ function DeleteConfirmDialog({ festival, onConfirm, onCancel, isLoading }: {
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 export default function AdminFestivalsList() {
+  const { canDeleteFestivals } = useAdminAuth();
   const [festivals, setFestivals] = useState<Festival[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -426,13 +428,15 @@ export default function AdminFestivalsList() {
                             >
                               <Edit3 className="w-4 h-4" />
                             </Link>
-                            <button
-                              onClick={() => setDeleteFestival(f)}
-                              className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-destructive"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {canDeleteFestivals && (
+                              <button
+                                onClick={() => setDeleteFestival(f)}
+                                className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-destructive"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

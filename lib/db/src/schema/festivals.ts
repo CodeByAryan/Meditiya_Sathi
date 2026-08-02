@@ -16,6 +16,7 @@ export const festivalsTable = pgTable("festivals", {
   youtubeUrl: text("youtube_url"),
   history: text("history"),
   isActive: boolean("is_active").notNull().default(true),
+  assignedVolunteerId: text("assigned_volunteer_id"), // FK to admins.id (UUID) — Volunteer assigned to this festival
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => ({
