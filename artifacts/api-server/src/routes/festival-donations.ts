@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, festivalDonationsTable, festivalsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
-import { requireAdminToken } from "../middlewares/requireAdminToken";
+import { requireRole, canAccessFestival, canAccessDonation } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
 
@@ -35,11 +35,17 @@ async function generateReceiptNumber(festivalId: number): Promise<string> {
 // ── GET /api/admin/festivals/:festivalId/donations ─────────────────────────
 // List donations for a festival with resident details, filters, sorting
 
-router.get("/admin/festivals/:festivalId/donations", requireAdminToken(), async (req, res): Promise<void> => {
+router.get("/admin/festivals/:festivalId/donations", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
   try {
     const festivalId = parseInt(req.params.festivalId as string, 10);
     if (isNaN(festivalId)) {
       res.status(400).json({ error: "Invalid festival ID" });
+      return;
+    }
+
+    const admin = (req as any).admin;
+    if (!(await canAccessFestival(admin.role, admin.id, festivalId))) {
+      res.status(403).json({ error: "Forbidden - you do not have access to this festival" });
       return;
     }
 
@@ -206,7 +212,7 @@ router.get("/admin/festivals/:festivalId/donations", requireAdminToken(), async 
 // ── POST /api/admin/festivals/:festivalId/donations ─────────────────────────
 // Create a donation (auto-collect admin info from token, auto-generate receipt for non-pending)
 
-router.post("/admin/festivals/:festivalId/donations", requireAdminToken(), async (req, res): Promise<void> => {
+router.post("/admin/festivals/:festivalId/donations", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
   try {
     const festivalId = parseInt(req.params.festivalId as string, 10);
     if (isNaN(festivalId)) {
@@ -228,6 +234,14 @@ router.post("/admin/festivals/:festivalId/donations", requireAdminToken(), async
 
     const body = req.body || {};
     const admin = (req as any).admin;
+
+    // Volunteers can only add donations to festivals assigned to them
+    if (admin.role === "Volunteer") {
+      if (!(await canAccessFestival(admin.role, admin.id, festivalId))) {
+        res.status(403).json({ error: "Forbidden - you do not have access to this festival" });
+        return;
+      }
+    }
 
     // Validation
     if (!isPositiveInteger(body.residentId)) {
@@ -289,8 +303,8 @@ router.post("/admin/festivals/:festivalId/donations", requireAdminToken(), async
         receiptGeneratedAt,
         pendingReason: !isPaid && body.pendingReason ? body.pendingReason.trim() : null,
         notes: body.notes?.trim() || null,
-        collectedByAdminId: admin?.username || admin?.id || "unknown",
-        collectedByAdminName: admin?.username || admin?.name || "Unknown Admin",
+        collectedByAdminId: admin?.id || "unknown",
+        collectedByAdminName: admin?.fullName || admin?.username || "Unknown Admin",
       })
       .returning();
 
@@ -310,15 +324,40 @@ router.post("/admin/festivals/:festivalId/donations", requireAdminToken(), async
 
 // ── PATCH /api/admin/festivals/:festivalId/donations/:id ────────────────────
 // Update a donation (supports pending→paid transition)
+// Super Admin and Admin can edit all donations
+// Volunteer can only edit donations they collected
 
-router.patch("/admin/festivals/:festivalId/donations/:id", requireAdminToken(), async (req, res): Promise<void> => {
+router.patch("/admin/festivals/:festivalId/donations/:id", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
   try {
     const festivalId = parseInt(req.params.festivalId as string, 10);
     const donationId = parseInt(req.params.id as string, 10);
+    const admin = (req as any).admin;
 
     if (isNaN(festivalId) || isNaN(donationId)) {
       res.status(400).json({ error: "Invalid parameters" });
       return;
+    }
+
+    // Volunteers can only edit their own donations
+    if (admin.role === "Volunteer") {
+      const [existingDonation] = await db
+        .select({ collectedByAdminId: festivalDonationsTable.collectedByAdminId })
+        .from(festivalDonationsTable)
+        .where(and(
+          eq(festivalDonationsTable.id, donationId),
+          eq(festivalDonationsTable.festivalId, festivalId),
+        ))
+        .limit(1);
+
+      if (!existingDonation) {
+        res.status(404).json({ error: "Donation not found" });
+        return;
+      }
+
+      if (!(await canAccessDonation(admin.role, admin.id, existingDonation.collectedByAdminId))) {
+        res.status(403).json({ error: "You can only edit donations you collected" });
+        return;
+      }
     }
 
     const body = req.body || {};
@@ -424,7 +463,7 @@ router.patch("/admin/festivals/:festivalId/donations/:id", requireAdminToken(), 
 // ── DELETE /api/admin/festivals/:festivalId/donations/:id ───────────────────
 // Delete a donation
 
-router.delete("/admin/festivals/:festivalId/donations/:id", requireAdminToken(), async (req, res): Promise<void> => {
+router.delete("/admin/festivals/:festivalId/donations/:id", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const festivalId = parseInt(req.params.festivalId as string, 10);
     const donationId = parseInt(req.params.id as string, 10);
@@ -456,11 +495,18 @@ router.delete("/admin/festivals/:festivalId/donations/:id", requireAdminToken(),
 // ── GET /api/admin/festivals/:festivalId/stats ──────────────────────────────
 // Get festival statistics
 
-router.get("/admin/festivals/:festivalId/stats", requireAdminToken(), async (req, res): Promise<void> => {
+router.get("/admin/festivals/:festivalId/stats", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
   try {
     const festivalId = parseInt(req.params.festivalId as string, 10);
     if (isNaN(festivalId)) {
       res.status(400).json({ error: "Invalid festival ID" });
+      return;
+    }
+
+    const admin = (req as any).admin;
+    // Volunteers can only view stats of festivals assigned to them
+    if (!(await canAccessFestival(admin.role, admin.id, festivalId))) {
+      res.status(403).json({ error: "Forbidden - you do not have access to this festival" });
       return;
     }
 
@@ -581,14 +627,125 @@ router.get("/admin/festivals/:festivalId/stats", requireAdminToken(), async (req
   }
 });
 
-// ── GET /api/admin/festivals/:festivalId/pending-residents ──────────────────
-// Get list of residents with pending donations for this festival
+// ── GET /api/admin/festivals/:festivalId/collection-summary ─────────────────
+// Date-wise collection analytics: total collection, donation counts, and
+// payment-method breakdown for a given date (defaults to today).
+// Query param: ?date=YYYY-MM-DD
 
-router.get("/admin/festivals/:festivalId/pending-residents", requireAdminToken(), async (req, res): Promise<void> => {
+router.get("/admin/festivals/:festivalId/collection-summary", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
   try {
     const festivalId = parseInt(req.params.festivalId as string, 10);
     if (isNaN(festivalId)) {
       res.status(400).json({ error: "Invalid festival ID" });
+      return;
+    }
+
+    const admin = (req as any).admin;
+    if (!(await canAccessFestival(admin.role, admin.id, festivalId))) {
+      res.status(403).json({ error: "Forbidden - you do not have access to this festival" });
+      return;
+    }
+
+    const [festival] = await db
+      .select({ id: festivalsTable.id })
+      .from(festivalsTable)
+      .where(eq(festivalsTable.id, festivalId))
+      .limit(1);
+
+    if (!festival) {
+      res.status(404).json({ error: "Festival not found" });
+      return;
+    }
+
+    // Validate date param; fall back to today
+    const rawDate = (req.query.date as string)?.trim();
+    let date = rawDate;
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      date = new Date().toISOString().split("T")[0];
+    }
+
+    // Overall summary for the date.
+    // Paid donations are attributed by payment_date; pending donations (payment_date
+    // is NULL) are attributed by the day they were recorded (created_at).
+    const summaryResult = await db.execute(
+      sql`SELECT
+          COALESCE(SUM(CASE WHEN payment_method != 'pending' THEN amount::numeric ELSE 0 END), 0) as total_collection,
+          COUNT(*)::int as total_donations,
+          COUNT(*) FILTER (WHERE payment_method != 'pending')::int as paid_count,
+          COUNT(*) FILTER (WHERE payment_method = 'pending')::int as pending_count,
+          COALESCE(AVG(CASE WHEN payment_method != 'pending' THEN amount::numeric END), 0) as average_donation
+          FROM festival_donations
+          WHERE festival_id = ${festivalId}
+            AND COALESCE(payment_date, created_at::date) = ${date}`
+    );
+    const summaryRow = summaryResult?.rows?.[0] as any || {};
+    const totalCollection = parseFloat(String(summaryRow.total_collection ?? "0"));
+    const totalDonations = summaryRow.total_donations ?? 0;
+    const paidCount = summaryRow.paid_count ?? 0;
+    const pendingCount = summaryRow.pending_count ?? 0;
+    const averageDonation = parseFloat(String(summaryRow.average_donation ?? "0"));
+
+    // Payment-method breakdown for the date
+    const methodResult = await db.execute(
+      sql`SELECT payment_method as method,
+          COALESCE(SUM(CASE WHEN payment_method != 'pending' THEN amount::numeric ELSE 0 END), 0) as total,
+          COUNT(*)::int as count
+          FROM festival_donations
+          WHERE festival_id = ${festivalId}
+            AND COALESCE(payment_date, created_at::date) = ${date}
+          GROUP BY payment_method`
+    );
+
+    // Normalize: bank_transfer -> bank. Return as a sorted array (by amount desc),
+    // including only methods that have at least one record for the date.
+    const methodMap = new Map<string, { amount: number; count: number }>();
+    (methodResult.rows || []).forEach((m: any) => {
+      const key = m.method === "bank_transfer" ? "bank" : (m.method || "pending");
+      const existing = methodMap.get(key);
+      if (existing) {
+        existing.amount += parseFloat(String(m.total ?? "0"));
+        existing.count += m.count ?? 0;
+      } else {
+        methodMap.set(key, {
+          amount: parseFloat(String(m.total ?? "0")),
+          count: m.count ?? 0,
+        });
+      }
+    });
+
+    const paymentMethods = Array.from(methodMap.entries())
+      .map(([method, { amount, count }]) => ({ method, amount, count }))
+      .sort((a, b) => b.amount - a.amount);
+
+    res.json({
+      date,
+      totalCollection,
+      totalDonations,
+      paidCount,
+      pendingCount,
+      averageDonation,
+      paymentMethods,
+    });
+  } catch (err: any) {
+    console.error("Error fetching collection summary:", err);
+    res.status(500).json({ error: err?.message || "Failed to fetch collection summary" });
+  }
+});
+
+// ── GET /api/admin/festivals/:festivalId/pending-residents ──────────────────
+// Get list of residents with pending donations for this festival
+
+router.get("/admin/festivals/:festivalId/pending-residents", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+  try {
+    const festivalId = parseInt(req.params.festivalId as string, 10);
+    if (isNaN(festivalId)) {
+      res.status(400).json({ error: "Invalid festival ID" });
+      return;
+    }
+
+    const admin = (req as any).admin;
+    if (!(await canAccessFestival(admin.role, admin.id, festivalId))) {
+      res.status(403).json({ error: "Forbidden - you do not have access to this festival" });
       return;
     }
 
@@ -630,11 +787,17 @@ router.get("/admin/festivals/:festivalId/pending-residents", requireAdminToken()
 // ── GET /api/admin/festivals/:festivalId/door-to-door ───────────────────────
 // Returns all residents in a building with their donation status for this festival
 
-router.get("/admin/festivals/:festivalId/door-to-door", requireAdminToken(), async (req, res): Promise<void> => {
+router.get("/admin/festivals/:festivalId/door-to-door", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
   try {
     const festivalId = parseInt(req.params.festivalId as string, 10);
     if (isNaN(festivalId)) {
       res.status(400).json({ error: "Invalid festival ID" });
+      return;
+    }
+
+    const admin = (req as any).admin;
+    if (!(await canAccessFestival(admin.role, admin.id, festivalId))) {
+      res.status(403).json({ error: "Forbidden - you do not have access to this festival" });
       return;
     }
 
@@ -706,7 +869,7 @@ router.get("/admin/festivals/:festivalId/door-to-door", requireAdminToken(), asy
 // ── POST /api/admin/festivals/:festivalId/door-to-door/collect ──────────────
 // Quick collect donation from door-to-door mode
 
-router.post("/admin/festivals/:festivalId/door-to-door/collect", requireAdminToken(), async (req, res): Promise<void> => {
+router.post("/admin/festivals/:festivalId/door-to-door/collect", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
   try {
     const festivalId = parseInt(req.params.festivalId as string, 10);
     if (isNaN(festivalId)) {
@@ -716,6 +879,12 @@ router.post("/admin/festivals/:festivalId/door-to-door/collect", requireAdminTok
 
     const body = req.body || {};
     const admin = (req as any).admin;
+
+    // Volunteers can only collect for festivals assigned to them
+    if (!(await canAccessFestival(admin.role, admin.id, festivalId))) {
+      res.status(403).json({ error: "Forbidden - you do not have access to this festival" });
+      return;
+    }
 
     if (!isPositiveInteger(body.residentId)) {
       res.status(400).json({ error: "Resident ID is required" });
@@ -785,8 +954,8 @@ router.post("/admin/festivals/:festivalId/door-to-door/collect", requireAdminTok
           receiptNumber,
           receiptGeneratedAt: new Date(),
           notes: body.notes?.trim() || null,
-          collectedByAdminId: admin?.username || admin?.id || "unknown",
-          collectedByAdminName: admin?.username || admin?.name || "Unknown Admin",
+          collectedByAdminId: admin?.id || "unknown",
+          collectedByAdminName: admin?.fullName || admin?.username || "Unknown Admin",
         })
         .returning();
 

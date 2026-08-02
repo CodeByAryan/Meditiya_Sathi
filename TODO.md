@@ -1,31 +1,24 @@
-# Meditiya Sathi Homepage Redesign - ✅ COMPLETED
+# Date-wise Collection Analytics (Admin Dashboard) ✅
 
-## All Steps Completed
+## Plan
+- [x] **Backend: `api-server/src/routes/festival-donations.ts`** - Extend `GET /admin/festivals/:festivalId/collection-summary?date=YYYY-MM-DD`
+  - [x] Add `AVG(amount)` to the summary SQL → `averageDonation`
+  - [x] Convert `paymentMethods` from a Record to a sorted array `[{ method, amount, count }]`
+  - [x] Normalize `bank_transfer` -> `bank`, sort by amount desc
 
-### ✅ Step 1: Update `index.css`
-- Updated color palette: deep blue (`221 83% 53%`), violet accent (`262 83% 58%`), premium backgrounds
-- Added premium glassmorphism utility classes: `.glass`, `.glass-card`, `.glass-card-strong`, `.glass-card-glow`, `.glass-gradient`
-- Added glow effects: `.glow-border`, `.glow-border-accent`, `.glow-primary`, `.glow-accent`
-- Added animation keyframes: float, glow-pulse, gradient-move, shimmer, fade-in-up
-- Added scrollbar styling
-- Added grid pattern utility
-- Added hover-lift card animation effect
-- Fixed dark/light mode compatibility
+- [x] **Frontend: `meditiya-sathi/src/pages/admin/festival-detail.tsx`** - Add date-wise analytics cards
+  - [x] Update `CollectionSummary` interface to array form + `averageDonation`
+  - [x] Add `TrendingUp` icon import
+  - [x] Add `useEffect` triggering fetch on festival/date change
+  - [x] Add glassmorphism analytics section (Card 1: Date-wise Collection, Card 2: Payment Method Breakdown) below summary stats
+  - [x] Loading / empty / error states; "No collections found for this date."
+  - [x] Refresh summary on donation add/edit/delete
 
-### ✅ Step 2: Rewrite `home.tsx` - 10 Premium Sections
-1. **Hero Section** - Animated gradient background (deep navy → purple), floating glow particles, glassmorphism logo card, "Connecting Meditiya Nagar Together" tagline, glass-effect CTA buttons with glow-on-hover, scroll indicator
-2. **Ganpati Countdown** - Festival-inspired amber/orange gradient glass card, "Ganpati 2026 Celebration" title, 14 September 2026 date, animated countdown with Days/Hours/Minutes/Seconds, decorative glow borders
-3. **Feature Cards** - 6 glass cards (Buildings, Residents, Festivals, Events, Notices, Services) with gradient icons, hover lift animation, glow effects
-4. **Community Statistics** - 4 counter cards with animated numbers, glass panels, gradient icons
-5. **Events Section** - Glass event cards with gradient image overlays, date badges, hover animations
-6. **Notice Board** - Glass notice cards with highlight glow for important notices, accent borders
-7. **Festival Showcase** - Large premium glass container (indigo/purple/rose) with festival info and decorative elements
-8. **Gallery Section** - Glass image cards with hover zoom, gradient overlays, light glow
-9. **Emergency Contacts** - Quick access glass cards for emergency numbers with color-coded gradients
-10. **Donation/CTA + Modern Footer** - Premium gradient footer with logo, links, contact, admin login
+## Verification
+- [ ] Frontend typecheck: `npx tsc -p tsconfig.json --noEmit` passes
+- [ ] Backend typecheck passes
 
-### ✅ Step 3: TypeScript Fixes
-- Fixed `SectionWrapper` to accept `id` prop
-- Fixed `StatsSummary` types with `as any` for custom properties
-- Fixed `Notice.isPinned` property name
+## Deployment Fix (404 on https://meditiya-sathi.onrender.com)
+- [x] Diagnosed: Production back end runs last committed code; `collection-summary` route only exists in the working tree
+- [ ] Commit + push changes (incl. new `requireRole.ts`) so Render re-deploys with the new route
 
