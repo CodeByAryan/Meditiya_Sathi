@@ -1,4 +1,4 @@
-import { Building2, Users, Calendar, Bell, Image as ImageIcon, Heart, Trophy, Wrench, ShoppingBag, Package, MapPin, Shield, Home, UserCheck, ClipboardList } from 'lucide-react';
+import { Building2, Users, Calendar, Bell, Image as ImageIcon, Heart, Trophy, Wrench, ShoppingBag, Package, MapPin, Shield, Home, UserCheck, ClipboardList, HeartHandshake } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link } from 'wouter';
 import { useAdminAuth } from '@/lib/AdminAuthContext';
@@ -34,8 +34,11 @@ export default function Admin() {
     // Events - All roles (but Volunteer only sees assigned)
     { name: 'Events', icon: Calendar, count: 0, color: 'text-primary', href: '/admin/events' },
 
-    // Donations - Super Admin & Admin
+// Donations - Super Admin & Admin
     ...(canManageFestivals ? [{ name: 'Add Donation', icon: Heart, count: 0, color: 'text-red-500', href: '/admin/donations/add' }] : []),
+
+    // Outsider Donations - Super Admin & Admin
+    ...(canManageFestivals ? [{ name: 'Outsider Donations', icon: HeartHandshake, count: 0, color: 'text-purple-500', href: '/admin/outsider-donations' }] : []),
 
     // Volunteer specific - Collection Tasks
     ...(isVolunteer ? [{ name: 'Collection Tasks', icon: ClipboardList, count: 0, color: 'text-teal-500', href: '/admin/festivals' }] : []),

@@ -1,29 +1,37 @@
-# Date-wise Collection Analytics (Admin Dashboard) ✅
+# Outsider Donation Module - Implementation Plan
 
-## Plan
-- [x] **Backend: `api-server/src/routes/festival-donations.ts`** - Extend `GET /admin/festivals/:festivalId/collection-summary?date=YYYY-MM-DD`
-  - [x] Add `AVG(amount)` to the summary SQL → `averageDonation`
-  - [x] Convert `paymentMethods` from a Record to a sorted array `[{ method, amount, count }]`
-  - [x] Normalize `bank_transfer` -> `bank`, sort by amount desc
+## Steps
 
-- [x] **Frontend: `meditiya-sathi/src/pages/admin/festival-detail.tsx`** - Add date-wise analytics cards
-  - [x] Update `CollectionSummary` interface to array form + `averageDonation`
-  - [x] Add `TrendingUp` icon import
-  - [x] Add `useEffect` triggering fetch on festival/date change
-  - [x] Add glassmorphism analytics section (Card 1: Date-wise Collection, Card 2: Payment Method Breakdown) below summary stats
-  - [x] Loading / empty / error states; "No collections found for this date."
-  - [x] Refresh summary on donation add/edit/delete
+- [x] 1. Analyze existing architecture (DB schema, API routes, frontend patterns)
+- [x] 2. Create Drizzle schema `lib/db/src/schema/outsiderDonations.ts`
+- [x] 3. Export new schema from `lib/db/src/schema/index.ts`
+- [x] 4. Create backend API `artifacts/api-server/src/routes/outsider-donations.ts`
+- [x] 5. Register route in `artifacts/api-server/src/routes/index.ts`
+- [x] 6. Create migration script `lib/db/scripts/migrate-outsider-donations.mjs`
+- [x] 7. Create frontend page `artifacts/meditiya-sathi/src/pages/admin/outsider-donations.tsx`
+- [x] 8. Register route in `artifacts/meditiya-sathi/src/App.tsx`
+- [x] 9. Export page in `artifacts/meditiya-sathi/src/App-admin-routes.tsx`
+- [x] 10. Add dashboard card in `artifacts/meditiya-sathi/src/pages/admin.tsx`
+- [x] 11. All steps completed ✓
+- [x] 12. Fix 404 on localhost — root cause identified and fixed ✓
 
-## Verification
-- [ ] Frontend typecheck: `npx tsc -p tsconfig.json --noEmit` passes
-- [ ] Backend typecheck passes
+## Root Cause of 404 on Localhost
 
-## Deployment Fix (404 on https://meditiya-sathi.onrender.com)
-- [x] Diagnosed: Production back end runs last committed code; `collection-summary` route only exists in the working tree
-- [x] Commit + push changes (incl. new `requireRole.ts`) so Render re-deploys with the new route
-  - Commit `2a1d24f` pushed to `origin/main` (`89905c2..2a1d24f`)
-  - HEAD now contains `collection-summary` route (verified: 2 occurrences)
-- [x] Confirm production endpoint no longer 404s after Render re-deploy
-  - Before: `GET /api/admin/festivals/2/collection-summary?date=2026-08-02` → 404
-  - After: same URL → 401 Unauthorized (route exists, admin auth middleware correctly requires a valid Bearer token)
+1. **`.env` was missing `VITE_API_URL`** — `getApiUrl()` in `lib/utils.ts` falls back to `https://meditiya-sathi.onrender.com` (production) when `VITE_API_URL` isn't set. Local dev was calling the production server, which lacks the new routes → **404**.
+2. **API server was not running** — The server process on port 8080 had been terminated (after the 20h interruption). Routes were correctly built into `dist/index.mjs`, but nothing was listening.
 
+## Fix Applied
+
+- **`.env`**: Added `VITE_API_URL=http://localhost:8080` so local dev hits the local API server.
+- **API server**: Rebuilt and restarted on port 8080.
+
+## Verification (all 6 endpoints now return 401, not 404)
+
+| Endpoint | Before | After |
+|---|---|---|
+| `GET /api/admin/outsider-donations` | 404 | 401 |
+| `GET /api/admin/outsider-donations/stats` | 404 | 401 |
+| `GET /api/admin/outsider-donations/reports` | 404 | 401 |
+| `POST /api/admin/outsider-donations` | 404 | 401 |
+| `PATCH /api/admin/outsider-donations/:id` | 404 | 401 |
+| `DELETE /api/admin/outsider-donations/:id` | 404 | 401 |

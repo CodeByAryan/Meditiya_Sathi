@@ -8,6 +8,7 @@ import AdminFestivalsList from '@/pages/admin/festivals-list';
 import AdminFestivalCreate from '@/pages/admin/festival-create';
 import AdminFestivalDetail from '@/pages/admin/festival-detail';
 import AdminAddDonation from '@/pages/admin/add-donation';
+import AdminOutsiderDonations from '@/pages/admin/outsider-donations';
 
 export {
   Shell,
@@ -20,5 +21,6 @@ export {
   AdminFestivalCreate,
   AdminFestivalDetail,
   AdminAddDonation,
+  AdminOutsiderDonations,
 };
 

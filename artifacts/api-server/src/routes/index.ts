@@ -21,6 +21,7 @@ import residentsRouter from "./residents";
 import adminFestivalsRouter from "./admin-festivals";
 import festivalDonationsRouter from "./festival-donations";
 import adminManagementRouter from "./admin-management";
+import outsiderDonationsRouter from "./outsider-donations";
 
 
 const router: IRouter = Router();
@@ -47,6 +48,7 @@ router.use(residentsRouter);
 router.use(adminFestivalsRouter);
 router.use(festivalDonationsRouter);
 router.use(adminManagementRouter);
+router.use(outsiderDonationsRouter);
 
 
 export default router;

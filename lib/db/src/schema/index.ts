@@ -2,6 +2,7 @@ export * from "./admins";
 export * from "./users";
 export * from "./festivals";
 export * from "./festivalDonations";
+export * from "./outsiderDonations";
 export * from "./events";
 export * from "./notices";
 export * from "./gallery";
