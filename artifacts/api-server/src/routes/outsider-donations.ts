@@ -72,6 +72,60 @@ router.get("/admin/outsider-donations/stats", requireRole("Super Admin", "Admin"
   }
 });
 
+// ── GET /api/admin/outsider-donations/analytics ────────────────────────────
+// Outsider donation analytics card: totals, averages, highest/lowest, recent donations
+
+router.get("/admin/outsider-donations/analytics", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+  try {
+    // Optional festivalId filter to scope analytics to a single festival
+    const festivalIdParam = req.query.festivalId as string | undefined;
+    const hasFestivalFilter = festivalIdParam && isPositiveInteger(parseInt(festivalIdParam, 10));
+    const festivalCondition = hasFestivalFilter
+      ? sql`AND od.festival_id = ${parseInt(festivalIdParam!, 10)}`
+      : sql``;
+
+    const result = await db.execute(
+      sql`SELECT
+          COALESCE(SUM(amount::numeric), 0) as total_collection,
+          COUNT(*)::int as total_donations,
+          ROUND(COALESCE(AVG(amount::numeric), 0), 0)::int as average_donation,
+          COALESCE(MAX(amount::numeric), 0) as highest_donation,
+          COALESCE(MIN(amount::numeric), 0) as lowest_donation
+          FROM outsider_donations od
+          WHERE od.payment_status = 'paid' AND od.amount IS NOT NULL
+          ${festivalCondition}`
+    );
+
+    const row = result?.rows?.[0] as any || {};
+
+    const recentResult = await db.execute(
+      sql`SELECT full_name, amount
+          FROM outsider_donations od
+          WHERE od.payment_status = 'paid' AND od.amount IS NOT NULL
+          ${festivalCondition}
+          ORDER BY od.created_at DESC
+          LIMIT 5`
+    );
+
+    const recentDonations = (recentResult.rows || []).map((r: any) => ({
+      name: r.full_name,
+      amount: parseFloat(String(r.amount)),
+    }));
+
+    res.json({
+      totalCollection: parseFloat(String(row.total_collection ?? "0")),
+      totalDonations: row.total_donations ?? 0,
+      averageDonation: parseFloat(String(row.average_donation ?? "0")),
+      highestDonation: parseFloat(String(row.highest_donation ?? "0")),
+      lowestDonation: parseFloat(String(row.lowest_donation ?? "0")),
+      recentDonations,
+    });
+  } catch (err: any) {
+    console.error("Error fetching outsider donation analytics:", err);
+    res.status(500).json({ error: err?.message || "Failed to fetch analytics" });
+  }
+});
+
 // ── GET /api/admin/outsider-donations/reports ──────────────────────────────
 // Donor Type report: Resident Collection vs Outsider Collection vs Grand Total
 

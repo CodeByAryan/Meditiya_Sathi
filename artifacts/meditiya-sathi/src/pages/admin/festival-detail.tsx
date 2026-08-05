@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'wouter';
-import { ArrowLeft, MapPin, CalendarDays, IndianRupee, Users, Search, Plus, Eye, Edit3, Trash2, Building2, Home, Phone, User, X, CheckCircle, XCircle, Clock, Filter, RefreshCw, AlertTriangle, Wallet, Banknote, CreditCard, Receipt, ChevronLeft, ChevronRight, Check, Send, ChevronDown, MessageSquare, ListFilter, Save, TrendingUp } from 'lucide-react';
+import { ArrowLeft, MapPin, CalendarDays, IndianRupee, Users, Search, Plus, Eye, Edit3, Trash2, Building2, Home, Phone, User, X, CheckCircle, XCircle, Clock, Filter, RefreshCw, AlertTriangle, Wallet, Banknote, CreditCard, Receipt, ChevronLeft, ChevronRight, Check, Send, ChevronDown, MessageSquare, ListFilter, Save, TrendingUp, Globe, Trophy, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, getApiUrl } from '@/lib/utils';
 import { PENDING_REASONS } from '@/lib/pending-reasons';
@@ -49,7 +49,9 @@ interface FestivalHistory {
 interface Pagination { page: number; limit: number; total: number; totalPages: number; }
 
 interface Stats {
-  totalCollection: number; expectedCollection: number;
+  totalCollection: number; residentCollection: number; outsiderCollection: number;
+  outsiderDonations: number;
+  expectedCollection: number;
   pendingCollection: number; totalEntries: number;
   totalResidents: number; residentsPaid: number;
   residentsPending: number; averageDonation: number;
@@ -844,6 +846,210 @@ function StatsCard({ title, value, icon: Icon, color, subtitle, onClick }: {
   );
 }
 
+// ── Payment Summary Card ─────────────────────────────────────────────────────
+
+function PaymentSummaryCard({ stats }: { stats: Stats }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const methods = [
+    { key: 'cash', emoji: '💵', label: 'Cash', icon: Banknote, color: 'text-emerald-600', bar: 'from-emerald-500 to-emerald-400' },
+    { key: 'upi', emoji: '📱', label: 'UPI', icon: CreditCard, color: 'text-blue-600', bar: 'from-blue-500 to-blue-400' },
+    { key: 'bank_transfer', emoji: '🏦', label: 'Bank Transfer', icon: Wallet, color: 'text-purple-600', bar: 'from-purple-500 to-purple-400' },
+    { key: 'cheque', emoji: '📄', label: 'Cheque', icon: Receipt, color: 'text-amber-600', bar: 'from-amber-500 to-amber-400' },
+  ];
+
+  const dist = stats.paymentMethodDistribution || [];
+  const byMethod = new Map<string, { total: number; count: number }>();
+  dist.forEach(d => {
+    byMethod.set(d.method, { total: d.total || 0, count: d.count || 0 });
+  });
+
+  const totalCollection = stats.totalCollection || 0;
+  const totalTransactions = dist.reduce((sum, d) => sum + (d.count || 0), 0);
+
+  return (
+    <div
+      className="bg-card border border-border rounded-xl p-4 shadow-sm cursor-pointer hover:border-primary/50 transition-all"
+      onClick={() => setExpanded(e => !e)}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div>
+<p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+            <CreditCard className="w-3.5 h-3.5" /> Payment Summary
+          </p>
+          <p className="text-2xl font-bold mt-1 text-emerald-600">{formatCurrency(totalCollection)}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Overall Collection</p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-muted">
+            <Wallet className="w-5 h-5 text-primary" />
+          </div>
+          <span className="text-muted-foreground"><ChevronDown className={cn("w-4 h-4 transition-transform duration-300", expanded && "rotate-180")} /></span>
+        </div>
+      </div>
+
+      {!expanded && (
+        <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+          <ChevronDown className="w-3 h-3" /> Click to view breakdown
+        </p>
+      )}
+
+      <div className={cn("grid transition-all duration-300 ease-in-out", expanded ? "grid-rows-[1fr] opacity-100 mt-3" : "grid-rows-[0fr] opacity-0")}>
+        <div className="overflow-hidden">
+          <div className="space-y-3 pt-2 border-t border-border">
+            {methods.map(m => {
+              const data = byMethod.get(m.key);
+              const amount = data?.total || 0;
+              const count = data?.count || 0;
+              const Icon = m.icon;
+              const pct = totalCollection > 0 ? Math.round((amount / totalCollection) * 100) : 0;
+              return (
+                <div key={m.key} className="flex items-center gap-3">
+                  <Icon className={cn("w-4 h-4 shrink-0", m.color)} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-foreground truncate">{m.label}</span>
+                      <span className="text-xs font-bold text-foreground flex items-center gap-2">
+                        {formatCurrency(amount)}
+                        <span className="text-[10px] font-semibold text-muted-foreground">{pct}%</span>
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={cn("h-full rounded-full bg-gradient-to-r transition-all duration-500", m.bar)}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{count} {count === 1 ? 'donation' : 'donations'}</p>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-xs font-semibold text-muted-foreground">Total Transactions</span>
+              <span className="text-sm font-bold text-foreground">{totalTransactions}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Outsider Collection Card ─────────────────────────────────────────────────
+
+interface OutsiderAnalytics {
+  totalCollection: number;
+  totalDonations: number;
+  averageDonation: number;
+  highestDonation: number;
+  lowestDonation: number;
+  recentDonations: { name: string; amount: number }[];
+}
+
+function OutsiderCollectionCard({ festivalId, stats }: {
+  festivalId: number;
+  stats: Stats | null;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [data, setData] = useState<OutsiderAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    fetch(`${getApiUrl()}/api/admin/outsider-donations/analytics?festivalId=${festivalId}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (mounted) setData(d); })
+      .catch(() => { if (mounted) setData(null); })
+      .finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, [festivalId]);
+
+  // Use per-festival collection from stats (single source of truth) for the headline
+  const totalCollection = stats?.outsiderCollection ?? data?.totalCollection ?? 0;
+  const outsiderDonations = stats?.outsiderDonations ?? data?.totalDonations ?? 0;
+  const recent = data?.recentDonations || [];
+
+  return (
+    <div
+      className="bg-card border border-border rounded-xl p-4 shadow-sm cursor-pointer hover:border-primary/50 transition-all"
+      onClick={() => setExpanded(e => !e)}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div>
+<p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+            🌍 Outsider Collection
+          </p>
+          <p className="text-2xl font-bold mt-1 text-blue-600">
+            {loading ? '—' : formatCurrency(totalCollection)}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">Outsider Collection for this Festival</p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-muted">
+            <Globe className="w-5 h-5 text-blue-600" />
+          </div>
+          <span className="text-muted-foreground"><ChevronDown className={cn("w-4 h-4 transition-transform duration-300", expanded && "rotate-180")} /></span>
+        </div>
+      </div>
+
+      {!expanded && (
+        <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+          👆 Click to view details
+        </p>
+      )}
+
+      <div className={cn("grid transition-all duration-300 ease-in-out", expanded ? "grid-rows-[1fr] opacity-100 mt-3" : "grid-rows-[0fr] opacity-0")}>
+        <div className="overflow-hidden">
+          <div className="space-y-3 pt-2 border-t border-border">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="p-2.5 rounded-xl bg-primary/5 border border-primary/10">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><IndianRupee className="w-3 h-3" /> Total Collection</p>
+                <p className="text-base font-bold text-emerald-600 mt-0.5">{formatCurrency(data?.totalCollection ?? 0)}</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-primary/5 border border-primary/10">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Receipt className="w-3 h-3" /> Total Donations</p>
+                <p className="text-base font-bold text-foreground mt-0.5">{data?.totalDonations ?? 0}</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-primary/5 border border-primary/10">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Average Donation</p>
+                <p className="text-base font-bold text-purple-600 mt-0.5">{formatCurrency(data?.averageDonation ?? 0)}</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-primary/5 border border-primary/10">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Trophy className="w-3 h-3" /> Highest Donation</p>
+                <p className="text-base font-bold text-amber-600 mt-0.5">{formatCurrency(data?.highestDonation ?? 0)}</p>
+              </div>
+            </div>
+            <div className="p-2.5 rounded-xl bg-primary/5 border border-primary/10">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><ArrowDown className="w-3 h-3" /> Lowest Donation</p>
+              <p className="text-base font-bold text-foreground mt-0.5">{formatCurrency(data?.lowestDonation ?? 0)}</p>
+            </div>
+
+            {recent.length > 0 && (
+              <div className="pt-1">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Recent Donations</p>
+                <div className="space-y-1.5">
+                  {recent.map((r, ri) => (
+                    <div key={ri} className="flex items-center justify-between text-sm">
+                      <span className="text-foreground truncate">• {r.name}</span>
+                      <span className="font-semibold text-foreground">{formatCurrency(r.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {recent.length === 0 && !loading && (
+              <p className="text-xs text-muted-foreground">No outsider donations yet.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Pending Residents Modal ──────────────────────────────────────────────────
 
 function PendingResidentsModal({ festivalId, onClose }: { festivalId: number; onClose: () => void }) {
@@ -1142,9 +1348,9 @@ const fetchStats = useCallback(async () => {
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
               <StatsCard title="Total Collection" value={formatCurrency(stats.totalCollection)} icon={IndianRupee} color="text-emerald-600" />
-              <StatsCard title="Residents Paid" value={String(stats.residentsPaid)} icon={Users} color="text-emerald-600" subtitle={`of ${stats.totalResidents || 0} total`} />
-              <StatsCard title="Residents Pending" value={String(stats.residentsPending)} icon={Clock} color="text-amber-600" onClick={() => setShowPending(true)} subtitle="Click to view" />
-              <StatsCard title="Expected Collection" value={formatCurrency(stats.expectedCollection)} icon={IndianRupee} color="text-blue-600" subtitle={`Avg: ${formatCurrency(stats.averageDonation)}`} />
+<StatsCard title="Residents Paid" value={String(stats.residentsPaid)} icon={Users} color="text-emerald-600" subtitle={`of ${stats.totalResidents || 0} total`} />
+<PaymentSummaryCard stats={stats} />
+              <OutsiderCollectionCard festivalId={festival.id} stats={stats} />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
               <StatsCard title="Pending Collection" value={formatCurrency(stats.pendingCollection)} icon={IndianRupee} color="text-amber-600" />

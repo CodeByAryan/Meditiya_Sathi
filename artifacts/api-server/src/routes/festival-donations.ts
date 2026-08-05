@@ -521,8 +521,7 @@ router.get("/admin/festivals/:festivalId/stats", requireRole("Super Admin", "Adm
       return;
     }
 
-    // Total collection from paid donations (paymentMethod != 'pending')
-    const totalResult = await db.execute(
+const totalResult = await db.execute(
       sql`SELECT
           COALESCE(SUM(amount::numeric), 0) as total,
           COUNT(*)::int as count,
@@ -534,9 +533,27 @@ router.get("/admin/festivals/:festivalId/stats", requireRole("Super Admin", "Adm
     );
 
     const totalRow = totalResult?.rows?.[0] as any || {};
-    const totalCollection = parseFloat(String(totalRow.total ?? "0"));
+    const residentCollection = parseFloat(String(totalRow.total ?? "0"));
     const totalEntries = totalRow.count ?? 0;
     const averageDonation = parseFloat(String(totalRow.avg ?? "0"));
+
+    // Outsider collection for this festival (paid, non-null amount)
+    const outsiderResult = await db.execute(
+      sql`SELECT
+          COALESCE(SUM(amount::numeric), 0) as total,
+          COUNT(*)::int as count
+          FROM outsider_donations
+          WHERE festival_id = ${festivalId}
+            AND payment_status = 'paid'
+            AND amount IS NOT NULL`
+    );
+
+    const outsiderRow = outsiderResult?.rows?.[0] as any || {};
+    const outsiderCollection = parseFloat(String(outsiderRow.total ?? "0"));
+    const outsiderDonations = outsiderRow.count ?? 0;
+
+    // Grand total = resident + outsider collection
+    const totalCollection = residentCollection + outsiderCollection;
 
     // Residents paid (distinct, paymentMethod != 'pending')
     const paidResult = await db.execute(
@@ -601,8 +618,11 @@ router.get("/admin/festivals/:festivalId/stats", requireRole("Super Admin", "Adm
       // residents table might not exist
     }
 
-    res.json({
+res.json({
       totalCollection,
+      residentCollection,
+      outsiderCollection,
+      outsiderDonations,
       expectedCollection,
       pendingCollection,
       totalEntries,
