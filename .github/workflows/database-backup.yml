@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     # Your GitHub Environment
-    environment: DATABASE_URL
+    environment: backup
 
     steps:
       - name: Checkout repository
