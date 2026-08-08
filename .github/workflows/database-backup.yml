@@ -1,0 +1,196 @@
+name: Meditiya Sathi Database Backup
+
+on:
+  schedule:
+    # 11:00 PM IST = 17:30 UTC
+    - cron: "30 17 * * *"
+
+  workflow_dispatch:
+
+jobs:
+  database-backup:
+    runs-on: ubuntu-latest
+
+    # Your GitHub Environment is named DATABASE_URL
+    environment: DATABASE_URL
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Create backup directory
+        run: mkdir -p backups
+
+      - name: Create PostgreSQL backup
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -e
+
+          TIMESTAMP=$(date -u +"%Y-%m-%d_%H-%M-%S")
+          BACKUP_FILE="backups/backup_${TIMESTAMP}.sql.gz"
+
+          echo "Creating database backup..."
+
+          pg_dump "$DATABASE_URL" \
+            --no-owner \
+            --no-acl \
+            --format=plain \
+            | gzip -9 > "$BACKUP_FILE"
+
+          echo "Backup created:"
+          ls -lh "$BACKUP_FILE"
+
+          echo "BACKUP_FILE=$BACKUP_FILE" >> "$GITHUB_ENV"
+          echo "TIMESTAMP=$TIMESTAMP" >> "$GITHUB_ENV"
+
+      - name: Install Google Drive client
+        run: |
+          npm install googleapis@latest
+
+      - name: Upload daily backup to Google Drive
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          GDRIVE_DAILY_FOLDER_ID: ${{ secrets.GDRIVE_DAILY_FOLDER_ID }}
+          BACKUP_FILE: ${{ env.BACKUP_FILE }}
+          TIMESTAMP: ${{ env.TIMESTAMP }}
+        run: |
+          cat > upload-backup.mjs <<'EOF'
+          import fs from "fs";
+          import { google } from "googleapis";
+
+          const {
+            GOOGLE_CLIENT_ID,
+            GOOGLE_CLIENT_SECRET,
+            GOOGLE_REFRESH_TOKEN,
+            GDRIVE_DAILY_FOLDER_ID,
+            BACKUP_FILE,
+            TIMESTAMP
+          } = process.env;
+
+          const auth = new google.auth.OAuth2(
+            GOOGLE_CLIENT_ID,
+            GOOGLE_CLIENT_SECRET
+          );
+
+          auth.setCredentials({
+            refresh_token: GOOGLE_REFRESH_TOKEN
+          });
+
+          const drive = google.drive({
+            version: "v3",
+            auth
+          });
+
+          const fileName = `backup_${TIMESTAMP}.sql.gz`;
+
+          console.log(`Uploading ${fileName}...`);
+
+          const response = await drive.files.create({
+            requestBody: {
+              name: fileName,
+              parents: [GDRIVE_DAILY_FOLDER_ID]
+            },
+            media: {
+              mimeType: "application/gzip",
+              body: fs.createReadStream(BACKUP_FILE)
+            },
+            fields: "id,name"
+          });
+
+          console.log("Daily backup uploaded successfully.");
+          console.log(`File: ${response.data.name}`);
+          console.log(`File ID: ${response.data.id}`);
+          EOF
+
+          node upload-backup.mjs
+
+      - name: Upload Sunday weekly backup
+        if: ${{ github.event_name == 'workflow_dispatch' || startsWith(env.TIMESTAMP, '') == false }}
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          GDRIVE_WEEKLY_FOLDER_ID: ${{ secrets.GDRIVE_WEEKLY_FOLDER_ID }}
+          BACKUP_FILE: ${{ env.BACKUP_FILE }}
+          TIMESTAMP: ${{ env.TIMESTAMP }}
+        run: |
+          DAY_OF_WEEK=$(date -u +"%u")
+
+          if [ "$DAY_OF_WEEK" != "7" ]; then
+            echo "Today is not Sunday. Skipping weekly backup."
+            exit 0
+          fi
+
+          cat > upload-weekly.mjs <<'EOF'
+          import fs from "fs";
+          import { google } from "googleapis";
+
+          const {
+            GOOGLE_CLIENT_ID,
+            GOOGLE_CLIENT_SECRET,
+            GOOGLE_REFRESH_TOKEN,
+            GDRIVE_WEEKLY_FOLDER_ID,
+            BACKUP_FILE,
+            TIMESTAMP
+          } = process.env;
+
+          const auth = new google.auth.OAuth2(
+            GOOGLE_CLIENT_ID,
+            GOOGLE_CLIENT_SECRET
+          );
+
+          auth.setCredentials({
+            refresh_token: GOOGLE_REFRESH_TOKEN
+          });
+
+          const drive = google.drive({
+            version: "v3",
+            auth
+          });
+
+          const date = TIMESTAMP.split("_")[0];
+          const fileName = `weekly_backup_${date}.sql.gz`;
+
+          console.log(`Uploading weekly backup: ${fileName}`);
+
+          const response = await drive.files.create({
+            requestBody: {
+              name: fileName,
+              parents: [GDRIVE_WEEKLY_FOLDER_ID]
+            },
+            media: {
+              mimeType: "application/gzip",
+              body: fs.createReadStream(BACKUP_FILE)
+            },
+            fields: "id,name"
+          });
+
+          console.log("Weekly backup uploaded successfully.");
+          console.log(`File: ${response.data.name}`);
+          console.log(`File ID: ${response.data.id}`);
+          EOF
+
+          node upload-weekly.mjs
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf backups
+          rm -f upload-backup.mjs
+          rm -f upload-weekly.mjs
+
+      - name: Backup completed
+        run: |
+          echo "========================================="
+          echo "Meditiya Sathi database backup completed"
+          echo "========================================="
+          echo "Backup: $BACKUP_FILE"
+          echo "Time: $(date -u)"
