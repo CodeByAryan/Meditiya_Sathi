@@ -11,15 +11,16 @@ jobs:
   database-backup:
     runs-on: ubuntu-latest
 
-    # GitHub Environment
     environment: backup
 
     steps:
+
       # =========================================
       # 1. Checkout Repository
       # =========================================
       - name: Checkout repository
         uses: actions/checkout@v4
+
 
       # =========================================
       # 2. Install PostgreSQL 18 Client
@@ -32,21 +33,32 @@ jobs:
           echo "Installing PostgreSQL 18 client..."
 
           sudo apt-get update
-          sudo apt-get install -y curl ca-certificates gnupg lsb-release
+
+          sudo apt-get install -y \
+            curl \
+            ca-certificates \
+            gnupg \
+            lsb-release
 
           sudo install -d /usr/share/postgresql-common/pgdg
 
           curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
-            --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+            --fail \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
 
           echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
             | sudo tee /etc/apt/sources.list.d/pgdg.list
 
           sudo apt-get update
+
           sudo apt-get install -y postgresql-client-18
 
-          echo "PostgreSQL client installed:"
-          pg_dump --version
+          echo "PostgreSQL 18 installation completed."
+
+          echo "Checking PostgreSQL 18 pg_dump directly..."
+
+          /usr/lib/postgresql/18/bin/pg_dump --version
+
 
       # =========================================
       # 3. Create Backup Directory
@@ -54,6 +66,7 @@ jobs:
       - name: Create backup directory
         run: |
           mkdir -p backups
+
 
       # =========================================
       # 4. Create PostgreSQL Backup
@@ -64,6 +77,7 @@ jobs:
         shell: bash
         run: |
           set -e
+          set -o pipefail
 
           if [ -z "$DATABASE_URL" ]; then
             echo "ERROR: DATABASE_URL is missing."
@@ -71,23 +85,33 @@ jobs:
           fi
 
           TIMESTAMP=$(date -u +"%Y-%m-%d_%H-%M-%S")
+
           BACKUP_FILE="backups/backup_${TIMESTAMP}.sql.gz"
 
           echo "========================================="
           echo "Creating PostgreSQL backup..."
           echo "========================================="
 
-          pg_dump "$DATABASE_URL" \
+          echo "Using PostgreSQL 18 pg_dump:"
+          /usr/lib/postgresql/18/bin/pg_dump --version
+
+          echo "Starting database dump..."
+
+          /usr/lib/postgresql/18/bin/pg_dump "$DATABASE_URL" \
             --no-owner \
             --no-acl \
             --format=plain \
             | gzip -9 > "$BACKUP_FILE"
 
-          echo "Backup created successfully:"
+          echo "========================================="
+          echo "Backup created successfully!"
+          echo "========================================="
+
           ls -lh "$BACKUP_FILE"
 
           echo "BACKUP_FILE=$BACKUP_FILE" >> "$GITHUB_ENV"
           echo "TIMESTAMP=$TIMESTAMP" >> "$GITHUB_ENV"
+
 
       # =========================================
       # 5. Install Google Drive Client
@@ -95,6 +119,7 @@ jobs:
       - name: Install Google Drive client
         run: |
           npm install googleapis@latest
+
 
       # =========================================
       # 6. Check Google Drive Secrets
@@ -136,10 +161,11 @@ jobs:
 
           if [ -z "$GDRIVE_WEEKLY_FOLDER_ID" ]; then
             echo "WARNING: GDRIVE_WEEKLY_FOLDER_ID is missing"
-            echo "Weekly Sunday backup will not be uploaded."
+            echo "Weekly backup will be skipped."
           fi
 
           echo "All required Google Drive secrets are available."
+
 
       # =========================================
       # 7. Upload Daily Backup
@@ -230,6 +256,7 @@ jobs:
 
           node upload-backup.mjs
 
+
       # =========================================
       # 8. Upload Sunday Weekly Backup
       # =========================================
@@ -313,6 +340,7 @@ jobs:
           });
 
           const date = timestamp.split("_")[0];
+
           const fileName = `weekly_backup_${date}.sql.gz`;
 
           console.log(`Uploading weekly backup: ${fileName}`);
@@ -338,6 +366,7 @@ jobs:
 
           node upload-weekly.mjs
 
+
       # =========================================
       # 9. Cleanup
       # =========================================
@@ -347,6 +376,7 @@ jobs:
           rm -rf backups
           rm -f upload-backup.mjs
           rm -f upload-weekly.mjs
+
 
       # =========================================
       # 10. Backup Completed
