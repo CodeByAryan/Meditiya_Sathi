@@ -11,32 +11,52 @@ jobs:
   database-backup:
     runs-on: ubuntu-latest
 
-    # Your GitHub Environment
+    # GitHub Environment name
     environment: backup
 
     steps:
+      # ----------------------------------------
+      # 1. Checkout repository
+      # ----------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ----------------------------------------
+      # 2. Install PostgreSQL client
+      # ----------------------------------------
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-client
 
+      # ----------------------------------------
+      # 3. Create backup directory
+      # ----------------------------------------
       - name: Create backup directory
         run: |
           mkdir -p backups
 
+      # ----------------------------------------
+      # 4. Create PostgreSQL backup
+      # ----------------------------------------
       - name: Create PostgreSQL backup
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           set -e
+          set -o pipefail
+
+          if [ -z "$DATABASE_URL" ]; then
+            echo "ERROR: DATABASE_URL is missing."
+            exit 1
+          fi
 
           TIMESTAMP=$(date -u +"%Y-%m-%d_%H-%M-%S")
           BACKUP_FILE="backups/backup_${TIMESTAMP}.sql.gz"
 
+          echo "========================================="
           echo "Creating PostgreSQL backup..."
+          echo "========================================="
 
           pg_dump "$DATABASE_URL" \
             --no-owner \
@@ -44,16 +64,40 @@ jobs:
             --format=plain \
             | gzip -9 > "$BACKUP_FILE"
 
+          # Make sure the backup file exists
+          if [ ! -f "$BACKUP_FILE" ]; then
+            echo "ERROR: Backup file was not created."
+            exit 1
+          fi
+
+          # Make sure the compressed file is valid
+          echo "Checking gzip file..."
+          gzip -t "$BACKUP_FILE"
+
+          # Make sure file is not suspiciously empty
+          FILE_SIZE=$(stat -c%s "$BACKUP_FILE")
+
+          if [ "$FILE_SIZE" -lt 100 ]; then
+            echo "ERROR: Backup file is suspiciously small: ${FILE_SIZE} bytes"
+            exit 1
+          fi
+
           echo "Backup created successfully:"
           ls -lh "$BACKUP_FILE"
 
           echo "BACKUP_FILE=$BACKUP_FILE" >> "$GITHUB_ENV"
           echo "TIMESTAMP=$TIMESTAMP" >> "$GITHUB_ENV"
 
+      # ----------------------------------------
+      # 5. Install Google Drive client
+      # ----------------------------------------
       - name: Install Google Drive client
         run: |
           npm install googleapis@latest
 
+      # ----------------------------------------
+      # 6. Check Google Drive secrets
+      # ----------------------------------------
       - name: Check Google Drive secrets
         env:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
@@ -61,7 +105,9 @@ jobs:
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
           GDRIVE_DAILY_FOLDER_ID: ${{ secrets.GDRIVE_DAILY_FOLDER_ID }}
         run: |
+          echo "========================================="
           echo "Checking Google Drive configuration..."
+          echo "========================================="
 
           if [ -z "$GOOGLE_CLIENT_ID" ]; then
             echo "ERROR: GOOGLE_CLIENT_ID is missing"
@@ -85,6 +131,9 @@ jobs:
 
           echo "All Google Drive secrets are available."
 
+      # ----------------------------------------
+      # 7. Upload daily backup
+      # ----------------------------------------
       - name: Upload daily backup to Google Drive
         env:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
@@ -94,6 +143,13 @@ jobs:
           BACKUP_FILE: ${{ env.BACKUP_FILE }}
           TIMESTAMP: ${{ env.TIMESTAMP }}
         run: |
+          set -e
+
+          if [ ! -f "$BACKUP_FILE" ]; then
+            echo "ERROR: Backup file does not exist."
+            exit 1
+          fi
+
           cat > upload-backup.mjs <<'EOF'
           import fs from "fs";
           import { google } from "googleapis";
@@ -105,8 +161,28 @@ jobs:
           const backupFile = process.env.BACKUP_FILE;
           const timestamp = process.env.TIMESTAMP;
 
-          if (!clientId || !clientSecret || !refreshToken || !folderId) {
-            throw new Error("Google Drive authentication variables are missing.");
+          if (!clientId) {
+            throw new Error("GOOGLE_CLIENT_ID is missing.");
+          }
+
+          if (!clientSecret) {
+            throw new Error("GOOGLE_CLIENT_SECRET is missing.");
+          }
+
+          if (!refreshToken) {
+            throw new Error("GOOGLE_REFRESH_TOKEN is missing.");
+          }
+
+          if (!folderId) {
+            throw new Error("GDRIVE_DAILY_FOLDER_ID is missing.");
+          }
+
+          if (!backupFile) {
+            throw new Error("BACKUP_FILE is missing.");
+          }
+
+          if (!fs.existsSync(backupFile)) {
+            throw new Error(`Backup file does not exist: ${backupFile}`);
           }
 
           const auth = new google.auth.OAuth2(
@@ -136,16 +212,22 @@ jobs:
               mimeType: "application/gzip",
               body: fs.createReadStream(backupFile)
             },
-            fields: "id,name"
+            fields: "id,name,size"
           });
 
+          console.log("=========================================");
           console.log("Daily backup uploaded successfully.");
+          console.log("=========================================");
           console.log(`File: ${response.data.name}`);
           console.log(`File ID: ${response.data.id}`);
+          console.log(`File size: ${response.data.size} bytes`);
           EOF
 
           node upload-backup.mjs
 
+      # ----------------------------------------
+      # 8. Upload Sunday weekly backup
+      # ----------------------------------------
       - name: Upload Sunday weekly backup
         env:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
@@ -155,15 +237,23 @@ jobs:
           BACKUP_FILE: ${{ env.BACKUP_FILE }}
           TIMESTAMP: ${{ env.TIMESTAMP }}
         run: |
+          set -e
+
           DAY_OF_WEEK=$(date -u +"%u")
 
           if [ "$DAY_OF_WEEK" != "7" ]; then
-            echo "Today is not Sunday. Skipping weekly backup."
+            echo "Today is not Sunday."
+            echo "Skipping weekly backup."
             exit 0
           fi
 
           echo "Today is Sunday."
           echo "Creating weekly Google Drive backup..."
+
+          if [ -z "$GDRIVE_WEEKLY_FOLDER_ID" ]; then
+            echo "ERROR: GDRIVE_WEEKLY_FOLDER_ID is missing."
+            exit 1
+          fi
 
           cat > upload-weekly.mjs <<'EOF'
           import fs from "fs";
@@ -176,8 +266,28 @@ jobs:
           const backupFile = process.env.BACKUP_FILE;
           const timestamp = process.env.TIMESTAMP;
 
-          if (!clientId || !clientSecret || !refreshToken || !folderId) {
-            throw new Error("Google Drive weekly backup variables are missing.");
+          if (!clientId) {
+            throw new Error("GOOGLE_CLIENT_ID is missing.");
+          }
+
+          if (!clientSecret) {
+            throw new Error("GOOGLE_CLIENT_SECRET is missing.");
+          }
+
+          if (!refreshToken) {
+            throw new Error("GOOGLE_REFRESH_TOKEN is missing.");
+          }
+
+          if (!folderId) {
+            throw new Error("GDRIVE_WEEKLY_FOLDER_ID is missing.");
+          }
+
+          if (!backupFile) {
+            throw new Error("BACKUP_FILE is missing.");
+          }
+
+          if (!fs.existsSync(backupFile)) {
+            throw new Error(`Backup file does not exist: ${backupFile}`);
           }
 
           const auth = new google.auth.OAuth2(
@@ -208,16 +318,22 @@ jobs:
               mimeType: "application/gzip",
               body: fs.createReadStream(backupFile)
             },
-            fields: "id,name"
+            fields: "id,name,size"
           });
 
+          console.log("=========================================");
           console.log("Weekly backup uploaded successfully.");
+          console.log("=========================================");
           console.log(`File: ${response.data.name}`);
           console.log(`File ID: ${response.data.id}`);
+          console.log(`File size: ${response.data.size} bytes`);
           EOF
 
           node upload-weekly.mjs
 
+      # ----------------------------------------
+      # 9. Cleanup
+      # ----------------------------------------
       - name: Cleanup
         if: always()
         run: |
@@ -225,6 +341,9 @@ jobs:
           rm -f upload-backup.mjs
           rm -f upload-weekly.mjs
 
+      # ----------------------------------------
+      # 10. Backup completed
+      # ----------------------------------------
       - name: Backup completed
         if: success()
         run: |
