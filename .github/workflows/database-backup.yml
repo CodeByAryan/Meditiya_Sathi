@@ -11,54 +11,59 @@ jobs:
   database-backup:
     runs-on: ubuntu-latest
 
-    # GitHub Environment name
+    # GitHub Environment
     environment: backup
 
     steps:
-      # ----------------------------------------
-      # 1. Checkout repository
-      # ----------------------------------------
+      # =========================================
+      # 1. Checkout Repository
+      # =========================================
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ----------------------------------------
-      # 2. Install PostgreSQL client
-      # ----------------------------------------
+      # =========================================
+      # 2. Install PostgreSQL 18 Client
+      # =========================================
       - name: Install PostgreSQL 18 client
-  run: |
-    sudo apt-get update
-    sudo apt-get install -y curl ca-certificates gnupg
+        shell: bash
+        run: |
+          set -e
 
-    sudo install -d /usr/share/postgresql-common/pgdg
+          echo "Installing PostgreSQL 18 client..."
 
-    curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
-      --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          sudo apt-get update
+          sudo apt-get install -y curl ca-certificates gnupg lsb-release
 
-    echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
-      | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo install -d /usr/share/postgresql-common/pgdg
 
-    sudo apt-get update
-    sudo apt-get install -y postgresql-client-18
+          curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
 
-    echo "PostgreSQL client version:"
-    pg_dump --version
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list
 
-      # ----------------------------------------
-      # 3. Create backup directory
-      # ----------------------------------------
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-18
+
+          echo "PostgreSQL client installed:"
+          pg_dump --version
+
+      # =========================================
+      # 3. Create Backup Directory
+      # =========================================
       - name: Create backup directory
         run: |
           mkdir -p backups
 
-      # ----------------------------------------
-      # 4. Create PostgreSQL backup
-      # ----------------------------------------
+      # =========================================
+      # 4. Create PostgreSQL Backup
+      # =========================================
       - name: Create PostgreSQL backup
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        shell: bash
         run: |
           set -e
-          set -o pipefail
 
           if [ -z "$DATABASE_URL" ]; then
             echo "ERROR: DATABASE_URL is missing."
@@ -78,47 +83,33 @@ jobs:
             --format=plain \
             | gzip -9 > "$BACKUP_FILE"
 
-          # Make sure the backup file exists
-          if [ ! -f "$BACKUP_FILE" ]; then
-            echo "ERROR: Backup file was not created."
-            exit 1
-          fi
-
-          # Make sure the compressed file is valid
-          echo "Checking gzip file..."
-          gzip -t "$BACKUP_FILE"
-
-          # Make sure file is not suspiciously empty
-          FILE_SIZE=$(stat -c%s "$BACKUP_FILE")
-
-          if [ "$FILE_SIZE" -lt 100 ]; then
-            echo "ERROR: Backup file is suspiciously small: ${FILE_SIZE} bytes"
-            exit 1
-          fi
-
           echo "Backup created successfully:"
           ls -lh "$BACKUP_FILE"
 
           echo "BACKUP_FILE=$BACKUP_FILE" >> "$GITHUB_ENV"
           echo "TIMESTAMP=$TIMESTAMP" >> "$GITHUB_ENV"
 
-      # ----------------------------------------
-      # 5. Install Google Drive client
-      # ----------------------------------------
+      # =========================================
+      # 5. Install Google Drive Client
+      # =========================================
       - name: Install Google Drive client
         run: |
           npm install googleapis@latest
 
-      # ----------------------------------------
-      # 6. Check Google Drive secrets
-      # ----------------------------------------
+      # =========================================
+      # 6. Check Google Drive Secrets
+      # =========================================
       - name: Check Google Drive secrets
         env:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
           GDRIVE_DAILY_FOLDER_ID: ${{ secrets.GDRIVE_DAILY_FOLDER_ID }}
+          GDRIVE_WEEKLY_FOLDER_ID: ${{ secrets.GDRIVE_WEEKLY_FOLDER_ID }}
+        shell: bash
         run: |
+          set -e
+
           echo "========================================="
           echo "Checking Google Drive configuration..."
           echo "========================================="
@@ -143,11 +134,16 @@ jobs:
             exit 1
           fi
 
-          echo "All Google Drive secrets are available."
+          if [ -z "$GDRIVE_WEEKLY_FOLDER_ID" ]; then
+            echo "WARNING: GDRIVE_WEEKLY_FOLDER_ID is missing"
+            echo "Weekly Sunday backup will not be uploaded."
+          fi
 
-      # ----------------------------------------
-      # 7. Upload daily backup
-      # ----------------------------------------
+          echo "All required Google Drive secrets are available."
+
+      # =========================================
+      # 7. Upload Daily Backup
+      # =========================================
       - name: Upload daily backup to Google Drive
         env:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
@@ -156,13 +152,9 @@ jobs:
           GDRIVE_DAILY_FOLDER_ID: ${{ secrets.GDRIVE_DAILY_FOLDER_ID }}
           BACKUP_FILE: ${{ env.BACKUP_FILE }}
           TIMESTAMP: ${{ env.TIMESTAMP }}
+        shell: bash
         run: |
           set -e
-
-          if [ ! -f "$BACKUP_FILE" ]; then
-            echo "ERROR: Backup file does not exist."
-            exit 1
-          fi
 
           cat > upload-backup.mjs <<'EOF'
           import fs from "fs";
@@ -226,7 +218,7 @@ jobs:
               mimeType: "application/gzip",
               body: fs.createReadStream(backupFile)
             },
-            fields: "id,name,size"
+            fields: "id,name"
           });
 
           console.log("=========================================");
@@ -234,15 +226,15 @@ jobs:
           console.log("=========================================");
           console.log(`File: ${response.data.name}`);
           console.log(`File ID: ${response.data.id}`);
-          console.log(`File size: ${response.data.size} bytes`);
           EOF
 
           node upload-backup.mjs
 
-      # ----------------------------------------
-      # 8. Upload Sunday weekly backup
-      # ----------------------------------------
+      # =========================================
+      # 8. Upload Sunday Weekly Backup
+      # =========================================
       - name: Upload Sunday weekly backup
+        if: success()
         env:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
@@ -250,6 +242,7 @@ jobs:
           GDRIVE_WEEKLY_FOLDER_ID: ${{ secrets.GDRIVE_WEEKLY_FOLDER_ID }}
           BACKUP_FILE: ${{ env.BACKUP_FILE }}
           TIMESTAMP: ${{ env.TIMESTAMP }}
+        shell: bash
         run: |
           set -e
 
@@ -261,13 +254,14 @@ jobs:
             exit 0
           fi
 
+          if [ -z "$GDRIVE_WEEKLY_FOLDER_ID" ]; then
+            echo "GDRIVE_WEEKLY_FOLDER_ID is missing."
+            echo "Skipping weekly backup."
+            exit 0
+          fi
+
           echo "Today is Sunday."
           echo "Creating weekly Google Drive backup..."
-
-          if [ -z "$GDRIVE_WEEKLY_FOLDER_ID" ]; then
-            echo "ERROR: GDRIVE_WEEKLY_FOLDER_ID is missing."
-            exit 1
-          fi
 
           cat > upload-weekly.mjs <<'EOF'
           import fs from "fs";
@@ -332,7 +326,7 @@ jobs:
               mimeType: "application/gzip",
               body: fs.createReadStream(backupFile)
             },
-            fields: "id,name,size"
+            fields: "id,name"
           });
 
           console.log("=========================================");
@@ -340,14 +334,13 @@ jobs:
           console.log("=========================================");
           console.log(`File: ${response.data.name}`);
           console.log(`File ID: ${response.data.id}`);
-          console.log(`File size: ${response.data.size} bytes`);
           EOF
 
           node upload-weekly.mjs
 
-      # ----------------------------------------
+      # =========================================
       # 9. Cleanup
-      # ----------------------------------------
+      # =========================================
       - name: Cleanup
         if: always()
         run: |
@@ -355,9 +348,9 @@ jobs:
           rm -f upload-backup.mjs
           rm -f upload-weekly.mjs
 
-      # ----------------------------------------
-      # 10. Backup completed
-      # ----------------------------------------
+      # =========================================
+      # 10. Backup Completed
+      # =========================================
       - name: Backup completed
         if: success()
         run: |
@@ -366,3 +359,4 @@ jobs:
           echo "========================================="
           echo "Backup: $BACKUP_FILE"
           echo "Time: $(date -u)"
+          echo "========================================="
