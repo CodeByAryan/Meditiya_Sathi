@@ -1,44 +1,25 @@
-# TODO - Allow Duplicate T-Shirt Registrations
+# T-Shirt Collection / Distribution Management — Implementation TODO
 
-## Problem
-"Allow duplicate registration also." Previously the system blocked creating a
-t-shirt registration when the same mobile number already existed for the same
-festival (returning 409 "This resident is already registered for this festival.").
+## Backend (COMPLETE — typechecks)
+- [x] Schema: add collection fields to `tshirtRegistrations.ts`
+- [x] Migration: `lib/db/scripts/migrate-tshirt-collection.mjs` — **APPLIED to Neon DB** (6/6 columns + unique index, backfilled 5 registrations)
+- [x] New route: `api-server/src/routes/tshirt-collection.ts` (summary, search, lookup, atomic collect, history)
+- [x] QR endpoint: `GET /api/admin/tshirt-registrations/:id/qr`
+- [x] `collection_id` auto-generation on create
+- [x] `qrcode` + `@types/qrcode` deps added
+- [x] Router registered in `routes/index.ts`
 
-## Root Cause
-A DB unique index (`idx_tshirt_festival_mobile` on `(festival_id, mobile_number)`)
-combined with an application-level duplicate check prevented multiple
-registrations for the same resident in the same festival.
+## Frontend
+- [x] Install `html5-qrcode` in meditiya-sathi
+- [x] `tshirt-registrations.tsx`: add QR button, **QR modal (Download/Print)**, collection status badge
+- [x] Frontend typecheck (passes clean)
+- [ ] Create `pages/admin/tshirt-collection.tsx` (collection page: festival selector, summary cards, size breakdown, QR scanner, manual search, verification, confirm-distribution modal, already-collected, invalid QR)
+- [ ] Create `pages/admin/collection-history.tsx` (history table + filters + pagination)
+- [ ] Register routes in `App.tsx` + `App-admin-routes.tsx`
+- [ ] Add "T-Shirt Management" nav (Registrations / Collection / History) in `admin.tsx`
+## Fixes (APPLIED)
+- [x] **QR query ambiguity bug**: `GET /:id/qr` SELECT used bare `id`/`collection_id`/`name`/`quantity`/`t_shirt_size` while joining `festivals f` (which also has `id`), causing Postgres "column reference 'id' is ambiguous". Qualified all columns with the `t.` alias. Verified the corrected query returns the expected row (id=3 → `TSH-2026-0001`) against Neon DB. Rebuilt `dist/`.
 
-## Steps
-
-- [x] 1. Update DB schema (`lib/db/src/schema/tshirtRegistrations.ts`): remove the unique index definition
-- [x] 2. Create migration `lib/db/scripts/migrate-tshirt-allow-duplicates.mjs` to drop the existing unique index
-- [x] 3. Run migration against production → unique index removed ✔
-- [x] 4. Update API route (`artifacts/api-server/src/routes/tshirt-registrations.ts`):
-  - [x] 4a. Remove duplicate-check SELECT in POST handler
-  - [x] 4b. Remove 409 responses and 23505 error handling in POST
-  - [x] 4c. Remove 23505 error handling in PATCH
-- [x] 5. Update base table migration (`migrate-tshirt-registrations.mjs`): stop creating the unique index
-- [x] 6. Rebuild API server bundle (`pnpm --dir artifacts/api-server run build`) → dist/ regenerated ✓
-
-## Remaining (ACTION REQUIRED - redeploy)
-- [ ] Redeploy the freshly built API bundle (`artifacts/api-server/dist/`) so the running server picks up the change
-- [ ] Verify duplicate registration works end-to-end
-
-## Verified
-- Unique index `idx_tshirt_festival_mobile` dropped from production DB ✔
-- Source route `tshirt-registrations.ts` no longer contains any duplicate check / "already registered" message ✔
-- Fresh `dist/index.mjs` bundle rebuilt and no longer contains the t-shirt "already registered" message ✔
-- Frontend `tshirt-registrations.tsx` has no client-side duplicate check ✔
-
-## Why the error may still appear
-The code/schema/DB are all fixed, but the **running server is still executing the old
-bundle**. You must redeploy `artifacts/api-server/dist/` to the hosting platform
-(e.g. Vercel/Railway) for the new build to take effect.
-
-## Note
-The typecheck reports one pre-existing error in `src/routes/admin-festivals.ts:29`
-(unrelated to this change). It does not block the esbuild bundle, which built
-successfully.
-
+## Remaining
+- [ ] Backend typecheck
+- [ ] Build checks

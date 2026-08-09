@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link, useLocation } from 'wouter';
+import { Link, useSearch } from 'wouter';
 import {
   ArrowLeft, Shirt, Search, Plus, X, CheckCircle, Clock, User, Phone,
   Save, ChevronDown, AlertTriangle, Eye, Edit3, Trash2, RefreshCw,
   ChevronLeft, ChevronRight, ListFilter, Building2, Download, Ruler,
-  CreditCard, Banknote, Wallet,
+  CreditCard, Banknote, Wallet, QrCode, Printer,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -56,8 +56,14 @@ wingName: string | null;
   chestSize: number | null;
   paidToAdminId: string | null;
   paidToName: string | null;
-  paymentMode: string;
+paymentMode: string;
   pendingReason: string | null;
+  collectionId: string | null;
+  collectionStatus: string;
+  collectedAt: string | null;
+  collectedByAdminId: string | null;
+  collectedByName: string | null;
+  collectionNotes: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -253,13 +259,19 @@ function BuildingSearchDropdown({ onSelect, selectedBuilding, onClear }: {
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export default function AdminTshirtRegistrations() {
-  const [location] = useLocation();
+// wouter v3's useSearch() returns the query string (e.g. "festivalId=123")
+  // while useLocation() returns only the pathname. Use useSearch() so we can
+  // read the festival pre-selected from the Festival Detail page.
+  const urlSearch = useSearch();
 
-  // Read ?festival=ID from URL to pre-select a festival (e.g. from festival detail page)
+  // Read ?festivalId=ID (or legacy ?festival=ID) from URL to pre-select a festival
+  // (e.g. from the festival detail page). This mirrors the Donation flow's
+  // navigation/prefill pattern: opening the page with a festivalId query param
+  // auto-selects that festival in the Add form.
   const initialFestivalId = (() => {
     try {
-      const qp = new URLSearchParams(location.split('?')[1] || '');
-      const v = qp.get('festival');
+      const qp = new URLSearchParams(urlSearch);
+      const v = qp.get('festivalId') || qp.get('festival');
       return v && !isNaN(parseInt(v, 10)) ? String(parseInt(v, 10)) : '';
     } catch { return ''; }
   })();
@@ -302,10 +314,11 @@ const [tShirtSize, setTShirtSize] = useState('');
   const [filterPaidTo, setFilterPaidTo] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Modals
+// Modals
   const [viewReg, setViewReg] = useState<TshirtRegistration | null>(null);
   const [editReg, setEditReg] = useState<TshirtRegistration | null>(null);
   const [deleteReg, setDeleteReg] = useState<TshirtRegistration | null>(null);
+  const [qrReg, setQrReg] = useState<TshirtRegistration | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const adminUser = getAdminUser();
@@ -642,11 +655,32 @@ quantity,
             <Plus className="w-5 h-5 text-primary" /> Add T-Shirt Registration
           </h2>
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Festival */}
+{/* Festival */}
             <div>
               <h3 className="text-sm font-bold text-foreground uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
                 <Shirt className="w-4 h-4" /> Festival
               </h3>
+
+              {/* Prominent banner showing the festival auto-selected from the URL
+                  (mirrors the Donation flow's "Collecting for" display). */}
+              {(() => {
+                const preSelected = festivals.find(f => String(f.id) === initialFestivalId);
+                if (preSelected) {
+                  return (
+                    <div className="mb-3 p-3 bg-primary/5 border border-primary/20 rounded-xl flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <Shirt className="w-4 h-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Registering for</p>
+                        <p className="font-bold text-foreground text-sm">{preSelected.name} ({preSelected.year})</p>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">Festival <span className="text-destructive">*</span></label>
                 <div className="relative">
@@ -922,9 +956,10 @@ quantity,
                       <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Qty</th>
                       <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Chest</th>
                       <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Paid To</th>
-                      <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Payment</th>
+<th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Payment</th>
+                      <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Collect</th>
                       <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Date</th>
-                      <th className="px-3 py-3 text-right text-xs font-bold uppercase tracking-wider text-muted-foreground w-[120px]">Actions</th>
+                      <th className="px-3 py-3 text-right text-xs font-bold uppercase tracking-wider text-muted-foreground w-[150px]">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -948,13 +983,22 @@ quantity,
                           <td className="px-3 py-3 text-sm text-muted-foreground">{r.chestSize != null ? `${r.chestSize}"` : '—'}</td>
                           <td className="px-3 py-3 text-sm text-muted-foreground">{r.paidToName || '—'}</td>
                           <td className="px-3 py-3">
-                            <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold", isPaid(r.paymentMode) ? 'text-emerald-700 bg-emerald-100' : 'text-amber-700 bg-amber-100')}>
+<span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold", isPaid(r.paymentMode) ? 'text-emerald-700 bg-emerald-100' : 'text-amber-700 bg-amber-100')}>
                               <PayIcon className="w-3 h-3" />{paymentModeLabels[r.paymentMode] || r.paymentMode}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3">
+                            <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold", r.collectionStatus === 'collected' ? 'text-emerald-700 bg-emerald-100' : 'text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-400')}>
+                              {r.collectionStatus === 'collected' ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                              {r.collectionId || '—'}
                             </span>
                           </td>
                           <td className="px-3 py-3 text-sm text-muted-foreground whitespace-nowrap">{formatDate(r.createdAt)}</td>
                           <td className="px-3 py-3">
                             <div className="flex items-center justify-end gap-0.5">
+                              {r.collectionId && (
+                                <button onClick={() => setQrReg(r)} className="p-1.5 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-950/30 transition-colors text-indigo-600" title="View QR"><QrCode className="w-3.5 h-3.5" /></button>
+                              )}
                               <button onClick={() => setViewReg(r)} className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-primary" title="View"><Eye className="w-3.5 h-3.5" /></button>
                               <button onClick={() => setEditReg(r)} className="p-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-950/30 transition-colors text-amber-600" title="Edit"><Edit3 className="w-3.5 h-3.5" /></button>
                               {!isVolunteer && (
@@ -1033,9 +1077,14 @@ quantity,
         </div>
       )}
 
-      {/* Edit Modal */}
+{/* Edit Modal */}
       {editReg && (
         <EditRegistrationModal registration={editReg} onClose={() => setEditReg(null)} onSaved={() => { setEditReg(null); fetchRegistrations(); fetchSummary(); }} />
+      )}
+
+      {/* QR Code Modal */}
+      {qrReg && (
+        <QrCodeModal registration={qrReg} onClose={() => setQrReg(null)} />
       )}
 
       {/* Delete Confirm */}
@@ -1190,13 +1239,110 @@ tShirtSize,
             </div>
           )}
 
-          <div className="flex gap-3 pt-2">
+<div className="flex gap-3 pt-2">
             <button type="submit" disabled={isSaving} className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
               {isSaving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Edit3 className="w-4 h-4" />} Update Registration
             </button>
             <button type="button" onClick={onClose} className="px-5 py-2.5 border border-border rounded-xl text-sm font-semibold hover:bg-muted/50 transition-all">Cancel</button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// ── QR Code Modal ───────────────────────────────────────────────────────────
+
+function QrCodeModal({ registration, onClose }: {
+  registration: TshirtRegistration;
+  onClose: () => void;
+}) {
+  const [qrData, setQrData] = useState<{ qrDataUrl: string; payload: string } | null>(null);
+  const [isLoadingQr, setIsLoadingQr] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoadingQr(true);
+    setError('');
+    fetch(`${getApiUrl()}/api/admin/tshirt-registrations/${registration.id}/qr`, { headers: authHeaders() })
+      .then(async (res) => {
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: 'Failed to load QR' }));
+          throw new Error(err.error || 'Failed to load QR');
+        }
+        const data = await res.json();
+        if (!cancelled) setQrData({ qrDataUrl: data.qrDataUrl, payload: data.payload });
+      })
+      .catch((err: any) => { if (!cancelled) setError(err?.message || 'Failed to load QR'); })
+      .finally(() => { if (!cancelled) setIsLoadingQr(false); });
+    return () => { cancelled = true; };
+  }, [registration.id]);
+
+  const handleDownload = () => {
+    if (!qrData?.qrDataUrl) return;
+    const a = document.createElement('a');
+    a.href = qrData.qrDataUrl;
+    a.download = `${registration.collectionId || 'tshirt'}-qr.png`;
+    a.click();
+  };
+
+  const handlePrint = () => {
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(
+      `<html><head><title>${registration.collectionId || 'T-Shirt'} QR</title></head>` +
+      `<body style="display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif;padding:24px;">` +
+      `<h2 style="margin:0 0 4px;">${registration.festivalName} ${registration.festivalYear || ''}</h2>` +
+      `<p style="margin:0 0 16px;color:#555;">${registration.name} • ${registration.tShirtSize} × ${registration.quantity}</p>` +
+      `<img src="${qrData?.qrDataUrl}" style="width:320px;height:320px;" />` +
+      `<p style="margin:16px 0 0;font-weight:bold;font-size:18px;">${registration.collectionId}</p>` +
+      `</body></html>`
+    );
+    win.document.close();
+    win.focus();
+    win.print();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-md w-full" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <h2 className="text-lg font-serif font-bold text-foreground flex items-center gap-2"><QrCode className="w-5 h-5 text-indigo-500" /> T-Shirt QR Code</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-5">
+          <div className="p-3 bg-muted/30 rounded-xl mb-4">
+            <p className="text-xs text-muted-foreground mb-1">Resident</p>
+            <p className="font-semibold text-foreground">{registration.name} • {registration.tShirtSize} × {registration.quantity}</p>
+            <p className="text-xs text-muted-foreground mt-1">{registration.festivalName} {registration.festivalYear || ''}</p>
+          </div>
+
+          <div className="flex flex-col items-center justify-center py-4">
+            {isLoadingQr ? (
+              <div className="w-52 h-52 rounded-xl border border-border bg-muted/20 flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+              </div>
+            ) : error ? (
+              <div className="text-center text-sm text-destructive py-8"><AlertTriangle className="w-8 h-8 mx-auto mb-2 opacity-70" />{error}</div>
+            ) : qrData ? (
+              <>
+                <img src={qrData.qrDataUrl} alt="T-Shirt Collection QR" className="w-52 h-52 rounded-xl border border-border bg-white p-1" />
+                <p className="mt-3 font-mono text-sm font-bold text-foreground">{registration.collectionId}</p>
+                <p className="text-xs text-muted-foreground mt-1 break-all text-center max-w-[300px]">{qrData.payload}</p>
+              </>
+            ) : null}
+          </div>
+        </div>
+        <div className="flex gap-3 p-4 border-t border-border bg-muted/20">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-border rounded-xl text-sm font-semibold hover:bg-muted/50 transition-all">Close</button>
+          <button onClick={handlePrint} disabled={!qrData} className="flex items-center justify-center gap-2 px-4 py-2.5 border border-border rounded-xl text-sm font-semibold hover:bg-muted/50 transition-all disabled:opacity-50">
+            <Printer className="w-4 h-4" /> Print
+          </button>
+          <button onClick={handleDownload} disabled={!qrData} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-50">
+            <Download className="w-4 h-4" /> Download
+          </button>
+        </div>
       </div>
     </div>
   );

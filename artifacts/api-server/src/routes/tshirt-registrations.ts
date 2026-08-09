@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, tshirtRegistrationsTable, festivalsTable, adminsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
+import QRCode from "qrcode";
 import { requireRole, canAccessDonation } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
@@ -68,8 +69,14 @@ tShirtSize: row.t_shirt_size,
     chestSize: row.chest_size != null ? parseFloat(String(row.chest_size)) : null,
     paidToAdminId: row.paid_to_admin_id,
     paidToName: row.paid_to_name,
-    paymentMode: row.payment_mode || "pending",
+paymentMode: row.payment_mode || "pending",
     pendingReason: row.pending_reason || null,
+    collectionId: row.collection_id || null,
+    collectionStatus: row.collection_status || "pending",
+    collectedAt: row.collected_at?.toISOString?.() || row.collected_at || null,
+    collectedByAdminId: row.collected_by_admin_id || null,
+    collectedByName: row.collected_by_name || null,
+    collectionNotes: row.collection_notes || null,
     createdAt: row.created_at?.toISOString?.() || row.created_at,
     updatedAt: row.updated_at?.toISOString?.() || row.updated_at,
   };
@@ -373,8 +380,19 @@ if (!isValidQuantity(quantity)) {
       return;
     }
 
-    // Allow duplicate registrations (a resident may register multiple entries)
+// Allow duplicate registrations (a resident may register multiple entries)
     const mobileNumber = body.mobileNumber.trim().replace(/[\s-]/g, "");
+
+    // Fetch the festival year for collection ID generation (e.g. TSH-2026-0001)
+    let festivalYear: number | null = null;
+    try {
+      const [fRow] = await db
+        .select({ year: festivalsTable.year })
+        .from(festivalsTable)
+        .where(eq(festivalsTable.id, body.festivalId))
+        .limit(1);
+      festivalYear = fRow?.year ?? null;
+    } catch { /* ignore */ }
 
     // Resolve wingId (must belong to selected building)
     let wingId: number | null = null;
@@ -416,11 +434,46 @@ chestSize: normalizeNullable(body.chestSize != null && body.chestSize !== "" ? S
       })
       .returning();
 
+// Generate & persist the unique public collection ID (e.g. TSH-2026-0001)
+    let collectionId: string | null = null;
+    let collectionStatus = "pending";
+    if (registration?.id != null) {
+      const year = festivalYear ?? new Date().getFullYear();
+      collectionId = `TSH-${year}-${String(registration.id).padStart(4, "0")}`;
+      try {
+        await db.execute(
+          sql`UPDATE tshirt_registrations
+              SET collection_id = ${collectionId}
+              WHERE id = ${registration.id}`
+        );
+      } catch (updErr: any) {
+        console.error("Error setting collection_id:", updErr?.message);
+      }
+    }
+
 res.status(201).json({
-      ...registration,
+      id: registration.id,
+      festivalId: registration.festivalId,
+      name: registration.name,
+      mobileNumber: registration.mobileNumber,
+      buildingId: registration.buildingId,
+      wingId: registration.wingId,
+      tShirtSize: registration.tShirtSize,
       tShirtSizeNumeric: registration.tShirtSizeNumeric != null ? parseInt(String(registration.tShirtSizeNumeric), 10) : null,
       quantity: registration.quantity != null ? parseInt(String(registration.quantity), 10) : 1,
       chestSize: registration.chestSize != null ? parseFloat(String(registration.chestSize)) : null,
+      paidToAdminId: registration.paidToAdminId,
+      paidToName: registration.paidToName,
+      paymentMode: registration.paymentMode,
+      pendingReason: registration.pendingReason || null,
+      collectionId,
+      collectionStatus,
+      collectedAt: null,
+      collectedByAdminId: null,
+      collectedByName: null,
+      collectionNotes: null,
+      createdAt: registration.createdAt,
+      updatedAt: registration.updatedAt,
     });
 } catch (err: any) {
     console.error("Error creating tshirt registration:", err);
@@ -580,6 +633,64 @@ res.json({
     });
 } catch (err: any) {
     res.status(500).json({ error: err?.message || "Failed to update registration" });
+  }
+});
+
+// ── GET /api/admin/tshirt-registrations/:id/qr ─────────────────────────────
+// Generate a QR code image (PNG) encoding the registration's collection ID.
+
+router.get("/admin/tshirt-registrations/:id/qr", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid registration ID" });
+      return;
+    }
+
+const rows = await db.execute(
+      sql`SELECT t.id, t.collection_id, t.name, t.quantity, t.t_shirt_size,
+          f.name as festival_name, f.year as festival_year
+          FROM tshirt_registrations t
+          LEFT JOIN festivals f ON t.festival_id = f.id
+          WHERE t.id = ${id}
+          LIMIT 1`
+    );
+    const row = (rows.rows || [])[0];
+    if (!row) {
+      res.status(404).json({ error: "Registration not found" });
+      return;
+    }
+
+    const collectionId = row.collection_id;
+    if (!collectionId) {
+      res.status(404).json({ error: "No collection ID assigned to this registration" });
+      return;
+    }
+
+    // Encode a secure collection URL (no sensitive data exposed in the QR)
+    const baseUrl = process.env.WEB_APP_URL?.replace(/\/+$/, "") || `${req.protocol}://${req.get("host")}`;
+    const payload = `${baseUrl}/tshirt-collection-cash/${collectionId}`;
+
+    const dataUrl = await QRCode.toDataURL(payload, { width: 512, margin: 2, errorCorrectionLevel: "H" });
+    const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
+
+    res.json({
+      qrDataUrl: dataUrl,
+      qrBase64: base64,
+      collectionId,
+      payload,
+      registration: {
+        id: row.id,
+        name: row.name,
+        quantity: row.quantity != null ? parseInt(String(row.quantity), 10) : 1,
+        tShirtSize: row.t_shirt_size,
+        festivalName: row.festival_name,
+        festivalYear: row.festival_year,
+      },
+    });
+  } catch (err: any) {
+    console.error("Error generating tshirt QR:", err);
+    res.status(500).json({ error: err?.message || "Failed to generate QR" });
   }
 });
 

@@ -71,7 +71,8 @@
     "wouter": "^3.3.5",
     "zod": "catalog:"
   },
-"dependencies": {
+  "dependencies": {
+    "html5-qrcode": "^2.3.8",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "xlsx": "^0.18.5"

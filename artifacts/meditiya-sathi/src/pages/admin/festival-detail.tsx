@@ -1464,7 +1464,7 @@ const fetchStats = useCallback(async () => {
           <button onClick={() => setShowPending(true)} className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl font-semibold text-sm hover:bg-amber-600 transition-all shadow-lg">
             <Clock className="w-4 h-4" /> View Pending Residents
           </button>
-          <Link href={`/admin/tshirt-registrations?festival=${festival.id}`} className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-white rounded-xl font-semibold text-sm hover:bg-teal-600 transition-all shadow-lg">
+<Link href={`/admin/tshirt-registrations?festivalId=${festival.id}`} className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-white rounded-xl font-semibold text-sm hover:bg-teal-600 transition-all shadow-lg">
             <Shirt className="w-4 h-4" /> T-Shirt Registrations
           </Link>
         </div>
