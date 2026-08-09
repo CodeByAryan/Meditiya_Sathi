@@ -71,8 +71,9 @@
     "wouter": "^3.3.5",
     "zod": "catalog:"
   },
-  "dependencies": {
+"dependencies": {
     "jspdf": "^4.2.1",
-    "jspdf-autotable": "^5.0.8"
+    "jspdf-autotable": "^5.0.8",
+    "xlsx": "^0.18.5"
   }
 }

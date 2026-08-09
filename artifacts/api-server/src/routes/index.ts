@@ -22,6 +22,7 @@ import adminFestivalsRouter from "./admin-festivals";
 import festivalDonationsRouter from "./festival-donations";
 import adminManagementRouter from "./admin-management";
 import outsiderDonationsRouter from "./outsider-donations";
+import tshirtRegistrationsRouter from "./tshirt-registrations";
 
 
 const router: IRouter = Router();
@@ -49,6 +50,7 @@ router.use(adminFestivalsRouter);
 router.use(festivalDonationsRouter);
 router.use(adminManagementRouter);
 router.use(outsiderDonationsRouter);
+router.use(tshirtRegistrationsRouter);
 
 
 export default router;

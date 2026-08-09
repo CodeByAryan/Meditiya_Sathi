@@ -18,3 +18,4 @@ export * from "./sponsors";
 export * from "./buildings";
 export * from "./wings";
 export * from "./residents";
+export * from "./tshirtRegistrations";

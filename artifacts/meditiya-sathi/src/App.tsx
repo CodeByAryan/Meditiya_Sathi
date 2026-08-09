@@ -31,6 +31,7 @@ import AdminFestivalCreate from '@/pages/admin/festival-create';
 import AdminFestivalDetail from '@/pages/admin/festival-detail';
 import AdminAddDonation from '@/pages/admin/add-donation';
 import AdminOutsiderDonations from '@/pages/admin/outsider-donations';
+import AdminTshirtRegistrations from '@/pages/admin/tshirt-registrations';
 import AdminManagement from '@/pages/admin/admin-management';
 import AdminLogin from '@/pages/admin-login';
 import NotFound from '@/pages/not-found';
@@ -114,8 +115,11 @@ function AppRoutes() {
         <Route path="/admin/donations/add">
           <AdminShell><AdminAddDonation /></AdminShell>
         </Route>
-        <Route path="/admin/outsider-donations">
+<Route path="/admin/outsider-donations">
           <AdminShell><AdminOutsiderDonations /></AdminShell>
+        </Route>
+        <Route path="/admin/tshirt-registrations">
+          <AdminShell><AdminTshirtRegistrations /></AdminShell>
         </Route>
         <Route path="/admin/admin-management">
           <AdminShell><AdminManagement /></AdminShell>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'wouter';
-import { ArrowLeft, MapPin, CalendarDays, IndianRupee, Users, Search, Plus, Eye, Edit3, Trash2, Building2, Home, Phone, User, X, CheckCircle, XCircle, Clock, Filter, RefreshCw, AlertTriangle, Wallet, Banknote, CreditCard, Receipt, ChevronLeft, ChevronRight, Check, Send, ChevronDown, MessageSquare, ListFilter, Save, TrendingUp, Globe, Trophy, ArrowDown } from 'lucide-react';
+import { ArrowLeft, MapPin, CalendarDays, IndianRupee, Users, Search, Plus, Eye, Edit3, Trash2, Building2, Home, Phone, User, X, CheckCircle, XCircle, Clock, Filter, RefreshCw, AlertTriangle, Wallet, Banknote, CreditCard, Receipt, ChevronLeft, ChevronRight, Check, Send, ChevronDown, MessageSquare, ListFilter, Save, TrendingUp, Globe, Trophy, ArrowDown, Shirt } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, getApiUrl } from '@/lib/utils';
 import { PENDING_REASONS } from '@/lib/pending-reasons';
@@ -1457,13 +1457,16 @@ const fetchStats = useCallback(async () => {
           </div>
         </div>
 
-        <div className="flex gap-2 mb-6">
+<div className="flex gap-2 mb-6 flex-wrap">
           <button onClick={() => setShowAddDonation(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary/90 transition-all shadow-lg">
             <Plus className="w-4 h-4" /> Add Donation
           </button>
           <button onClick={() => setShowPending(true)} className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl font-semibold text-sm hover:bg-amber-600 transition-all shadow-lg">
             <Clock className="w-4 h-4" /> View Pending Residents
           </button>
+          <Link href={`/admin/tshirt-registrations?festival=${festival.id}`} className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-white rounded-xl font-semibold text-sm hover:bg-teal-600 transition-all shadow-lg">
+            <Shirt className="w-4 h-4" /> T-Shirt Registrations
+          </Link>
         </div>
 
         {festival.description && (
