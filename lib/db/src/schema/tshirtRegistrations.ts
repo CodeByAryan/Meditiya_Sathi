@@ -21,10 +21,12 @@ export const tshirtRegistrationsTable = pgTable("tshirt_registrations", {
   tShirtSize: text("t_shirt_size").notNull(), // XS | S | M | L | XL | XXL | XXXL
   tShirtSizeNumeric: integer("t_shirt_size_numeric"), // optional numeric size (e.g. 42)
   quantity: integer("quantity").notNull().default(1), // 1-5 shirts per registration
+  tshirtPrice: integer("tshirt_price").notNull().default(250), // 230 | 250 (price per single t-shirt)
+  totalAmount: integer("total_amount").notNull().default(0), // tshirt_price × quantity (server-calculated)
   chestSize: numeric("chest_size", { precision: 5, scale: 2 }), // inches (optional)
   paidToAdminId: text("paid_to_admin_id"), // FK to admins.id (UUID)
   paidToName: text("paid_to_name"), // denormalized for display
-paymentMode: text("payment_mode").notNull().default("pending"), // cash | upi | online | pending
+  paymentMode: text("payment_mode").notNull().default("pending"), // cash | upi | online | pending
   pendingReason: text("pending_reason"),
   // ── T-Shirt Collection / Distribution ──────────────────────────────────
   collectionId: text("collection_id"), // unique public ID e.g. TSH-2026-0001

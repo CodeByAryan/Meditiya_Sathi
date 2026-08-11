@@ -4,7 +4,7 @@ import {
   ArrowLeft, Shirt, Search, Plus, X, CheckCircle, Clock, User, Phone,
   Save, ChevronDown, AlertTriangle, Eye, Edit3, Trash2, RefreshCw,
   ChevronLeft, ChevronRight, ListFilter, Building2, Download, Ruler,
-  CreditCard, Banknote, Wallet, QrCode, Printer,
+  CreditCard, Banknote, Wallet, QrCode, Printer, IndianRupee,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -53,6 +53,8 @@ wingName: string | null;
   tShirtSize: string;
   tShirtSizeNumeric: number | null;
   quantity: number;
+  tshirtPrice: number;
+  totalAmount: number;
   chestSize: number | null;
   paidToAdminId: string | null;
   paidToName: string | null;
@@ -71,11 +73,16 @@ paymentMode: string;
 interface Pagination { page: number; limit: number; total: number; totalPages: number; }
 
 interface Summary {
-  total: number;
-  paid: number;
-  pending: number;
-  totalQuantity: number;
-  sizeBreakdown: Record<string, number>;
+  totalRegistrations?: number;
+  totalQuantity?: number;
+  totalTshirtAmount?: number;
+  totalAmountCollected?: number;
+  distributedTshirts?: number;
+  // compatibility aliases for older summary consumers
+  total?: number;
+  totalTshirts?: number;
+  totalAmount?: number;
+  amountCollected?: number;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -83,6 +90,8 @@ interface Summary {
 const T_SHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
 
 const QUANTITY_OPTIONS = [1, 2, 3, 4, 5];
+
+const TSHIRT_PRICES = [230, 250];
 
 const PAYMENT_MODES = [
   { value: 'cash', label: '💵 Cash' },
@@ -133,6 +142,11 @@ function formatDate(dateStr: string | null): string {
 
 function isPaid(mode: string): boolean {
   return mode !== 'pending';
+}
+
+function formatCurrency(amount: number | null | undefined): string {
+  if (amount == null || isNaN(amount)) return '—';
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
 }
 
 // ── Stats Card ──────────────────────────────────────────────────────────────
@@ -291,9 +305,10 @@ export default function AdminTshirtRegistrations() {
   const [mobileNumber, setMobileNumber] = useState('');
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
   const [selectedWing, setSelectedWing] = useState<number | ''>('');
-const [tShirtSize, setTShirtSize] = useState('');
+  const [tShirtSize, setTShirtSize] = useState('');
   const [tShirtSizeNumeric, setTShirtSizeNumeric] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const [tshirtPrice, setTshirtPrice] = useState(250);
   const [chestSize, setChestSize] = useState('');
   const [paidToAdminId, setPaidToAdminId] = useState('');
   const [paymentMode, setPaymentMode] = useState('cash');
@@ -432,6 +447,7 @@ const [tShirtSize, setTShirtSize] = useState('');
     if (!selectedBuilding) newErrors.building = 'Please select a building';
     if (!tShirtSize) newErrors.tShirtSize = 'Please select a t-shirt size';
 if (!quantity || quantity < 1) newErrors.quantity = 'Valid quantity is required';
+if (!TSHIRT_PRICES.includes(tshirtPrice)) newErrors.tshirtPrice = 'Please select a valid t-shirt price';
     if (chestSize && parseFloat(chestSize) <= 0) newErrors.chestSize = 'Valid chest size (in inches) is required';
     if (!paidToAdminId) newErrors.paidTo = 'Please select who payment is paid to';
     setErrors(newErrors);
@@ -441,7 +457,7 @@ if (!quantity || quantity < 1) newErrors.quantity = 'Valid quantity is required'
 const clearForm = () => {
     setSelectedFestival(''); setName(''); setMobileNumber('');
     setSelectedBuilding(null); setSelectedWing(''); setTShirtSize('');
-    setTShirtSizeNumeric(''); setQuantity(1); setChestSize(''); setPaidToAdminId(''); setPaymentMode('cash');
+    setTShirtSizeNumeric(''); setQuantity(1); setTshirtPrice(250); setChestSize(''); setPaidToAdminId(''); setPaymentMode('cash');
     setPendingReason(''); setPendingCustomReason(''); setErrors({});
   };
 
@@ -456,9 +472,10 @@ const clearForm = () => {
         mobileNumber: mobileNumber.trim(),
         buildingId: selectedBuilding!.id,
         wingId: selectedWing ? Number(selectedWing) : null,
-tShirtSize,
+        tShirtSize,
         tShirtSizeNumeric: tShirtSizeNumeric ? parseInt(tShirtSizeNumeric, 10) : null,
-quantity,
+        quantity,
+        tshirtPrice,
         chestSize: chestSize ? parseFloat(chestSize) : null,
         paidToAdminId,
         paymentMode,
@@ -550,6 +567,8 @@ quantity,
 'T-Shirt Size': r.tShirtSize,
         'Numeric Size': r.tShirtSizeNumeric != null ? r.tShirtSizeNumeric : '',
         Quantity: r.quantity,
+        'T-Shirt Price': r.tshirtPrice,
+        'Total Amount': r.totalAmount,
         'Chest Size (inches)': r.chestSize != null ? r.chestSize : '',
         'Paid To': r.paidToName || '',
         'Payment Mode': paymentModeLabels[r.paymentMode] || r.paymentMode,
@@ -565,7 +584,7 @@ quantity,
       const ws = XLSX.utils.json_to_sheet(sheetData);
       ws['!cols'] = [
         { wch: 24 }, { wch: 24 }, { wch: 16 }, { wch: 20 }, { wch: 10 },
-        { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 18 }, { wch: 20 }, { wch: 14 }, { wch: 24 }, { wch: 18 },
+        { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 20 }, { wch: 14 }, { wch: 24 }, { wch: 18 },
       ];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'T-Shirt Registrations');
@@ -629,22 +648,12 @@ quantity,
       <div className="container mx-auto max-w-6xl px-4 py-6">
         {/* Summary Cards */}
         {summary && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <StatsCard title="Total Registrations" value={String(summary.total)} icon={Shirt} color="text-primary" />
-            <StatsCard title="Total T-Shirts" value={String(summary.totalQuantity ?? 0)} icon={Shirt} color="text-indigo-600" />
-            <StatsCard title="Paid" value={String(summary.paid)} icon={CheckCircle} color="text-emerald-600" />
-            <StatsCard title="Pending" value={String(summary.pending)} icon={Clock} color="text-amber-600" />
-            <div className="glass-card-glow rounded-xl p-4 relative overflow-hidden col-span-2 md:col-span-4">
-              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400 opacity-60" />
-              <p className="text-xs font-medium text-muted-foreground">Size Breakdown</p>
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {T_SHIRT_SIZES.map(s => (
-                  <span key={s} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/5 text-primary border border-primary/20">
-                    {s}: {summary.sizeBreakdown[s] || 0}
-                  </span>
-                ))}
-              </div>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-4">
+            <StatsCard title="Total Registrations" value={String(summary.totalRegistrations ?? 0)} icon={Shirt} color="text-primary" />
+            <StatsCard title="Total Quantity" value={String(summary.totalQuantity ?? 0)} icon={Shirt} color="text-indigo-600" />
+            <StatsCard title="Total T-Shirt Amount" value={formatCurrency(summary.totalTshirtAmount ?? 0)} icon={IndianRupee} color="text-emerald-600" />
+            <StatsCard title="Total Amount Collected" value={formatCurrency(summary.totalAmountCollected ?? 0)} icon={CheckCircle} color="text-emerald-600" />
+            <StatsCard title="Distributed T-Shirts" value={String(summary.distributedTshirts ?? 0)} icon={Shirt} color="text-teal-600" />
           </div>
         )}
 
@@ -768,6 +777,16 @@ quantity,
                   {errors.quantity && <p className="text-xs text-destructive mt-1">{errors.quantity}</p>}
                 </div>
                 <div>
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">T-Shirt Price <span className="text-destructive">*</span></label>
+                  <div className="relative">
+                    <select value={tshirtPrice} onChange={e => { setTshirtPrice(Number(e.target.value)); setErrors(p => { const { tshirtPrice, ...r } = p; return r; }); }} className={cn("w-full px-3 py-2.5 text-sm rounded-lg border bg-background focus:ring-2 focus:ring-primary outline-none appearance-none", errors.tshirtPrice ? 'border-destructive' : 'border-border')}>
+                      {TSHIRT_PRICES.map(price => <option key={price} value={price}>{`₹${price}`}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-muted-foreground" />
+                  </div>
+                  {errors.tshirtPrice && <p className="text-xs text-destructive mt-1">{errors.tshirtPrice}</p>}
+                </div>
+                <div>
 <label className="block text-xs font-semibold text-foreground mb-1.5">Chest Size (inches) <span className="text-muted-foreground">(optional)</span></label>
                   <div className="relative">
                     <Ruler className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -775,6 +794,12 @@ quantity,
                   </div>
                   {errors.chestSize && <p className="text-xs text-destructive mt-1">{errors.chestSize}</p>}
                 </div>
+                {/* <div className="md:col-span-3">
+                  <p className="text-xs text-muted-foreground">Total Amount</p>
+                  <div className="mt-1 rounded-xl border border-border bg-slate-50 px-3 py-2 text-sm font-semibold text-foreground">
+                    {formatCurrency(tshirtPrice * quantity)}
+                  </div>
+                </div> */}
               </div>
             </div>
 
@@ -954,6 +979,8 @@ quantity,
                       <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Size</th>
 <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Num</th>
                       <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Qty</th>
+                      <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Price</th>
+                      <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Amount</th>
                       <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Chest</th>
                       <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Paid To</th>
 <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Payment</th>
@@ -980,6 +1007,8 @@ quantity,
                           </td>
                           <td className="px-3 py-3 text-sm text-muted-foreground">{r.tShirtSizeNumeric != null ? r.tShirtSizeNumeric : '—'}</td>
                           <td className="px-3 py-3 text-sm font-semibold text-foreground whitespace-nowrap">{r.quantity} ×</td>
+                          <td className="px-3 py-3 text-sm text-muted-foreground">{formatCurrency(r.tshirtPrice)}</td>
+                          <td className="px-3 py-3 text-sm font-semibold text-foreground whitespace-nowrap">{formatCurrency(r.totalAmount)}</td>
                           <td className="px-3 py-3 text-sm text-muted-foreground">{r.chestSize != null ? `${r.chestSize}"` : '—'}</td>
                           <td className="px-3 py-3 text-sm text-muted-foreground">{r.paidToName || '—'}</td>
                           <td className="px-3 py-3">
@@ -1125,6 +1154,7 @@ function EditRegistrationModal({ registration, onClose, onSaved }: {
 const [tShirtSize, setTShirtSize] = useState(registration.tShirtSize);
   const [tShirtSizeNumeric, setTShirtSizeNumeric] = useState(registration.tShirtSizeNumeric != null ? String(registration.tShirtSizeNumeric) : '');
   const [quantity, setQuantity] = useState(registration.quantity || 1);
+  const [tshirtPrice, setTshirtPrice] = useState(registration.tshirtPrice || 250);
   const [chestSize, setChestSize] = useState(registration.chestSize != null ? String(registration.chestSize) : '');
   const [paymentMode, setPaymentMode] = useState(registration.paymentMode);
   const [pendingReason, setPendingReason] = useState(registration.pendingReason || '');
@@ -1138,16 +1168,18 @@ const [tShirtSize, setTShirtSize] = useState(registration.tShirtSize);
     if (!name.trim()) { toast.error('Name is required'); return; }
     if (!/^[6-9][0-9]{9}$/.test(mobileNumber.replace(/[\s-]/g, ''))) { toast.error('Enter a valid 10-digit Indian mobile number'); return; }
     if (!tShirtSize) { toast.error('Please select a t-shirt size'); return; }
-if (!quantity || quantity < 1) { toast.error('Valid quantity is required'); return; }
+    if (!quantity || quantity < 1) { toast.error('Valid quantity is required'); return; }
+    if (!TSHIRT_PRICES.includes(tshirtPrice)) { toast.error('Please select a valid t-shirt price'); return; }
     if (chestSize && parseFloat(chestSize) <= 0) { toast.error('Valid chest size is required'); return; }
     setIsSaving(true);
     try {
       const body: any = {
         name: name.trim(),
         mobileNumber: mobileNumber.trim(),
-tShirtSize,
+        tShirtSize,
         tShirtSizeNumeric: tShirtSizeNumeric ? parseInt(tShirtSizeNumeric, 10) : null,
         quantity,
+        tshirtPrice,
         chestSize: chestSize ? parseFloat(chestSize) : null,
         paymentMode,
       };
@@ -1182,6 +1214,10 @@ tShirtSize,
             <p className="text-xs text-muted-foreground mb-1">Resident</p>
             <p className="font-semibold text-foreground">{registration.name}</p>
             <p className="text-xs text-muted-foreground">{registration.buildingName}{registration.wingName ? ` - ${registration.wingName}` : ''}</p>
+            <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
+              <div><span className="font-semibold text-foreground">Price:</span> {formatCurrency(registration.tshirtPrice)}</div>
+              <div><span className="font-semibold text-foreground">Amount:</span> {formatCurrency(registration.totalAmount)}</div>
+            </div>
           </div>
 
           <div>
@@ -1213,11 +1249,16 @@ tShirtSize,
               </select>
             </div>
             <div>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">T-Shirt Price <span className="text-destructive">*</span></label>
+              <select value={tshirtPrice} onChange={e => setTshirtPrice(Number(e.target.value))} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none">
+                {TSHIRT_PRICES.map(price => <option key={price} value={price}>{`₹${price}`}</option>)}
+              </select>
+            </div>
+            <div>
 <label className="block text-xs font-semibold text-foreground mb-1.5">Chest (in) <span className="text-muted-foreground">(optional)</span></label>
               <input type="number" value={chestSize} onChange={e => setChestSize(e.target.value)} min={1} step={0.5} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none" />
             </div>
           </div>
-
           <div>
             <label className="block text-xs font-semibold text-foreground mb-1.5">Payment Mode <span className="text-destructive">*</span></label>
             <select value={paymentMode} onChange={e => { setPaymentMode(e.target.value); if (e.target.value !== 'pending') { setPendingReason(''); setPendingCustomReason(''); } }} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none">

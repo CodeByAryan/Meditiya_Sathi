@@ -23,12 +23,20 @@ router.get("/admin/festivals", requireRole("Super Admin", "Admin", "Volunteer"),
   try {
     const admin = (req as any).admin;
 
-    // Volunteers only see festivals assigned to them
-    let query = db.select().from(festivalsTable);
-    if (admin.role === "Volunteer") {
-      query = query.where(eq(festivalsTable.assignedVolunteerId, admin.id));
-    }
-    const festivals = await query.orderBy(desc(festivalsTable.year), desc(festivalsTable.createdAt));
+   let festivals;
+
+if (admin.role === "Volunteer") {
+  festivals = await db
+    .select()
+    .from(festivalsTable)
+    .where(eq(festivalsTable.assignedVolunteerId, admin.id))
+    .orderBy(desc(festivalsTable.year), desc(festivalsTable.createdAt));
+} else {
+  festivals = await db
+    .select()
+    .from(festivalsTable)
+    .orderBy(desc(festivalsTable.year), desc(festivalsTable.createdAt));
+}
 
     // Attach stats to each festival
     const result = await Promise.all(

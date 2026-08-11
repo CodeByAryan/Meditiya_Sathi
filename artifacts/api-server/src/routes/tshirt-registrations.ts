@@ -9,9 +9,14 @@ const router: IRouter = Router();
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const VALID_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"];
+const VALID_PRICES = [230, 250];
 const VALID_PAYMENT_MODES = ["cash", "upi", "online", "pending"];
 const MIN_QUANTITY = 1;
 const MAX_QUANTITY = 5;
+
+function isValidTshirtPrice(val: unknown): val is number {
+  return typeof val === "number" && VALID_PRICES.includes(val);
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -66,6 +71,8 @@ function mapRow(row: any) {
 tShirtSize: row.t_shirt_size,
     tShirtSizeNumeric: row.t_shirt_size_numeric != null ? parseInt(String(row.t_shirt_size_numeric), 10) : null,
     quantity: row.quantity != null ? parseInt(String(row.quantity), 10) : 1,
+    tshirtPrice: row.tshirt_price != null ? parseInt(String(row.tshirt_price), 10) : 250,
+    totalAmount: row.total_amount != null ? parseInt(String(row.total_amount), 10) : 0,
     chestSize: row.chest_size != null ? parseFloat(String(row.chest_size)) : null,
     paidToAdminId: row.paid_to_admin_id,
     paidToName: row.paid_to_name,
@@ -99,33 +106,30 @@ router.get("/admin/tshirt-registrations/summary", requireRole("Super Admin", "Ad
     const result = await db.execute(
       sql`SELECT
           COUNT(*)::int as total,
-          COUNT(*) FILTER (WHERE t.payment_mode != 'pending')::int as paid,
-          COUNT(*) FILTER (WHERE t.payment_mode = 'pending')::int as pending,
-          COALESCE(SUM(t.quantity), 0)::int as totalQuantity
+          COALESCE(SUM(t.quantity), 0)::int as totalQuantity,
+          COALESCE(SUM(t.total_amount), 0)::int as totalAmount,
+          COALESCE(SUM(t.total_amount), 0)::int as amountCollected,
+          COALESCE(SUM(t.quantity) FILTER (WHERE t.collection_status = 'collected'), 0)::int as distributedTshirts
           FROM tshirt_registrations t
           ${sql.raw(where)}`
     );
     const row = (result.rows?.[0] as any) || {};
 
-    // Size breakdown (respects quantity)
-    const sizeResult = await db.execute(
-      sql`SELECT t.t_shirt_size as size, SUM(t.quantity)::int as count
-          FROM tshirt_registrations t
-          ${sql.raw(where)}
-          GROUP BY t.t_shirt_size`
-    );
-
-    const sizeBreakdown: Record<string, number> = {};
-    (sizeResult.rows || []).forEach((s: any) => {
-      sizeBreakdown[s.size] = s.count;
-    });
+    const totalQuantity = row.totalquantity ?? 0;
+    const totalAmount = row.totalamount ?? 0;
+    const distributedTshirts = row.distributedtshirts ?? 0;
 
     res.json({
+      totalRegistrations: row.total ?? 0,
+      totalQuantity,
+      totalTshirtAmount: totalAmount,
+      totalAmountCollected: totalAmount,
+      distributedTshirts,
+      // compatibility aliases for existing consumers
       total: row.total ?? 0,
-      paid: row.paid ?? 0,
-      pending: row.pending ?? 0,
-      totalQuantity: row.totalQuantity ?? 0,
-      sizeBreakdown,
+      totalTshirts: totalQuantity,
+      totalAmount: totalAmount,
+      amountCollected: totalAmount,
     });
   } catch (err: any) {
     console.error("Error fetching tshirt summary:", err);
@@ -152,8 +156,8 @@ router.get("/admin/tshirt-registrations/export", requireRole("Super Admin", "Adm
 
     const headers = [
       "Festival", "Name", "Mobile Number", "Building", "Wing",
-"T-Shirt Size", "Numeric Size", "Quantity", "Chest Size", "Paid To", "Payment Mode",
-      "Pending Reason", "Registration Date",
+"T-Shirt Size", "Numeric Size", "Quantity", "T-Shirt Price", "Total Amount", "Chest Size", "Paid To", "Payment Mode",
+      "Collection Status", "Collection ID", "Pending Reason", "Registration Date",
     ];
 
     const lines = (rows.rows || []).map((row: any) => {
@@ -163,12 +167,16 @@ router.get("/admin/tshirt-registrations/export", requireRole("Super Admin", "Adm
         row.mobile_number,
         row.building_name || "",
         row.wing_name || "",
-row.t_shirt_size,
+        row.t_shirt_size,
         row.t_shirt_size_numeric != null ? parseInt(String(row.t_shirt_size_numeric), 10) : "",
         row.quantity != null ? parseInt(String(row.quantity), 10) : 1,
+        row.tshirt_price != null ? parseInt(String(row.tshirt_price), 10) : "",
+        row.total_amount != null ? parseInt(String(row.total_amount), 10) : "",
         row.chest_size != null ? parseFloat(String(row.chest_size)) : "",
         row.paid_to_name || "",
         (row.payment_mode || "").replace(/^./, (c: string) => c.toUpperCase()),
+        row.collection_status || "",
+        row.collection_id || "",
         row.pending_reason || "",
         row.created_at ? new Date(row.created_at).toLocaleDateString("en-IN") : "",
       ];
@@ -352,8 +360,13 @@ router.post("/admin/tshirt-registrations", requireRole("Super Admin", "Admin", "
       return;
     }
     const quantity = body.quantity != null ? body.quantity : 1;
-if (!isValidQuantity(quantity)) {
+    if (!isValidQuantity(quantity)) {
       res.status(400).json({ error: `Quantity must be between ${MIN_QUANTITY} and ${MAX_QUANTITY}` });
+      return;
+    }
+    const tshirtPrice = body.tshirtPrice != null ? body.tshirtPrice : 250;
+    if (!isValidTshirtPrice(tshirtPrice)) {
+      res.status(400).json({ error: "Please select a valid t-shirt price" });
       return;
     }
     // Numeric t-shirt size is optional; if provided it must be a positive integer
@@ -415,7 +428,8 @@ if (!isValidQuantity(quantity)) {
       }
     }
 
-const [registration] = await db
+    const totalAmount = tshirtPrice * quantity;
+    const [registration] = await db
       .insert(tshirtRegistrationsTable)
       .values({
         festivalId: body.festivalId,
@@ -423,10 +437,12 @@ const [registration] = await db
         mobileNumber,
         buildingId: body.buildingId,
         wingId: normalizeNullable(wingId) as number | null,
-tShirtSize: body.tShirtSize,
+        tShirtSize: body.tShirtSize,
         tShirtSizeNumeric: normalizeNullable(tShirtSizeNumeric) as number | null,
         quantity,
-chestSize: normalizeNullable(body.chestSize != null && body.chestSize !== "" ? String(body.chestSize) : null) as string | null,
+        tshirtPrice,
+        totalAmount,
+        chestSize: normalizeNullable(body.chestSize != null && body.chestSize !== "" ? String(body.chestSize) : null) as string | null,
         paidToAdminId: normalizeNullable(paidToAdminId) as string | null,
         paidToName: normalizeNullable(paidToName) as string | null,
         paymentMode,
@@ -434,7 +450,6 @@ chestSize: normalizeNullable(body.chestSize != null && body.chestSize !== "" ? S
       })
       .returning();
 
-// Generate & persist the unique public collection ID (e.g. TSH-2026-0001)
     let collectionId: string | null = null;
     let collectionStatus = "pending";
     if (registration?.id != null) {
@@ -451,7 +466,7 @@ chestSize: normalizeNullable(body.chestSize != null && body.chestSize !== "" ? S
       }
     }
 
-res.status(201).json({
+    res.status(201).json({
       id: registration.id,
       festivalId: registration.festivalId,
       name: registration.name,
@@ -461,6 +476,8 @@ res.status(201).json({
       tShirtSize: registration.tShirtSize,
       tShirtSizeNumeric: registration.tShirtSizeNumeric != null ? parseInt(String(registration.tShirtSizeNumeric), 10) : null,
       quantity: registration.quantity != null ? parseInt(String(registration.quantity), 10) : 1,
+      tshirtPrice: registration.tshirtPrice != null ? parseInt(String(registration.tshirtPrice), 10) : 250,
+      totalAmount: registration.totalAmount != null ? parseInt(String(registration.totalAmount), 10) : 0,
       chestSize: registration.chestSize != null ? parseFloat(String(registration.chestSize)) : null,
       paidToAdminId: registration.paidToAdminId,
       paidToName: registration.paidToName,
@@ -573,6 +590,14 @@ if (body.tShirtSize !== undefined) {
       updateData.quantity = body.quantity;
     }
 
+    if (body.tshirtPrice !== undefined) {
+      if (!isValidTshirtPrice(body.tshirtPrice)) {
+        res.status(400).json({ error: "Please select a valid t-shirt price" });
+        return;
+      }
+      updateData.tshirtPrice = body.tshirtPrice;
+    }
+
 if (body.chestSize !== undefined) {
       // Chest size is optional; null/empty clears it, otherwise must be a valid positive number
       if (body.chestSize == null || body.chestSize === "") {
@@ -614,6 +639,20 @@ if (body.chestSize !== undefined) {
       return;
     }
 
+    if (updateData.tshirtPrice !== undefined || updateData.quantity !== undefined) {
+      const existingRow = await db.execute(
+        sql`SELECT quantity, tshirt_price FROM tshirt_registrations WHERE id = ${id} LIMIT 1`
+      );
+      const existing = (existingRow.rows?.[0] as any) || {};
+      const newPrice = updateData.tshirtPrice !== undefined
+        ? Number(updateData.tshirtPrice)
+        : Number(existing.tshirt_price ?? 250);
+      const newQuantity = updateData.quantity !== undefined
+        ? Number(updateData.quantity)
+        : Number(existing.quantity ?? 1);
+      updateData.totalAmount = newPrice * newQuantity;
+    }
+
     const [updated] = await db
       .update(tshirtRegistrationsTable)
       .set({ ...updateData, updatedAt: new Date() })
@@ -625,13 +664,15 @@ if (body.chestSize !== undefined) {
       return;
     }
 
-res.json({
+    res.json({
       ...updated,
       tShirtSizeNumeric: updated.tShirtSizeNumeric != null ? parseInt(String(updated.tShirtSizeNumeric), 10) : null,
       quantity: updated.quantity != null ? parseInt(String(updated.quantity), 10) : 1,
+      tshirtPrice: updated.tshirtPrice != null ? parseInt(String(updated.tshirtPrice), 10) : 250,
+      totalAmount: updated.totalAmount != null ? parseInt(String(updated.totalAmount), 10) : 0,
       chestSize: updated.chestSize != null ? parseFloat(String(updated.chestSize)) : null,
     });
-} catch (err: any) {
+  } catch (err: any) {
     res.status(500).json({ error: err?.message || "Failed to update registration" });
   }
 });
