@@ -5,6 +5,7 @@ import { ThemeProvider } from 'next-themes';
 
 import Shell from '@/components/layout/Shell';
 import Home from '@/pages/home';
+import Countdown from '@/pages/countdown';
 import About from '@/pages/about';
 import Events from '@/pages/events';
 import Festivals from '@/pages/festivals';
@@ -63,6 +64,7 @@ function AppRoutes() {
         <Route path="/">
           <Shell><Home /></Shell>
         </Route>
+        <Route path="/countdown"><Shell><Countdown /></Shell></Route>
         
         <Route path="/about"><Shell><About /></Shell></Route>
         <Route path="/events"><Shell><Events /></Shell></Route>
@@ -138,7 +140,7 @@ function App() {
   return (
     <WouterRouter base={basePath}>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+        <ThemeProvider attribute="class" forcedTheme="dark" enableSystem={false}>
           <AppRoutes />
         </ThemeProvider>
       </QueryClientProvider>

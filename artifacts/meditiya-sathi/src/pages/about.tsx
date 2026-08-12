@@ -21,13 +21,13 @@ export default function About() {
   return (
     <div className="w-full">
       {/* Hero Section */}
-      <section className="relative py-20 bg-secondary overflow-hidden">
-        <div className="absolute inset-0 bg-pattern opacity-20"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/90"></div>
+      <section className="relative overflow-hidden bg-[color:var(--page-bg-soft)] py-20">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12),transparent_40%)]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/90" />
         <div className="container relative z-10 mx-auto px-4 text-center">
-          <Badge className="bg-primary/20 text-primary hover:bg-primary/30 mb-4 py-1.5 px-4 font-bold border-primary/20">OUR COMMUNITY</Badge>
-          <h1 className="text-4xl md:text-6xl font-serif font-bold text-white mb-6 drop-shadow-md">About Meditiya Nagar</h1>
-          <p className="text-xl text-white/80 max-w-2xl mx-auto leading-relaxed">
+          <Badge className="mb-4 border-primary/20 bg-primary/15 px-4 py-1.5 font-bold text-primary hover:bg-primary/20">OUR COMMUNITY</Badge>
+          <h1 className="mb-6 text-4xl font-serif font-bold text-foreground drop-shadow-md md:text-6xl">About Meditiya Nagar</h1>
+          <p className="mx-auto max-w-2xl text-xl leading-relaxed text-muted-foreground">
             A vibrant community built on the pillars of togetherness, cultural celebration, and mutual respect.
           </p>
         </div>

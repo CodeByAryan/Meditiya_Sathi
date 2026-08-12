@@ -1,0 +1,24 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import Hero from './Hero';
+import Stats from './Stats';
+import UpcomingTeaser from './UpcomingTeaser';
+import FestivalShowcase from './FestivalShowcase';
+import EventsSection from './EventsSection';
+import FeaturesBento from './FeaturesBento';
+import CTA from './CTA';
+import { pageFade } from './motionVariants';
+
+export default function HomePage() {
+  return (
+    <motion.div initial="hidden" animate="enter" exit="exit" variants={pageFade} className="w-full">
+      <Hero />
+      <Stats />
+      <UpcomingTeaser />
+      <FeaturesBento />
+      <FestivalShowcase />
+      <EventsSection />
+      <CTA />
+    </motion.div>
+  );
+}

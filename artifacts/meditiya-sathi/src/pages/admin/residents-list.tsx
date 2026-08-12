@@ -1,10 +1,35 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'wouter';
-import { ArrowLeft, Building2, Plus, Search, Eye, Edit3, Trash2, ChevronLeft, ChevronRight, X, RefreshCw, AlertTriangle, User, Phone, MapPin, CalendarDays, Hash, Home, Filter } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ArrowLeft,
+  Building2,
+  Plus,
+  Search,
+  Eye,
+  Edit3,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  RefreshCw,
+  AlertTriangle,
+  User,
+  Phone,
+  CalendarDays,
+  Home,
+  Hash,
+  Filter,
+  MapPin,
+  Sparkles,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, getApiUrl } from '@/lib/utils';
 
-// ── Types ────────────────────────────────────────────────────────────────────
+/* ============================================================
+   TYPES
+============================================================ */
+
 interface Building {
   id: number;
   buildingName: string;
@@ -45,12 +70,18 @@ interface ListResponse {
   pagination: Pagination;
 }
 
-// ── Auth helpers ─────────────────────────────────────────────────────────────
+/* ============================================================
+   AUTH HELPERS
+============================================================ */
+
 function getAdminToken(): string | null {
   try {
     const stored = localStorage.getItem('admin_auth');
+
     if (!stored) return null;
+
     const parsed = JSON.parse(stored);
+
     return parsed?.token || null;
   } catch {
     return null;
@@ -59,133 +90,326 @@ function getAdminToken(): string | null {
 
 function authHeaders(): Record<string, string> {
   const token = getAdminToken();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   return headers;
 }
 
-// ── Format date helper ───────────────────────────────────────────────────────
+/* ============================================================
+   DATE
+============================================================ */
+
 function formatDate(dateStr: string): string {
   try {
     const d = new Date(dateStr);
-    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    return d.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
   } catch {
     return dateStr;
   }
 }
 
-// ── View Modal ───────────────────────────────────────────────────────────────
-function ViewResidentModal({ resident, onClose }: { resident: Resident; onClose: () => void }) {
+/* ============================================================
+   SHARED GLASS STYLES
+============================================================ */
+
+const glassCard =
+  'border border-white/10 bg-white/[0.045] backdrop-blur-2xl shadow-[0_20px_80px_rgba(0,0,0,0.25)]';
+
+const inputStyle =
+  'w-full rounded-xl border border-white/10 bg-white/[0.045] px-3.5 py-2.5 text-sm text-white placeholder:text-white/30 outline-none transition-all focus:border-amber-300/40 focus:bg-white/[0.07] focus:ring-1 focus:ring-amber-300/20';
+
+const selectStyle =
+  'w-full rounded-xl border border-white/10 bg-[#111111] px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-amber-300/40 focus:ring-1 focus:ring-amber-300/20';
+
+/* ============================================================
+   VIEW MODAL
+============================================================ */
+
+function ViewResidentModal({
+  resident,
+  onClose,
+}: {
+  resident: Resident;
+  onClose: () => void;
+}) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-5 border-b border-border">
-          <h2 className="text-lg font-serif font-bold text-foreground flex items-center gap-2">
-            <User className="w-5 h-5 text-primary" /> Resident Details
-          </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <div className="p-5 space-y-4">
-          <div className="grid grid-cols-[140px_1fr] gap-y-3 text-sm">
-            <span className="text-muted-foreground font-medium">Full Name</span>
-            <span className="font-semibold text-foreground">{resident.fullName}</span>
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 25, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 15, scale: 0.98 }}
+          transition={{ duration: 0.25 }}
+          className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-white/10 bg-[#101010] shadow-[0_30px_120px_rgba(0,0,0,0.7)]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Glow */}
+          <div className="pointer-events-none absolute -top-32 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-amber-400/10 blur-[90px]" />
 
-            <span className="text-muted-foreground font-medium">Building</span>
-            <span className="font-semibold text-foreground flex items-center gap-1.5">
-              <Building2 className="w-3.5 h-3.5 text-primary" /> {resident.buildingName || '—'}
-            </span>
+          <div className="relative flex items-center justify-between border-b border-white/10 p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-amber-300/20 bg-amber-300/10">
+                <User className="h-4 w-4 text-amber-300" />
+              </div>
 
-            <span className="text-muted-foreground font-medium">Wing</span>
-            <span className="font-semibold text-foreground">{resident.wingName || '—'}</span>
+              <div>
+                <p className="text-[9px] font-semibold uppercase tracking-[0.25em] text-amber-300/70">
+                  Resident
+                </p>
 
-            <span className="text-muted-foreground font-medium">Flat Number</span>
-            <span className="font-semibold text-foreground">
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 text-primary font-mono font-bold text-sm">
-                <Home className="w-3 h-3" /> {resident.flatNo}
-              </span>
-            </span>
+                <h2 className="mt-0.5 font-serif text-lg font-semibold text-white">
+                  Resident Details
+                </h2>
+              </div>
+            </div>
 
-            <span className="text-muted-foreground font-medium">Mobile</span>
-            <span className="font-semibold text-foreground flex items-center gap-1.5">
-              <Phone className="w-3.5 h-3.5 text-muted-foreground" /> {resident.mobile}
-            </span>
-
-            <span className="text-muted-foreground font-medium">Address</span>
-            <span className="text-foreground">{resident.address || '—'}</span>
-
-            <span className="text-muted-foreground font-medium">Status</span>
-            <span>
-              <span className={cn(
-                "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider",
-                resident.status === 'active'
-                  ? "text-emerald-700 bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400"
-                  : "text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-400"
-              )}>
-                {resident.status}
-              </span>
-            </span>
-
-            <span className="text-muted-foreground font-medium">Created</span>
-            <span className="text-foreground flex items-center gap-1.5">
-              <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" /> {formatDate(resident.createdAt)}
-            </span>
+            <button
+              onClick={onClose}
+              className="rounded-xl border border-white/10 bg-white/[0.04] p-2 text-white/50 transition hover:bg-white/[0.08] hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
-        </div>
-        <div className="flex justify-end p-4 border-t border-border bg-muted/20">
-          <button onClick={onClose} className="px-5 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all">
-            Close
-          </button>
-        </div>
-      </div>
+
+          <div className="relative space-y-3 p-5">
+            <InfoRow
+              label="Full Name"
+              value={resident.fullName}
+              icon={<User className="h-3.5 w-3.5" />}
+            />
+
+            <InfoRow
+              label="Building"
+              value={resident.buildingName || '—'}
+              icon={<Building2 className="h-3.5 w-3.5" />}
+            />
+
+            <InfoRow
+              label="Wing"
+              value={resident.wingName || '—'}
+            />
+
+            <InfoRow
+              label="Flat Number"
+              value={resident.flatNo}
+              icon={<Home className="h-3.5 w-3.5" />}
+              highlight
+            />
+
+            <InfoRow
+              label="Mobile"
+              value={resident.mobile}
+              icon={<Phone className="h-3.5 w-3.5" />}
+            />
+
+            <InfoRow
+              label="Address"
+              value={resident.address || '—'}
+              icon={<MapPin className="h-3.5 w-3.5" />}
+            />
+
+            <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-3">
+              <span className="text-xs font-medium text-white/40">
+                Status
+              </span>
+
+              <StatusBadge status={resident.status} />
+            </div>
+
+            <InfoRow
+              label="Created"
+              value={formatDate(resident.createdAt)}
+              icon={<CalendarDays className="h-3.5 w-3.5" />}
+            />
+          </div>
+
+          <div className="border-t border-white/10 bg-white/[0.02] p-4">
+            <button
+              onClick={onClose}
+              className="w-full rounded-xl bg-white py-2.5 text-sm font-semibold text-black transition hover:scale-[1.01]"
+            >
+              Close
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+function InfoRow({
+  label,
+  value,
+  icon,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  icon?: React.ReactNode;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-3">
+      <span className="text-xs font-medium text-white/40">{label}</span>
+
+      <span
+        className={cn(
+          'flex items-center gap-1.5 text-right text-sm font-medium',
+          highlight
+            ? 'rounded-lg border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 font-mono text-amber-300'
+            : 'text-white/85',
+        )}
+      >
+        {icon && (
+          <span className={highlight ? 'text-amber-300' : 'text-white/35'}>
+            {icon}
+          </span>
+        )}
+
+        {value}
+      </span>
     </div>
   );
 }
 
-// ── Delete Confirm Dialog ────────────────────────────────────────────────────
-function DeleteConfirmDialog({ resident, onConfirm, onCancel, isLoading }: {
+/* ============================================================
+   STATUS
+============================================================ */
+
+function StatusBadge({ status }: { status: string }) {
+  const active = status === 'active';
+
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.15em]',
+        active
+          ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300'
+          : 'border-white/10 bg-white/[0.05] text-white/40',
+      )}
+    >
+      <span
+        className={cn(
+          'h-1.5 w-1.5 rounded-full',
+          active ? 'bg-emerald-300 shadow-[0_0_8px_rgba(110,231,183,0.8)]' : 'bg-white/30',
+        )}
+      />
+
+      {status}
+    </span>
+  );
+}
+
+/* ============================================================
+   DELETE DIALOG
+============================================================ */
+
+function DeleteConfirmDialog({
+  resident,
+  onConfirm,
+  onCancel,
+  isLoading,
+}: {
   resident: Resident;
   onConfirm: () => void;
   onCancel: () => void;
   isLoading: boolean;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onCancel}>
-      <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-sm w-full" onClick={e => e.stopPropagation()}>
-        <div className="p-6 text-center">
-          <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
-            <AlertTriangle className="w-7 h-7 text-destructive" />
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md"
+        onClick={onCancel}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 15 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 bg-[#101010] shadow-[0_30px_120px_rgba(0,0,0,0.7)]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="p-6 text-center">
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-red-400/20 bg-red-400/10">
+              <AlertTriangle className="h-6 w-6 text-red-400" />
+            </div>
+
+            <h3 className="font-serif text-xl font-semibold text-white">
+              Delete Resident?
+            </h3>
+
+            <p className="mt-2 text-sm text-white/45">
+              Are you sure you want to delete
+            </p>
+
+            <p className="mt-1 text-sm font-semibold text-white">
+              {resident.fullName} ({resident.flatNo})
+            </p>
+
+            <p className="mt-3 text-xs text-white/30">
+              This action cannot be undone.
+            </p>
           </div>
-          <h3 className="text-lg font-bold text-foreground mb-2">Delete Resident?</h3>
-          <p className="text-sm text-muted-foreground mb-1">Are you sure you want to delete</p>
-          <p className="text-sm font-bold text-foreground">{resident.fullName} ({resident.flatNo})?</p>
-          <p className="text-xs text-muted-foreground mt-2">This action cannot be undone.</p>
-        </div>
-        <div className="flex gap-3 p-4 pt-0">
-          <button
-            onClick={onCancel}
-            disabled={isLoading}
-            className="flex-1 py-2.5 border border-border rounded-xl text-sm font-semibold hover:bg-muted/50 transition-all"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={isLoading}
-            className="flex-1 py-2.5 bg-destructive text-destructive-foreground rounded-xl text-sm font-semibold hover:bg-destructive/90 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
-          >
-            {isLoading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Trash2 className="w-4 h-4" />}
-            Delete
-          </button>
-        </div>
-      </div>
-    </div>
+
+          <div className="flex gap-3 border-t border-white/10 bg-white/[0.02] p-4">
+            <button
+              onClick={onCancel}
+              disabled={isLoading}
+              className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] py-2.5 text-sm font-semibold text-white/70 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
+            >
+              Cancel
+            </button>
+
+            <button
+              onClick={onConfirm}
+              disabled={isLoading}
+              className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500/90 disabled:opacity-50"
+            >
+              {isLoading ? (
+                <span className="mx-auto block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </span>
+              )}
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
-// ── Edit Form Modal ────────────────────────────────────────────────────────
-function EditResidentModal({ resident, buildings, onClose, onSaved }: {
+/* ============================================================
+   EDIT MODAL
+============================================================ */
+
+function EditResidentModal({
+  resident,
+  buildings,
+  onClose,
+  onSaved,
+}: {
   resident: Resident;
   buildings: Building[];
   onClose: () => void;
@@ -200,20 +424,31 @@ function EditResidentModal({ resident, buildings, onClose, onSaved }: {
     address: resident.address || '',
     status: resident.status,
   });
+
   const [wings, setWings] = useState<Wing[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingWings, setLoadingWings] = useState(false);
 
-  const selectedBuilding = buildings.find(b => b.id === form.buildingId);
+  const selectedBuilding = buildings.find(
+    (b) => b.id === form.buildingId,
+  );
 
   useEffect(() => {
     if (!form.buildingId || !selectedBuilding?.hasWings) {
       setWings([]);
       return;
     }
+
     setLoadingWings(true);
-fetch(getApiUrl() + `/api/admin/buildings/${form.buildingId}/wings`, { headers: authHeaders() })
-      .then(r => r.json())
+
+    fetch(
+      getApiUrl() +
+        `/api/admin/buildings/${form.buildingId}/wings`,
+      {
+        headers: authHeaders(),
+      },
+    )
+      .then((r) => r.json())
       .then((data: Wing[]) => setWings(data))
       .catch(() => setWings([]))
       .finally(() => setLoadingWings(false));
@@ -221,175 +456,328 @@ fetch(getApiUrl() + `/api/admin/buildings/${form.buildingId}/wings`, { headers: 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     setIsSaving(true);
+
     try {
-const res = await fetch(getApiUrl() + `/api/admin/residents/${resident.id}`, {
-        method: 'PATCH',
-        headers: authHeaders(),
-        body: JSON.stringify({
-          ...form,
-          wingId: selectedBuilding?.hasWings ? form.wingId : null,
-        }),
-      });
+      const res = await fetch(
+        getApiUrl() +
+          `/api/admin/residents/${resident.id}`,
+        {
+          method: 'PATCH',
+          headers: authHeaders(),
+          body: JSON.stringify({
+            ...form,
+            wingId: selectedBuilding?.hasWings
+              ? form.wingId
+              : null,
+          }),
+        },
+      );
+
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Failed to update' }));
+        const err = await res
+          .json()
+          .catch(() => ({ error: 'Failed to update' }));
+
         toast.error(err.error);
+
         return;
       }
+
       toast.success('Resident updated successfully');
+
       onSaved();
       onClose();
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to update resident');
+      toast.error(
+        err?.message || 'Failed to update resident',
+      );
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
-      <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-lg w-full my-8" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-5 border-b border-border">
-          <h2 className="text-lg font-serif font-bold text-foreground flex items-center gap-2">
-            <Edit3 className="w-5 h-5 text-primary" /> Edit Resident
-          </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">Building <span className="text-destructive">*</span></label>
-              <select
-                value={form.buildingId}
-                onChange={e => setForm(f => ({ ...f, buildingId: parseInt(e.target.value), wingId: null }))}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
-                required
-              >
-                <option value="">Select</option>
-                {buildings.map(b => (
-                  <option key={b.id} value={b.id}>{b.buildingName}</option>
-                ))}
-              </select>
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-md"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 25, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          className="relative my-8 w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-[#101010] shadow-[0_30px_120px_rgba(0,0,0,0.7)]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="pointer-events-none absolute -top-32 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-amber-400/10 blur-[90px]" />
+
+          <div className="relative flex items-center justify-between border-b border-white/10 p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-amber-300/20 bg-amber-300/10">
+                <Edit3 className="h-4 w-4 text-amber-300" />
+              </div>
+
+              <div>
+                <p className="text-[9px] font-semibold uppercase tracking-[0.25em] text-amber-300/70">
+                  Manage
+                </p>
+
+                <h2 className="font-serif text-lg font-semibold text-white">
+                  Edit Resident
+                </h2>
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">Wing {selectedBuilding?.hasWings && <span className="text-destructive">*</span>}</label>
-              {selectedBuilding?.hasWings ? (
+
+            <button
+              onClick={onClose}
+              className="rounded-xl border border-white/10 bg-white/[0.04] p-2 text-white/50 transition hover:bg-white/[0.08] hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <form
+            onSubmit={handleSubmit}
+            className="relative space-y-5 p-5"
+          >
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <FormField label="Building" required>
                 <select
-                  value={form.wingId || ''}
-                  onChange={e => setForm(f => ({ ...f, wingId: e.target.value ? parseInt(e.target.value) : null }))}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
-                  required={selectedBuilding?.hasWings}
+                  value={form.buildingId}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      buildingId: parseInt(e.target.value),
+                      wingId: null,
+                    }))
+                  }
+                  className={selectStyle}
+                  required
                 >
                   <option value="">Select</option>
-                  {loadingWings ? (
-                    <option disabled>Loading...</option>
-                  ) : wings.map(w => (
-                    <option key={w.id} value={w.id}>{w.wingName}</option>
+
+                  {buildings.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.buildingName}
+                    </option>
                   ))}
                 </select>
-              ) : (
-                <div className="px-3 py-2 text-sm rounded-lg border border-dashed border-border bg-muted/30 text-muted-foreground">N/A</div>
-              )}
+              </FormField>
+
+              <FormField
+                label="Wing"
+                required={selectedBuilding?.hasWings}
+              >
+                {selectedBuilding?.hasWings ? (
+                  <select
+                    value={form.wingId || ''}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        wingId: e.target.value
+                          ? parseInt(e.target.value)
+                          : null,
+                      }))
+                    }
+                    className={selectStyle}
+                    required={selectedBuilding?.hasWings}
+                  >
+                    <option value="">Select</option>
+
+                    {loadingWings ? (
+                      <option disabled>
+                        Loading...
+                      </option>
+                    ) : (
+                      wings.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.wingName}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.025] px-3.5 py-2.5 text-sm text-white/30">
+                    N/A
+                  </div>
+                )}
+              </FormField>
+
+              <FormField label="Flat" required>
+                <input
+                  type="text"
+                  value={form.flatNo}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      flatNo: e.target.value,
+                    }))
+                  }
+                  className={inputStyle}
+                  required
+                />
+              </FormField>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">Flat <span className="text-destructive">*</span></label>
-              <input
-                type="text"
-                value={form.flatNo}
-                onChange={e => setForm(f => ({ ...f, flatNo: e.target.value }))}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
-                required
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <FormField label="Full Name" required>
+                <input
+                  type="text"
+                  value={form.fullName}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      fullName: e.target.value,
+                    }))
+                  }
+                  className={inputStyle}
+                  required
+                />
+              </FormField>
+
+              <FormField label="Mobile" required>
+                <input
+                  type="tel"
+                  value={form.mobile}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      mobile: e.target.value,
+                    }))
+                  }
+                  className={inputStyle}
+                  required
+                />
+              </FormField>
+            </div>
+
+            <FormField label="Address">
+              <textarea
+                value={form.address}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    address: e.target.value,
+                  }))
+                }
+                rows={2}
+                className={cn(inputStyle, 'resize-none')}
               />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+            </FormField>
+
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">Full Name <span className="text-destructive">*</span></label>
-              <input
-                type="text"
-                value={form.fullName}
-                onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
-                required
-              />
+              <label className="mb-2 block text-xs font-semibold text-white/60">
+                Status
+              </label>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm((f) => ({
+                      ...f,
+                      status: 'active',
+                    }))
+                  }
+                  className={cn(
+                    'rounded-xl border px-4 py-2 text-xs font-semibold transition',
+                    form.status === 'active'
+                      ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
+                      : 'border-white/10 bg-white/[0.03] text-white/40 hover:bg-white/[0.06]',
+                  )}
+                >
+                  Active
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm((f) => ({
+                      ...f,
+                      status: 'inactive',
+                    }))
+                  }
+                  className={cn(
+                    'rounded-xl border px-4 py-2 text-xs font-semibold transition',
+                    form.status === 'inactive'
+                      ? 'border-red-400/30 bg-red-400/10 text-red-300'
+                      : 'border-white/10 bg-white/[0.03] text-white/40 hover:bg-white/[0.06]',
+                  )}
+                >
+                  Inactive
+                </button>
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">Mobile <span className="text-destructive">*</span></label>
-              <input
-                type="tel"
-                value={form.mobile}
-                onChange={e => setForm(f => ({ ...f, mobile: e.target.value }))}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
-                required
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-foreground mb-1">Address</label>
-            <textarea
-              value={form.address}
-              onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-              rows={2}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none resize-none"
-            />
-          </div>
-          <div className="flex items-center gap-4">
-            <label className="text-xs font-semibold text-foreground">Status:</label>
-            <div className="flex items-center gap-2">
+
+            <div className="flex flex-col gap-2 pt-2 sm:flex-row">
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-white py-3 text-sm font-semibold text-black transition hover:scale-[1.01] disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/20 border-t-black" />
+                ) : (
+                  <Edit3 className="h-4 w-4" />
+                )}
+
+                Update Resident
+              </button>
+
               <button
                 type="button"
-                onClick={() => setForm(f => ({ ...f, status: 'active' }))}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-all",
-                  form.status === 'active'
-                    ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700"
-                    : "border-border text-muted-foreground"
-                )}
+                onClick={onClose}
+                disabled={isSaving}
+                className="rounded-xl border border-white/10 bg-white/[0.04] px-6 py-3 text-sm font-semibold text-white/70 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
               >
-                Active
-              </button>
-              <button
-                type="button"
-                onClick={() => setForm(f => ({ ...f, status: 'inactive' }))}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-all",
-                  form.status === 'inactive'
-                    ? "border-destructive bg-destructive/10 text-destructive"
-                    : "border-border text-muted-foreground"
-                )}
-              >
-                Inactive
+                Cancel
               </button>
             </div>
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {isSaving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Edit3 className="w-4 h-4" />}
-              Update Resident
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSaving}
-              className="px-5 py-2.5 border border-border rounded-xl text-sm font-semibold hover:bg-muted/50 transition-all"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
+          </form>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+function FormField({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.12em] text-white/45">
+        {label}
+
+        {required && (
+          <span className="ml-1 text-amber-300">*</span>
+        )}
+      </label>
+
+      {children}
     </div>
   );
 }
 
-// ── Sort Header ──────────────────────────────────────────────────────────────
-function SortHeader({ label, field, currentSort, currentOrder, onSort }: {
+/* ============================================================
+   SORT HEADER
+============================================================ */
+
+function SortHeader({
+  label,
+  field,
+  currentSort,
+  currentOrder,
+  onSort,
+}: {
   label: string;
   field: string;
   currentSort: string;
@@ -397,464 +785,1174 @@ function SortHeader({ label, field, currentSort, currentOrder, onSort }: {
   onSort: (field: string) => void;
 }) {
   const isActive = currentSort === field;
+
   return (
     <button
       onClick={() => onSort(field)}
-      className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+      className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white/40 transition hover:text-amber-300"
     >
       {label}
+
       {isActive ? (
-        <span className="text-primary">{currentOrder === 'asc' ? ' ▲' : ' ▼'}</span>
+        <span className="text-amber-300">
+          {currentOrder === 'asc' ? '▲' : '▼'}
+        </span>
       ) : (
-        <span className="opacity-30"> ⇅</span>
+        <span className="opacity-30">⇅</span>
       )}
     </button>
   );
 }
 
-// ── Main Page ────────────────────────────────────────────────────────────────
+/* ============================================================
+   MAIN PAGE
+============================================================ */
+
 export default function AdminResidentsList() {
   const [residents, setResidents] = useState<Resident[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 10, total: 0, totalPages: 0 });
+
+  const [pagination, setPagination] =
+    useState<Pagination>({
+      page: 1,
+      limit: 10,
+      total: 0,
+      totalPages: 0,
+    });
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Search & Filters
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [filterBuildingId, setFilterBuildingId] = useState<number | null>(null);
-  const [filterWingId, setFilterWingId] = useState<number | null>(null);
-  const [filterStatus, setFilterStatus] = useState<string>('');
 
-  // Sort
+  const [filterBuildingId, setFilterBuildingId] =
+    useState<number | null>(null);
+
+  const [filterWingId, setFilterWingId] =
+    useState<number | null>(null);
+
+  const [filterStatus, setFilterStatus] = useState('');
+
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('desc');
 
-  // Buildings & Wings for filters
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [filterWings, setFilterWings] = useState<Wing[]>([]);
 
-  // View / Edit / Delete state
-  const [viewResident, setViewResident] = useState<Resident | null>(null);
-  const [editResident, setEditResident] = useState<Resident | null>(null);
-  const [deleteResident, setDeleteResident] = useState<Resident | null>(null);
+  const [viewResident, setViewResident] =
+    useState<Resident | null>(null);
+
+  const [editResident, setEditResident] =
+    useState<Resident | null>(null);
+
+  const [deleteResident, setDeleteResident] =
+    useState<Resident | null>(null);
+
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Fetch buildings for filter
+  /* ============================================================
+     BUILDINGS
+  ============================================================ */
+
   useEffect(() => {
-fetch(getApiUrl() + '/api/admin/buildings/manage', { headers: authHeaders() })
-      .then(r => r.json())
+    fetch(
+      getApiUrl() + '/api/admin/buildings/manage',
+      {
+        headers: authHeaders(),
+      },
+    )
+      .then((r) => r.json())
       .then((data: Building[]) => setBuildings(data))
       .catch(() => {});
   }, []);
 
-  // Fetch wings when filter building changes
+  /* ============================================================
+     WINGS
+  ============================================================ */
+
   useEffect(() => {
     if (!filterBuildingId) {
       setFilterWings([]);
       return;
     }
-fetch(getApiUrl() + `/api/admin/buildings/${filterBuildingId}/wings/manage`, { headers: authHeaders() })
-      .then(r => r.json())
+
+    fetch(
+      getApiUrl() +
+        `/api/admin/buildings/${filterBuildingId}/wings/manage`,
+      {
+        headers: authHeaders(),
+      },
+    )
+      .then((r) => r.json())
       .then((data: Wing[]) => setFilterWings(data))
       .catch(() => setFilterWings([]));
   }, [filterBuildingId]);
 
-  // Fetch residents
-  const fetchResidents = useCallback(async (pageNum?: number) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams();
-      params.set('page', String(pageNum ?? pagination.page));
-      params.set('limit', '10');
-      if (search) params.set('search', search);
-      if (filterBuildingId) params.set('buildingId', String(filterBuildingId));
-      if (filterWingId) params.set('wingId', String(filterWingId));
-      if (filterStatus) params.set('status', filterStatus);
-      params.set('sortBy', sortBy);
-      params.set('sortOrder', sortOrder);
+  /* ============================================================
+     FETCH RESIDENTS
+  ============================================================ */
 
-const res = await fetch(getApiUrl() + `/api/admin/residents?${params.toString()}`, { headers: authHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch residents');
-      const data: ListResponse = await res.json();
-      setResidents(data.residents);
-      setPagination(data.pagination);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to load residents');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [pagination.page, search, filterBuildingId, filterWingId, filterStatus, sortBy, sortOrder]);
+  const fetchResidents = useCallback(
+    async (pageNum?: number) => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const params = new URLSearchParams();
+
+        params.set(
+          'page',
+          String(pageNum ?? pagination.page),
+        );
+
+        params.set('limit', '10');
+
+        if (search) {
+          params.set('search', search);
+        }
+
+        if (filterBuildingId) {
+          params.set(
+            'buildingId',
+            String(filterBuildingId),
+          );
+        }
+
+        if (filterWingId) {
+          params.set(
+            'wingId',
+            String(filterWingId),
+          );
+        }
+
+        if (filterStatus) {
+          params.set('status', filterStatus);
+        }
+
+        params.set('sortBy', sortBy);
+        params.set('sortOrder', sortOrder);
+
+        const res = await fetch(
+          getApiUrl() +
+            `/api/admin/residents?${params.toString()}`,
+          {
+            headers: authHeaders(),
+          },
+        );
+
+        if (!res.ok) {
+          throw new Error('Failed to fetch residents');
+        }
+
+        const data: ListResponse = await res.json();
+
+        setResidents(data.residents);
+        setPagination(data.pagination);
+      } catch (err: any) {
+        setError(
+          err?.message || 'Failed to load residents',
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [
+      pagination.page,
+      search,
+      filterBuildingId,
+      filterWingId,
+      filterStatus,
+      sortBy,
+      sortOrder,
+    ],
+  );
 
   useEffect(() => {
     fetchResidents();
   }, [fetchResidents]);
 
+  /* ============================================================
+     SEARCH
+  ============================================================ */
+
   const handleSearch = () => {
-    setPagination(p => ({ ...p, page: 1 }));
+    setPagination((p) => ({
+      ...p,
+      page: 1,
+    }));
+
     setSearch(searchInput);
   };
 
+  /* ============================================================
+     SORT
+  ============================================================ */
+
   const handleSort = (field: string) => {
     if (sortBy === field) {
-      setSortOrder(o => o === 'asc' ? 'desc' : 'asc');
+      setSortOrder((o) =>
+        o === 'asc' ? 'desc' : 'asc',
+      );
     } else {
       setSortBy(field);
       setSortOrder('asc');
     }
   };
 
+  /* ============================================================
+     PAGINATION
+  ============================================================ */
+
   const goToPage = (page: number) => {
-    if (page < 1 || page > pagination.totalPages) return;
-    setPagination(p => ({ ...p, page }));
+    if (
+      page < 1 ||
+      page > pagination.totalPages
+    ) {
+      return;
+    }
+
+    setPagination((p) => ({
+      ...p,
+      page,
+    }));
   };
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+
+    const total = pagination.totalPages;
+    const current = pagination.page;
+
+    if (total <= 7) {
+      for (let i = 1; i <= total; i++) {
+        pages.push(i);
+      }
+    } else {
+      pages.push(1);
+
+      if (current > 3) {
+        pages.push('...');
+      }
+
+      const start = Math.max(2, current - 1);
+      const end = Math.min(
+        total - 1,
+        current + 1,
+      );
+
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+
+      if (current < total - 2) {
+        pages.push('...');
+      }
+
+      pages.push(total);
+    }
+
+    return pages;
+  };
+
+  /* ============================================================
+     DELETE
+  ============================================================ */
 
   const handleDelete = async () => {
     if (!deleteResident) return;
+
     setIsDeleting(true);
+
     try {
-const res = await fetch(getApiUrl() + `/api/admin/residents/${deleteResident.id}`, {
-        method: 'DELETE',
-        headers: authHeaders(),
-      });
+      const res = await fetch(
+        getApiUrl() +
+          `/api/admin/residents/${deleteResident.id}`,
+        {
+          method: 'DELETE',
+          headers: authHeaders(),
+        },
+      );
+
       if (res.status === 409) {
-        const err = await res.json().catch(() => ({ error: 'Cannot delete' }));
-        toast.error(err.error || 'This resident has donation records and cannot be deleted.');
+        const err = await res
+          .json()
+          .catch(() => ({
+            error: 'Cannot delete',
+          }));
+
+        toast.error(
+          err.error ||
+            'This resident has donation records and cannot be deleted.',
+        );
+
         setDeleteResident(null);
+
         return;
       }
-      if (!res.ok) throw new Error('Failed to delete');
-      toast.success('Resident deleted successfully');
+
+      if (!res.ok) {
+        throw new Error('Failed to delete');
+      }
+
+      toast.success(
+        'Resident deleted successfully',
+      );
+
       setDeleteResident(null);
+
       fetchResidents();
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to delete resident');
+      toast.error(
+        err?.message ||
+          'Failed to delete resident',
+      );
     } finally {
       setIsDeleting(false);
     }
   };
 
-  // Generate page numbers for pagination
-  const getPageNumbers = () => {
-    const pages: (number | string)[] = [];
-    const total = pagination.totalPages;
-    const current = pagination.page;
-    if (total <= 7) {
-      for (let i = 1; i <= total; i++) pages.push(i);
-    } else {
-      pages.push(1);
-      if (current > 3) pages.push('...');
-      const start = Math.max(2, current - 1);
-      const end = Math.min(total - 1, current + 1);
-      for (let i = start; i <= end; i++) pages.push(i);
-      if (current < total - 2) pages.push('...');
-      pages.push(total);
-    }
-    return pages;
-  };
+  /* ============================================================
+     RENDER
+  ============================================================ */
 
   return (
-    <div className="w-full min-h-screen bg-muted/10 pb-20">
-      {/* Header */}
-      <div className="bg-secondary text-secondary-foreground py-8 px-4 border-b border-border shadow-sm">
-        <div className="container mx-auto max-w-6xl">
-          <div className="flex items-center gap-4">
-            <Link href="/admin" className="flex items-center gap-2 text-white/70 hover:text-white transition-colors">
-              <ArrowLeft className="w-5 h-5" />
+    <div className="relative min-h-screen overflow-hidden bg-[#080808] pb-20 text-white">
+      {/* ========================================================
+          BACKGROUND
+      ======================================================== */}
+
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,170,70,0.10),transparent_35%)]" />
+
+        <div className="absolute -left-40 top-40 h-96 w-96 rounded-full bg-amber-400/[0.035] blur-[120px]" />
+
+        <div className="absolute -right-40 top-[45%] h-96 w-96 rounded-full bg-orange-400/[0.025] blur-[120px]" />
+
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#080808]" />
+      </div>
+
+      {/* ========================================================
+          HEADER
+      ======================================================== */}
+
+      <header className="relative z-10 border-b border-white/10 bg-black/30 backdrop-blur-2xl">
+        <div className="mx-auto max-w-7xl px-5 py-7 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+            <Link
+              href="/admin"
+              className="group flex w-fit items-center gap-2 text-white/45 transition hover:text-white"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] transition group-hover:border-amber-300/20 group-hover:bg-amber-300/10">
+                <ArrowLeft className="h-4 w-4 transition group-hover:-translate-x-0.5" />
+              </span>
+
+              <span className="text-xs font-medium">
+                Admin
+              </span>
             </Link>
+
+            <div className="hidden h-8 w-px bg-white/10 sm:block" />
+
             <div className="flex-1">
-              <h1 className="text-3xl font-serif font-bold text-white flex items-center gap-3">
-                <Building2 className="w-7 h-7 text-primary" /> Residents List
-              </h1>
-              <p className="text-white/70">Manage all registered residents</p>
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-300/20 bg-amber-300/10 shadow-[0_0_25px_rgba(251,191,36,0.08)]">
+                  <Building2 className="h-5 w-5 text-amber-300" />
+                </div>
+
+                <div>
+                  <p className="mb-0.5 text-[9px] font-semibold uppercase tracking-[0.3em] text-amber-300/70">
+                    Community Management
+                  </p>
+
+                  <h1 className="font-serif text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+                    Residents
+                  </h1>
+                </div>
+              </div>
+
+              <p className="mt-2 text-sm text-white/40">
+                Manage and organize all registered residents.
+              </p>
             </div>
+
             <Link
               href="/admin/residents"
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary/90 transition-all shadow-lg"
+              className="group inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black shadow-[0_0_35px_rgba(255,255,255,0.08)] transition hover:scale-[1.02]"
             >
-              <Plus className="w-4 h-4" /> Add Resident
+              <Plus className="h-4 w-4" />
+
+              Add Resident
+
+              <span className="transition group-hover:translate-x-0.5">
+                →
+              </span>
             </Link>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="container mx-auto max-w-6xl px-4 py-6">
-        {/* Search & Filters */}
-        <div className="bg-card border border-border rounded-xl shadow-sm p-4 mb-6">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-xs font-semibold text-foreground mb-1">
-                <Search className="w-3 h-3 inline mr-1" /> Search
+      {/* ========================================================
+          CONTENT
+      ======================================================== */}
+
+      <main className="relative z-10 mx-auto max-w-7xl px-5 pt-7 sm:px-6 lg:px-8">
+        {/* ======================================================
+            TOP STATS
+        ====================================================== */}
+
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <MiniStat
+            label="Total Residents"
+            value={pagination.total}
+            icon={<User className="h-4 w-4" />}
+          />
+
+          <MiniStat
+            label="Page"
+            value={`${pagination.page} / ${Math.max(
+              pagination.totalPages,
+              1,
+            )}`}
+            icon={<Hash className="h-4 w-4" />}
+          />
+
+          <MiniStat
+            label="Building Filter"
+            value={
+              filterBuildingId
+                ? buildings.find(
+                    (b) =>
+                      b.id ===
+                      filterBuildingId,
+                  )?.buildingName || 'Selected'
+                : 'All'
+            }
+            icon={<Building2 className="h-4 w-4" />}
+          />
+
+          <MiniStat
+            label="Status"
+            value={
+              filterStatus
+                ? filterStatus
+                : 'All'
+            }
+            icon={<Sparkles className="h-4 w-4" />}
+          />
+        </div>
+
+        {/* ======================================================
+            FILTER PANEL
+        ====================================================== */}
+
+        <motion.section
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={cn(
+            glassCard,
+            'mb-6 rounded-2xl p-4 sm:p-5',
+          )}
+        >
+          <div className="mb-4 flex items-center gap-2">
+            <Filter className="h-4 w-4 text-amber-300" />
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/60">
+                Search & Filters
+              </p>
+
+              <p className="mt-0.5 text-[11px] text-white/30">
+                Find residents quickly
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_0.8fr_0.7fr_auto]">
+            {/* Search */}
+
+            <div>
+              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.15em] text-white/35">
+                Search
               </label>
+
               <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={searchInput}
-                  onChange={e => setSearchInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                  placeholder="Name, Mobile, or Flat No..."
-                  className="flex-1 px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
-                />
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/25" />
+
+                  <input
+                    type="text"
+                    value={searchInput}
+                    onChange={(e) =>
+                      setSearchInput(
+                        e.target.value,
+                      )
+                    }
+                    onKeyDown={(e) =>
+                      e.key === 'Enter' &&
+                      handleSearch()
+                    }
+                    placeholder="Name, mobile or flat..."
+                    className={cn(
+                      inputStyle,
+                      'pl-9',
+                    )}
+                  />
+                </div>
+
                 <button
                   onClick={handleSearch}
-                  className="px-3 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-all"
+                  className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl bg-white text-black transition hover:scale-105"
                 >
-                  <Search className="w-4 h-4" />
+                  <Search className="h-4 w-4" />
                 </button>
               </div>
             </div>
-            <div className="w-[200px]">
-              <label className="block text-xs font-semibold text-foreground mb-1">
-                <Building2 className="w-3 h-3 inline mr-1" /> Building
+
+            {/* Building */}
+
+            <div>
+              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.15em] text-white/35">
+                Building
               </label>
+
               <select
                 value={filterBuildingId || ''}
-                onChange={e => { setFilterBuildingId(e.target.value ? parseInt(e.target.value) : null); setFilterWingId(null); }}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
+                onChange={(e) => {
+                  setFilterBuildingId(
+                    e.target.value
+                      ? parseInt(
+                          e.target.value,
+                        )
+                      : null,
+                  );
+
+                  setFilterWingId(null);
+                }}
+                className={selectStyle}
               >
-                <option value="">All Buildings</option>
-                {buildings.map(b => (
-                  <option key={b.id} value={b.id}>{b.buildingName}</option>
+                <option value="">
+                  All Buildings
+                </option>
+
+                {buildings.map((b) => (
+                  <option
+                    key={b.id}
+                    value={b.id}
+                  >
+                    {b.buildingName}
+                  </option>
                 ))}
               </select>
             </div>
-            <div className="w-[150px]">
-              <label className="block text-xs font-semibold text-foreground mb-1">
-                <Filter className="w-3 h-3 inline mr-1" /> Wing
+
+            {/* Wing */}
+
+            <div>
+              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.15em] text-white/35">
+                Wing
               </label>
+
               <select
                 value={filterWingId || ''}
-                onChange={e => setFilterWingId(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
+                onChange={(e) =>
+                  setFilterWingId(
+                    e.target.value
+                      ? parseInt(
+                          e.target.value,
+                        )
+                      : null,
+                  )
+                }
+                className={cn(
+                  selectStyle,
+                  !filterBuildingId &&
+                    'cursor-not-allowed opacity-40',
+                )}
                 disabled={!filterBuildingId}
               >
-                <option value="">All Wings</option>
-                {filterWings.map(w => (
-                  <option key={w.id} value={w.id}>{w.wingName}</option>
+                <option value="">
+                  All Wings
+                </option>
+
+                {filterWings.map((w) => (
+                  <option
+                    key={w.id}
+                    value={w.id}
+                  >
+                    {w.wingName}
+                  </option>
                 ))}
               </select>
             </div>
-            <div className="w-[130px]">
-              <label className="block text-xs font-semibold text-foreground mb-1">Status</label>
+
+            {/* Status */}
+
+            <div>
+              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.15em] text-white/35">
+                Status
+              </label>
+
               <select
                 value={filterStatus}
-                onChange={e => setFilterStatus(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
+                onChange={(e) =>
+                  setFilterStatus(
+                    e.target.value,
+                  )
+                }
+                className={selectStyle}
               >
                 <option value="">All</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
+                <option value="active">
+                  Active
+                </option>
+                <option value="inactive">
+                  Inactive
+                </option>
               </select>
             </div>
+
+            {/* Refresh */}
+
             <button
               onClick={() => fetchResidents()}
               disabled={isLoading}
-              className="px-3 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-muted/50 transition-all"
               title="Refresh"
+              className="flex h-[42px] items-center justify-center self-end rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/50 transition hover:border-amber-300/20 hover:bg-amber-300/10 hover:text-amber-300 disabled:opacity-40"
             >
-              <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
+              <RefreshCw
+                className={cn(
+                  'h-4 w-4',
+                  isLoading &&
+                    'animate-spin',
+                )}
+              />
             </button>
           </div>
-        </div>
+        </motion.section>
 
-        {/* Table */}
-        <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+        {/* ======================================================
+            TABLE
+        ====================================================== */}
+
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08 }}
+          className={cn(
+            glassCard,
+            'overflow-hidden rounded-2xl',
+          )}
+        >
           {isLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+            <div className="flex min-h-[420px] flex-col items-center justify-center">
+              <div className="relative">
+                <div className="h-12 w-12 animate-spin rounded-full border-2 border-white/10 border-t-amber-300" />
+
+                <div className="absolute inset-0 rounded-full bg-amber-300/10 blur-xl" />
+              </div>
+
+              <p className="mt-4 text-xs uppercase tracking-[0.2em] text-white/30">
+                Loading residents
+              </p>
             </div>
           ) : error ? (
-            <div className="text-center py-16 text-destructive">
-              <AlertTriangle className="w-10 h-10 mx-auto mb-3" />
-              <p className="font-semibold">{error}</p>
-              <button onClick={() => fetchResidents()} className="mt-4 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold">
+            <div className="flex min-h-[420px] flex-col items-center justify-center px-5 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-red-400/20 bg-red-400/10">
+                <AlertTriangle className="h-6 w-6 text-red-400" />
+              </div>
+
+              <p className="mt-4 font-semibold text-white">
+                Unable to load residents
+              </p>
+
+              <p className="mt-1 text-sm text-white/35">
+                {error}
+              </p>
+
+              <button
+                onClick={() =>
+                  fetchResidents()
+                }
+                className="mt-5 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:scale-105"
+              >
                 Retry
               </button>
             </div>
           ) : residents.length === 0 ? (
-            <div className="text-center py-20 text-muted-foreground">
-              <Building2 className="w-14 h-14 mx-auto mb-4 text-muted-foreground/40" />
-              <p className="text-lg font-semibold text-foreground">No residents found</p>
-              <p className="text-sm mt-1">Please add a resident.</p>
+            <div className="flex min-h-[420px] flex-col items-center justify-center px-5 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-300/15 bg-amber-300/[0.06]">
+                <User className="h-7 w-7 text-amber-300/60" />
+              </div>
+
+              <h3 className="mt-5 font-serif text-xl font-semibold text-white">
+                No residents found
+              </h3>
+
+              <p className="mt-1 text-sm text-white/35">
+                Try changing your filters or add a new resident.
+              </p>
+
               <Link
                 href="/admin/residents"
-                className="inline-flex items-center gap-2 mt-6 px-5 py-2.5 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary/90 transition-all shadow-lg"
+                className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:scale-105"
               >
-                <Plus className="w-4 h-4" /> Add Resident
+                <Plus className="h-4 w-4" />
+
+                Add Resident
               </Link>
             </div>
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-[1050px]">
                   <thead>
-                    <tr className="border-b border-border bg-muted/30">
-                      <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground w-[60px]">#</th>
-                      <th className="px-4 py-3 text-left">
-                        <SortHeader label="Name" field="fullName" currentSort={sortBy} currentOrder={sortOrder} onSort={handleSort} />
+                    <tr className="border-b border-white/10 bg-white/[0.025]">
+                      <th className="w-[60px] px-4 py-4 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-white/25">
+                        #
                       </th>
-                      <th className="px-4 py-3 text-left">
-                        <SortHeader label="Building" field="buildingName" currentSort={sortBy} currentOrder={sortOrder} onSort={handleSort} />
+
+                      <th className="px-4 py-4 text-left">
+                        <SortHeader
+                          label="Name"
+                          field="fullName"
+                          currentSort={sortBy}
+                          currentOrder={
+                            sortOrder
+                          }
+                          onSort={
+                            handleSort
+                          }
+                        />
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Wing</th>
-                      <th className="px-4 py-3 text-left">
-                        <SortHeader label="Flat" field="flatNo" currentSort={sortBy} currentOrder={sortOrder} onSort={handleSort} />
+
+                      <th className="px-4 py-4 text-left">
+                        <SortHeader
+                          label="Building"
+                          field="buildingName"
+                          currentSort={sortBy}
+                          currentOrder={
+                            sortOrder
+                          }
+                          onSort={
+                            handleSort
+                          }
+                        />
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Mobile</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground hidden md:table-cell">Status</th>
-                      <th className="px-4 py-3 text-left">
-                        <SortHeader label="Created" field="createdAt" currentSort={sortBy} currentOrder={sortOrder} onSort={handleSort} />
+
+                      <th className="px-4 py-4 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-white/40">
+                        Wing
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-muted-foreground w-[120px]">Actions</th>
+
+                      <th className="px-4 py-4 text-left">
+                        <SortHeader
+                          label="Flat"
+                          field="flatNo"
+                          currentSort={sortBy}
+                          currentOrder={
+                            sortOrder
+                          }
+                          onSort={
+                            handleSort
+                          }
+                        />
+                      </th>
+
+                      <th className="px-4 py-4 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-white/40">
+                        Mobile
+                      </th>
+
+                      <th className="hidden px-4 py-4 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 md:table-cell">
+                        Status
+                      </th>
+
+                      <th className="px-4 py-4 text-left">
+                        <SortHeader
+                          label="Created"
+                          field="createdAt"
+                          currentSort={sortBy}
+                          currentOrder={
+                            sortOrder
+                          }
+                          onSort={
+                            handleSort
+                          }
+                        />
+                      </th>
+
+                      <th className="w-[125px] px-4 py-4 text-right text-[10px] font-bold uppercase tracking-[0.15em] text-white/40">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
+
                   <tbody>
-                    {residents.map((r, idx) => (
-                      <tr
-                        key={r.id}
-                        className={cn(
-                          "border-b border-border/50 transition-colors hover:bg-muted/20",
-                          idx % 2 === 0 ? "bg-background" : "bg-muted/10"
-                        )}
-                      >
-                        <td className="px-4 py-3 text-sm text-muted-foreground font-mono">
-                          {(pagination.page - 1) * pagination.limit + idx + 1}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="font-semibold text-foreground">{r.fullName}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/5 text-primary text-sm font-medium">
-                            <Building2 className="w-3 h-3" /> {r.buildingName || '—'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {r.wingName ? (
-                            <span className="font-mono text-sm font-semibold text-foreground">{r.wingName}</span>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 font-mono font-bold text-sm border border-amber-200 dark:border-amber-900/50">
-                            <Home className="w-3 h-3" /> {r.flatNo}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-sm text-foreground">{r.mobile}</span>
-                        </td>
-                        <td className="px-4 py-3 hidden md:table-cell">
-                          <span className={cn(
-                            "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                            r.status === 'active'
-                              ? "text-emerald-700 bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400"
-                              : "text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-400"
-                          )}>
-                            {r.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <CalendarDays className="w-3 h-3" /> {formatDate(r.createdAt)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => setViewResident(r)}
-                              className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-primary"
-                              title="View"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => setEditResident(r)}
-                              className="p-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-950/30 transition-colors text-amber-600"
-                              title="Edit"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => setDeleteResident(r)}
-                              className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-destructive"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {residents.map(
+                      (r, idx) => (
+                        <motion.tr
+                          key={r.id}
+                          initial={{
+                            opacity: 0,
+                          }}
+                          animate={{
+                            opacity: 1,
+                          }}
+                          transition={{
+                            delay:
+                              idx * 0.025,
+                          }}
+                          className="group border-b border-white/[0.055] transition hover:bg-white/[0.025]"
+                        >
+                          <td className="px-4 py-4 font-mono text-xs text-white/20">
+                            {(
+                              (pagination.page -
+                                1) *
+                                pagination.limit +
+                              idx +
+                              1
+                            )
+                              .toString()
+                              .padStart(
+                                2,
+                                '0',
+                              )}
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-xs font-semibold text-white/60 transition group-hover:border-amber-300/20 group-hover:bg-amber-300/10 group-hover:text-amber-300">
+                                {r.fullName
+                                  .charAt(
+                                    0,
+                                  )
+                                  .toUpperCase()}
+                              </div>
+
+                              <div>
+                                <p className="font-medium text-white/90">
+                                  {
+                                    r.fullName
+                                  }
+                                </p>
+
+                                <p className="mt-0.5 text-[10px] text-white/25">
+                                  Resident
+                                  #{r.id}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300/10 bg-amber-300/[0.06] px-2.5 py-1.5 text-xs font-medium text-amber-200/80">
+                              <Building2 className="h-3 w-3 text-amber-300/70" />
+
+                              {r.buildingName ||
+                                '—'}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-4">
+                            {r.wingName ? (
+                              <span className="font-mono text-sm font-semibold text-white/70">
+                                {r.wingName}
+                              </span>
+                            ) : (
+                              <span className="text-sm text-white/20">
+                                —
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300/20 bg-amber-300/10 px-2.5 py-1.5 font-mono text-xs font-bold text-amber-300">
+                              <Home className="h-3 w-3" />
+
+                              {r.flatNo}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <span className="flex items-center gap-2 text-sm text-white/55">
+                              <Phone className="h-3 w-3 text-white/25" />
+
+                              {r.mobile}
+                            </span>
+                          </td>
+
+                          <td className="hidden px-4 py-4 md:table-cell">
+                            <StatusBadge
+                              status={
+                                r.status
+                              }
+                            />
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <span className="flex items-center gap-1.5 text-xs text-white/35">
+                              <CalendarDays className="h-3 w-3" />
+
+                              {formatDate(
+                                r.createdAt,
+                              )}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <div className="flex items-center justify-end gap-1">
+                              <ActionButton
+                                icon={
+                                  <Eye className="h-3.5 w-3.5" />
+                                }
+                                title="View"
+                                onClick={() =>
+                                  setViewResident(
+                                    r,
+                                  )
+                                }
+                              />
+
+                              <ActionButton
+                                icon={
+                                  <Edit3 className="h-3.5 w-3.5" />
+                                }
+                                title="Edit"
+                                amber
+                                onClick={() =>
+                                  setEditResident(
+                                    r,
+                                  )
+                                }
+                              />
+
+                              <ActionButton
+                                icon={
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                }
+                                title="Delete"
+                                danger
+                                onClick={() =>
+                                  setDeleteResident(
+                                    r,
+                                  )
+                                }
+                              />
+                            </div>
+                          </td>
+                        </motion.tr>
+                      ),
+                    )}
                   </tbody>
                 </table>
               </div>
 
-              {/* Pagination */}
+              {/* ==================================================
+                  PAGINATION
+              ================================================== */}
+
               {pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/20">
-                  <span className="text-xs text-muted-foreground">
-                    Showing {(pagination.page - 1) * pagination.limit + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
+                <div className="flex flex-col gap-4 border-t border-white/10 bg-white/[0.018] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-xs text-white/30">
+                    Showing{' '}
+                    <span className="text-white/60">
+                      {(pagination.page -
+                        1) *
+                        pagination.limit +
+                        1}
+                      –
+                      {Math.min(
+                        pagination.page *
+                          pagination.limit,
+                        pagination.total,
+                      )}
+                    </span>{' '}
+                    of{' '}
+                    <span className="text-white/60">
+                      {pagination.total}
+                    </span>{' '}
+                    residents
                   </span>
-                  <div className="flex items-center gap-1">
+
+                  <div className="flex items-center justify-center gap-1">
                     <button
-                      onClick={() => goToPage(pagination.page - 1)}
-                      disabled={pagination.page <= 1}
-                      className="p-1.5 rounded-lg hover:bg-muted transition-colors disabled:opacity-30"
+                      onClick={() =>
+                        goToPage(
+                          pagination.page -
+                            1,
+                        )
+                      }
+                      disabled={
+                        pagination.page <=
+                        1
+                      }
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-white/40 transition hover:bg-white/[0.07] hover:text-white disabled:opacity-20"
                     >
-                      <ChevronLeft className="w-4 h-4" />
+                      <ChevronLeft className="h-4 w-4" />
                     </button>
-                    {getPageNumbers().map((p, i) =>
-                      typeof p === 'string' ? (
-                        <span key={`ellipsis-${i}`} className="px-2 text-xs text-muted-foreground">...</span>
-                      ) : (
-                        <button
-                          key={p}
-                          onClick={() => goToPage(p)}
-                          className={cn(
-                            "min-w-[32px] h-8 rounded-lg text-xs font-semibold transition-all",
-                            p === pagination.page
-                              ? "bg-primary text-white shadow-sm"
-                              : "hover:bg-muted text-foreground"
-                          )}
-                        >
-                          {p}
-                        </button>
-                      )
+
+                    {getPageNumbers().map(
+                      (p, i) =>
+                        typeof p ===
+                        'string' ? (
+                          <span
+                            key={`ellipsis-${i}`}
+                            className="px-2 text-xs text-white/20"
+                          >
+                            ...
+                          </span>
+                        ) : (
+                          <button
+                            key={p}
+                            onClick={() =>
+                              goToPage(p)
+                            }
+                            className={cn(
+                              'h-8 min-w-8 rounded-lg px-2 text-xs font-semibold transition',
+                              p ===
+                                pagination.page
+                                ? 'bg-amber-300 text-black shadow-[0_0_20px_rgba(252,211,77,0.12)]'
+                                : 'text-white/40 hover:bg-white/[0.06] hover:text-white',
+                            )}
+                          >
+                            {p}
+                          </button>
+                        ),
                     )}
+
                     <button
-                      onClick={() => goToPage(pagination.page + 1)}
-                      disabled={pagination.page >= pagination.totalPages}
-                      className="p-1.5 rounded-lg hover:bg-muted transition-colors disabled:opacity-30"
+                      onClick={() =>
+                        goToPage(
+                          pagination.page +
+                            1,
+                        )
+                      }
+                      disabled={
+                        pagination.page >=
+                        pagination.totalPages
+                      }
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-white/40 transition hover:bg-white/[0.07] hover:text-white disabled:opacity-20"
                     >
-                      <ChevronRight className="w-4 h-4" />
+                      <ChevronRight className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
               )}
             </>
           )}
-        </div>
-      </div>
+        </motion.section>
+      </main>
 
-      {/* Modals */}
-      {viewResident && <ViewResidentModal resident={viewResident} onClose={() => setViewResident(null)} />}
+      {/* ========================================================
+          MODALS
+      ======================================================== */}
+
+      {viewResident && (
+        <ViewResidentModal
+          resident={viewResident}
+          onClose={() =>
+            setViewResident(null)
+          }
+        />
+      )}
+
       {editResident && (
         <EditResidentModal
           resident={editResident}
           buildings={buildings}
-          onClose={() => setEditResident(null)}
-          onSaved={() => { fetchResidents(); }}
+          onClose={() =>
+            setEditResident(null)
+          }
+          onSaved={() => {
+            fetchResidents();
+          }}
         />
       )}
+
       {deleteResident && (
         <DeleteConfirmDialog
           resident={deleteResident}
           onConfirm={handleDelete}
-          onCancel={() => setDeleteResident(null)}
+          onCancel={() =>
+            setDeleteResident(null)
+          }
           isLoading={isDeleting}
         />
       )}
     </div>
+  );
+}
+
+/* ============================================================
+   MINI STAT
+============================================================ */
+
+function MiniStat({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string | number;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        glassCard,
+        'rounded-2xl p-4',
+      )}
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-300/15 bg-amber-300/[0.06] text-amber-300">
+          {icon}
+        </div>
+
+        <div className="min-w-0">
+          <p className="truncate text-[9px] font-semibold uppercase tracking-[0.15em] text-white/30">
+            {label}
+          </p>
+
+          <p className="mt-1 truncate text-sm font-semibold text-white/80">
+            {value}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   ACTION BUTTON
+============================================================ */
+
+function ActionButton({
+  icon,
+  title,
+  onClick,
+  amber,
+  danger,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  onClick: () => void;
+  amber?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className={cn(
+        'flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-white/35 transition',
+        !amber &&
+          !danger &&
+          'hover:border-sky-300/15 hover:bg-sky-300/10 hover:text-sky-300',
+        amber &&
+          'hover:border-amber-300/15 hover:bg-amber-300/10 hover:text-amber-300',
+        danger &&
+          'hover:border-red-400/15 hover:bg-red-400/10 hover:text-red-400',
+      )}
+    >
+      {icon}
+    </button>
   );
 }

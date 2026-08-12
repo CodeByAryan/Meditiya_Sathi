@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'wouter';
 import { ArrowLeft, MapPin, CalendarDays, IndianRupee, Users, Search, Plus, Eye, Edit3, Trash2, Building2, Home, Phone, User, X, CheckCircle, XCircle, Clock, Filter, RefreshCw, AlertTriangle, Wallet, Banknote, CreditCard, Receipt, ChevronLeft, ChevronRight, Check, Send, ChevronDown, MessageSquare, ListFilter, Save, TrendingUp, Globe, Trophy, ArrowDown, Shirt } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn, getApiUrl } from '@/lib/utils';
 import { PENDING_REASONS } from '@/lib/pending-reasons';
@@ -110,9 +111,9 @@ function formatCurrency(amount: number | null): string {
 }
 
 const statusColors: Record<string, string> = {
-  upcoming: 'text-blue-700 bg-blue-100 dark:bg-blue-950/40 dark:text-blue-400',
-  active: 'text-emerald-700 bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400',
-  completed: 'text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-400',
+  upcoming: 'text-amber-600 bg-amber-100/40',
+  active: 'text-amber-500 bg-amber-100/30',
+  completed: 'text-white/70 bg-white/[0.03]',
 };
 
 const statusIcons: Record<string, any> = { upcoming: Clock, active: CheckCircle, completed: XCircle };
@@ -123,13 +124,13 @@ const paymentMethodLabels: Record<string, string> = {
 
 const paymentMethodIcons: Record<string, any> = { cash: Banknote, upi: CreditCard, bank_transfer: Wallet, cheque: Receipt };
 
-// Config for the date-wise payment method summary (keys match API: cash, upi, bank, cheque, pending)
+// Config for the date-wise payment method summary (amber-centric colors only)
 const collectionMethodConfig: Record<string, { label: string; icon: any; color: string; bar: string }> = {
-  cash: { label: 'Cash', icon: Banknote, color: 'text-emerald-600', bar: 'from-emerald-500 to-emerald-400' },
-  upi: { label: 'UPI', icon: CreditCard, color: 'text-blue-600', bar: 'from-blue-500 to-blue-400' },
-  bank: { label: 'Bank Transfer', icon: Wallet, color: 'text-purple-600', bar: 'from-purple-500 to-purple-400' },
-  cheque: { label: 'Cheque', icon: Receipt, color: 'text-amber-600', bar: 'from-amber-500 to-amber-400' },
-  pending: { label: 'Pending', icon: Clock, color: 'text-slate-500', bar: 'from-slate-500 to-slate-400' },
+  cash: { label: 'Cash', icon: Banknote, color: 'text-amber-400', bar: 'from-amber-500 to-amber-400' },
+  upi: { label: 'UPI', icon: CreditCard, color: 'text-amber-400', bar: 'from-amber-500 to-amber-400' },
+  bank: { label: 'Bank Transfer', icon: Wallet, color: 'text-amber-400', bar: 'from-amber-500 to-amber-400' },
+  cheque: { label: 'Cheque', icon: Receipt, color: 'text-amber-400', bar: 'from-amber-500 to-amber-400' },
+  pending: { label: 'Pending', icon: Clock, color: 'text-white/70', bar: 'from-white/40 to-white/10' },
 };
 
 // ── WhatsApp Receipt Generator ───────────────────────────────────────────────
@@ -244,7 +245,7 @@ const handleClear = () => {
     <div ref={wrapperRef} className="relative">
       <label className="block text-xs font-semibold text-foreground mb-1.5">Search Resident <span className="text-destructive">*</span></label>
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60 pointer-events-none" />
         <input
           ref={inputRef}
           type="text"
@@ -253,7 +254,7 @@ const handleClear = () => {
           onKeyDown={handleKeyDown}
           onFocus={() => { if (results.length > 0) setIsOpen(true); }}
           placeholder="Type name, mobile, building, wing, or flat..."
-          className="w-full pl-10 pr-10 py-2.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
+          className="w-full pl-10 pr-10 py-2.5 text-sm rounded-lg border border-white/10 bg-white/[0.05] text-white placeholder:text-white/35 backdrop-blur-xl focus:ring-2 focus:ring-amber-300/10 outline-none"
         />
         {isSearching && <span className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />}
         {!isSearching && selectedResident && (
@@ -263,33 +264,33 @@ const handleClear = () => {
         )}
       </div>
 
-      {isOpen && results.length > 0 && !selectedResident && (
-        <div className="absolute z-50 mt-1 w-full border border-border rounded-xl bg-card shadow-xl max-h-80 overflow-y-auto">
+        {isOpen && results.length > 0 && !selectedResident && (
+        <div className="absolute z-50 mt-1 w-full rounded-xl bg-white/[0.03] border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.6)] max-h-80 overflow-y-auto backdrop-blur-2xl">
           {results.map((r, idx) => (
             <button
               key={r.id}
               type="button"
               onClick={() => handleSelect(r)}
               className={cn(
-                "w-full px-3 py-3 text-left hover:bg-muted/50 transition-colors border-b border-border/50 last:border-0",
-                idx === selectedIdx && "bg-muted/30"
+                "w-full px-3 py-3 text-left transition-colors border-b border-white/6 last:border-0",
+                idx === selectedIdx ? "bg-white/[0.04]" : "hover:bg-white/[0.025]"
               )}
             >
               <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <User className="w-4 h-4 text-primary" />
+                <div className="w-9 h-9 rounded-full bg-amber-300/10 flex items-center justify-center shrink-0 mt-0.5 border border-amber-300/10">
+                  <User className="w-4 h-4 text-amber-300" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className="font-semibold text-foreground text-sm block truncate">{r.fullName}</span>
-                  <span className="text-xs text-muted-foreground block">
-                    <Building2 className="w-3 h-3 inline mr-0.5" />
+                  <span className="font-semibold text-white text-sm block truncate">{r.fullName}</span>
+                  <span className="text-xs text-white/60 block">
+                    <Building2 className="w-3 h-3 inline mr-0.5 text-amber-300" />
                     {r.buildingName}{r.wingName ? ` - ${r.wingName}` : ''} - {r.flatNo}
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    <Phone className="w-3 h-3 inline mr-0.5" />{r.mobile}
+                  <span className="text-xs text-white/60">
+                    <Phone className="w-3 h-3 inline mr-0.5 text-amber-300" />{r.mobile}
                   </span>
                 </div>
-                <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0 mt-1" />
+                <ChevronDown className="w-4 h-4 text-white/60 shrink-0 mt-1" />
               </div>
             </button>
           ))}
@@ -297,7 +298,7 @@ const handleClear = () => {
       )}
 
       {isOpen && results.length === 0 && query.length >= 2 && !isSearching && (
-        <div className="absolute z-50 mt-1 w-full border border-border rounded-xl bg-card shadow-xl p-4 text-center text-sm text-muted-foreground">
+        <div className="absolute z-50 mt-1 w-full rounded-xl bg-white/[0.03] border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-4 text-center text-sm text-white/60">
           No residents found matching "{query}"
         </div>
       )}
@@ -334,7 +335,7 @@ function SelectedResidentCard({ resident, festivalHistory }: {
       </div>
 
       {festivalHistory.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-primary/10">
+            <div className="mt-3 pt-3 border-t border-white/8">
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Previous Festival Donations</p>
           <div className="space-y-1.5">
             {festivalHistory.map((h, hi) => (
@@ -342,10 +343,10 @@ function SelectedResidentCard({ resident, festivalHistory }: {
                 <span className="text-foreground">
                   {h.festivalName} {h.year}
                 </span>
-                <span className={cn(
-                  "font-semibold",
-                  h.status === 'paid' ? 'text-emerald-600' : 'text-amber-600'
-                )}>
+                    <span className={cn(
+                      "font-semibold",
+                      h.status === 'paid' ? 'text-white' : 'text-amber-600'
+                    )}>
                   {h.status === 'paid' ? `Paid ${formatCurrency(h.amount)}` : 'Pending'}
                 </span>
               </div>
@@ -451,19 +452,19 @@ function AddDonationModal({ festivalId, festivalName, onClose, onSaved }: {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
-      <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-lg w-full my-8" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-5 border-b border-border">
-          <h2 className="text-lg font-serif font-bold text-foreground flex items-center gap-2">
-            <Plus className="w-5 h-5 text-primary" /> Add Donation
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto" onClick={onClose}>
+      <div className="bg-white/[0.045] border border-white/10 backdrop-blur-2xl rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] max-w-lg w-full my-8" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 border-b border-white/8">
+          <h2 className="text-lg font-serif font-bold text-white flex items-center gap-2">
+            <Plus className="w-5 h-5 text-amber-300" /> Add Donation
           </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-white/[0.04] transition-colors text-white/70">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-5">
-          <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl flex items-center gap-3">
+          <div className="p-3 rounded-xl flex items-center gap-3 bg-white/[0.03] border border-white/8">
             <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
               <MapPin className="w-4 h-4 text-primary" />
             </div>
@@ -496,43 +497,41 @@ function AddDonationModal({ festivalId, festivalName, onClose, onSaved }: {
                   setErrors(prev => { const { amount, paymentMethod, ...rest } = prev; return rest; });
                 }}
                 className={cn(
-                  "w-full px-4 py-2.5 text-sm rounded-xl border bg-background focus:ring-2 focus:ring-primary outline-none appearance-none cursor-pointer transition-all",
-                  donationStatus === 'paid'
-                    ? 'border-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 font-semibold'
-                    : 'border-amber-400 bg-amber-50/50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 font-semibold'
+                  "w-full px-4 py-2.5 text-sm rounded-xl border border-white/10 bg-white/[0.05] text-white placeholder:text-white/35 backdrop-blur-xl focus:ring-2 focus:ring-amber-300/10 outline-none appearance-none cursor-pointer transition-all",
+                  donationStatus === 'paid' ? 'font-semibold' : 'font-semibold'
                 )}
               >
-                <option value="pending" className="text-amber-700 bg-background">⏳ Pending</option>
-                <option value="paid" className="text-emerald-700 bg-background">✅ Paid</option>
+                <option value="pending" className="text-amber-400 bg-transparent">⏳ Pending</option>
+                <option value="paid" className="text-white bg-transparent">✅ Paid</option>
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-muted-foreground" />
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-white/60" />
             </div>
           </div>
 
           {donationStatus === 'paid' && (
-            <div className="p-4 bg-emerald-50/30 dark:bg-emerald-950/10 border border-emerald-200/50 dark:border-emerald-900/30 rounded-xl space-y-4">
-              <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                <CheckCircle className="w-3.5 h-3.5" /> Payment Details
+            <div className="p-4 bg-white/[0.03] border border-white/8 rounded-xl space-y-4">
+              <p className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <CheckCircle className="w-3.5 h-3.5 text-amber-300" /> Payment Details
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-foreground mb-1.5">Amount (₹) <span className="text-destructive">*</span></label>
-                  <div className="relative">
-                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                    <input
-                      type="number"
-                      value={amount}
-                      onChange={e => { setAmount(e.target.value); setErrors(prev => { const { amount, ...rest } = prev; return rest; }); }}
-                      min={1} step={0.01}
-                      placeholder="0.00"
-                      className={cn("w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border bg-background focus:ring-2 focus:ring-primary outline-none", errors.amount ? 'border-destructive' : 'border-border')}
-                    />
-                  </div>
+                      <div className="relative">
+                        <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60 pointer-events-none" />
+                        <input
+                          type="number"
+                          value={amount}
+                          onChange={e => { setAmount(e.target.value); setErrors(prev => { const { amount, ...rest } = prev; return rest; }); }}
+                          min={1} step={0.01}
+                          placeholder="0.00"
+                          className={cn("w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border border-white/10 bg-white/[0.05] text-white placeholder:text-white/35 backdrop-blur-xl focus:ring-2 focus:ring-amber-300/10 outline-none", errors.amount ? 'border-rose-400' : '')}
+                        />
+                      </div>
                   {errors.amount && <p className="text-xs text-destructive mt-1">{errors.amount}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-foreground mb-1.5">Payment Method <span className="text-destructive">*</span></label>
-                  <select value={paymentMethod} onChange={e => { setPaymentMethod(e.target.value); setErrors(prev => { const { paymentMethod, ...rest } = prev; return rest; }); }} className={cn("w-full px-3 py-2.5 text-sm rounded-lg border bg-background focus:ring-2 focus:ring-primary outline-none", errors.paymentMethod ? 'border-destructive' : 'border-border')}>
+                  <select value={paymentMethod} onChange={e => { setPaymentMethod(e.target.value); setErrors(prev => { const { paymentMethod, ...rest } = prev; return rest; }); }} className={cn("w-full px-3 py-2.5 text-sm rounded-lg border border-white/10 bg-white/[0.05] text-white placeholder:text-white/35 backdrop-blur-xl focus:ring-2 focus:ring-amber-300/10 outline-none", errors.paymentMethod ? 'border-rose-400' : '')}>
                     <option value="cash">💵 Cash</option>
                     <option value="upi">📱 UPI</option>
                     <option value="bank_transfer">🏦 Bank Transfer</option>
@@ -543,7 +542,7 @@ function AddDonationModal({ festivalId, festivalName, onClose, onSaved }: {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">Payment Date</label>
-                <input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none" />
+                <input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} className="w-full px-3 py-2.5 text-sm rounded-lg border border-white/10 bg-white/[0.05] text-white placeholder:text-white/35 backdrop-blur-xl focus:ring-2 focus:ring-amber-300/10 outline-none" />
               </div>
             </div>
           )}
@@ -649,23 +648,23 @@ function EditDonationModal({ donation, festivalName, onClose, onSaved }: {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-md w-full" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-5 border-b border-border">
-          <h2 className="text-lg font-serif font-bold text-foreground flex items-center gap-2"><Edit3 className="w-5 h-5 text-amber-500" /> Edit Donation</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"><X className="w-5 h-5" /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div className="bg-white/[0.045] border border-white/10 backdrop-blur-2xl rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] max-w-md w-full" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 border-b border-white/8">
+          <h2 className="text-lg font-serif font-bold text-white flex items-center gap-2"><Edit3 className="w-5 h-5 text-amber-300" /> Edit Donation</h2>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-white/[0.04] transition-colors text-white/70"><X className="w-5 h-5" /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div className="p-3 bg-muted/30 rounded-xl">
-            <p className="text-xs text-muted-foreground mb-1">Resident</p>
-            <p className="font-semibold text-foreground">{donation.residentName}</p>
-            <p className="text-xs text-muted-foreground">{donation.buildingName}{donation.wingName ? ` - ${donation.wingName}` : ''}, Flat {donation.flatNo}</p>
-            {donation.receiptNumber && <p className="text-xs text-primary mt-1">Receipt: {donation.receiptNumber}</p>}
+          <div className="p-3 rounded-xl bg-white/[0.03] border border-white/8">
+            <p className="text-xs text-white/70 mb-1">Resident</p>
+            <p className="font-semibold text-white">{donation.residentName}</p>
+            <p className="text-xs text-white/60">{donation.buildingName}{donation.wingName ? ` - ${donation.wingName}` : ''}, Flat {donation.flatNo}</p>
+            {donation.receiptNumber && <p className="text-xs text-amber-300 mt-1">Receipt: {donation.receiptNumber}</p>}
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-foreground mb-1.5">Payment Method <span className="text-destructive">*</span></label>
-            <select value={isPaidStatus ? paymentMethod : 'pending'} onChange={e => { const val = e.target.value; if (val === 'pending') { setIsPaidStatus(false); setPaymentMethod('pending'); } else { setIsPaidStatus(true); setPaymentMethod(val); } }} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none">
+            <select value={isPaidStatus ? paymentMethod : 'pending'} onChange={e => { const val = e.target.value; if (val === 'pending') { setIsPaidStatus(false); setPaymentMethod('pending'); } else { setIsPaidStatus(true); setPaymentMethod(val); } }} className="w-full px-3 py-2.5 text-sm rounded-lg border border-white/10 bg-white/[0.05] text-white placeholder:text-white/35 backdrop-blur-xl focus:ring-2 focus:ring-amber-300/10 outline-none">
               <option value="pending">Pending</option>
               <option value="cash">Cash</option><option value="upi">UPI</option><option value="bank_transfer">Bank Transfer</option><option value="cheque">Cheque</option>
             </select>
@@ -695,11 +694,11 @@ function EditDonationModal({ donation, festivalName, onClose, onSaved }: {
           )}
 
           <div className="flex gap-3 pt-2">
-            <button type="submit" disabled={isSaving} className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
-              {isSaving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Edit3 className="w-4 h-4" />}
+            <button type="submit" disabled={isSaving} className="flex-1 py-2.5 bg-white text-black rounded-full text-sm font-semibold hover:scale-[0.995] transition-all disabled:opacity-60 flex items-center justify-center gap-2 shadow-[0_0_35px_rgba(255,255,255,0.12)]">
+              {isSaving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Edit3 className="w-4 h-4 text-amber-600" />}
               Update Donation
             </button>
-            <button type="button" onClick={onClose} className="px-5 py-2.5 border border-border rounded-xl text-sm font-semibold hover:bg-muted/50 transition-all">Cancel</button>
+            <button type="button" onClick={onClose} className="px-5 py-2.5 border border-white/10 rounded-full text-sm font-semibold hover:bg-white/[0.03] transition-all text-white">Cancel</button>
           </div>
         </form>
       </div>
@@ -713,20 +712,20 @@ function DeleteDonationDialog({ donation, onConfirm, onCancel, isLoading }: {
   donation: Donation; onConfirm: () => void; onCancel: () => void; isLoading: boolean;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onCancel}>
-      <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-sm w-full" onClick={e => e.stopPropagation()}>
-        <div className="p-6 text-center">
-          <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
-            <AlertTriangle className="w-7 h-7 text-destructive" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onCancel}>
+      <div className="bg-white/[0.045] border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] max-w-sm w-full" onClick={e => e.stopPropagation()}>
+        <div className="p-6 text-center text-white">
+          <div className="w-14 h-14 rounded-full bg-white/[0.03] flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="w-7 h-7 text-amber-300" />
           </div>
-          <h3 className="text-lg font-bold text-foreground mb-2">Delete Donation?</h3>
-          <p className="text-sm text-muted-foreground mb-1">{isPaid(donation) ? `Remove ${formatCurrency(donation.amount)} donation` : 'Remove pending donation'} from</p>
-          <p className="text-sm font-bold text-foreground">{donation.residentName}?</p>
-          <p className="text-xs text-muted-foreground mt-2">This action cannot be undone.</p>
+          <h3 className="text-lg font-bold mb-2">Delete Donation?</h3>
+          <p className="text-sm text-white/70 mb-1">{isPaid(donation) ? `Remove ${formatCurrency(donation.amount)} donation` : 'Remove pending donation'} from</p>
+          <p className="text-sm font-bold">{donation.residentName}?</p>
+          <p className="text-xs text-white/60 mt-2">This action cannot be undone.</p>
         </div>
         <div className="flex gap-3 p-4 pt-0">
-          <button onClick={onCancel} disabled={isLoading} className="flex-1 py-2.5 border border-border rounded-xl text-sm font-semibold hover:bg-muted/50 transition-all">Cancel</button>
-          <button onClick={onConfirm} disabled={isLoading} className="flex-1 py-2.5 bg-destructive text-destructive-foreground rounded-xl text-sm font-semibold hover:bg-destructive/90 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
+          <button onClick={onCancel} disabled={isLoading} className="flex-1 py-2.5 border border-white/10 rounded-full text-sm font-semibold hover:bg-white/[0.03] transition-all text-white">Cancel</button>
+          <button onClick={onConfirm} disabled={isLoading} className="flex-1 py-2.5 bg-amber-600 text-white rounded-full text-sm font-semibold hover:bg-amber-700 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
             {isLoading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Trash2 className="w-4 h-4" />}
             Delete
           </button>
@@ -746,21 +745,21 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-md w-full" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-5 border-b border-border">
-          <h2 className="text-lg font-serif font-bold text-foreground flex items-center gap-2">
-            <Receipt className="w-5 h-5 text-primary" /> Donation Details
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div className="bg-white/[0.045] border border-white/10 rounded-2xl backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] max-w-md w-full" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 border-b border-white/8">
+          <h2 className="text-lg font-serif font-bold text-white flex items-center gap-2">
+            <Receipt className="w-5 h-5 text-amber-300" /> Donation Details
           </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-white/[0.04] transition-colors text-white/70">
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-4 text-white">
           <div className="grid grid-cols-[130px_1fr] gap-y-3 text-sm">
             <span className="text-muted-foreground font-medium">Status</span>
             <span>
-              <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold", isPaid(donation) ? 'text-emerald-700 bg-emerald-100' : 'text-amber-700 bg-amber-100')}>
+              <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold", isPaid(donation) ? 'text-white bg-white/[0.04]' : 'text-amber-700 bg-amber-100/30')}>
                 {isPaid(donation) ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                 {isPaid(donation) ? 'Paid' : 'Pending'}
               </span>
@@ -796,7 +795,7 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
             <button
               type="button"
               onClick={handleWhatsApp}
-              className="w-full py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-semibold hover:bg-emerald-600 transition-all flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-amber-500 text-white rounded-xl text-sm font-semibold hover:bg-amber-600 transition-all flex items-center justify-center gap-2"
             >
               <MessageSquare className="w-4 h-4" />
               Send WhatsApp Receipt
@@ -831,15 +830,15 @@ function StatsCard({ title, value, icon: Icon, color, subtitle, onClick }: {
   title: string; value: string; icon: any; color: string; subtitle?: string; onClick?: () => void;
 }) {
   return (
-    <div className={cn("bg-card border border-border rounded-xl p-4 shadow-sm", onClick && "cursor-pointer hover:border-primary/50 transition-all")} onClick={onClick}>
+    <div className={cn("rounded-2xl p-4 bg-white/[0.045] border border-white/10 backdrop-blur-2xl shadow-[0_12px_40px_rgba(252,211,77,0.06)]", onClick && "cursor-pointer hover:border-amber-300/20 transition-all")} onClick={onClick}>
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-medium text-muted-foreground">{title}</p>
-          <p className={cn("text-2xl font-bold mt-1", color)}>{value}</p>
-          {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+          <p className="text-xs font-medium text-white/70">{title}</p>
+          <p className={cn("text-2xl font-bold mt-1 text-white", color)}>{value}</p>
+          {subtitle && <p className="text-xs text-white/60 mt-0.5">{subtitle}</p>}
         </div>
-        <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-muted">
-          <Icon className={cn("w-5 h-5", color)} />
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-amber-300/10 border border-amber-300/20">
+          <Icon className={cn("w-5 h-5 text-amber-300", color)} />
         </div>
       </div>
     </div>
@@ -852,10 +851,10 @@ function PaymentSummaryCard({ stats }: { stats: Stats }) {
   const [expanded, setExpanded] = useState(false);
 
   const methods = [
-    { key: 'cash', emoji: '💵', label: 'Cash', icon: Banknote, color: 'text-emerald-600', bar: 'from-emerald-500 to-emerald-400' },
-    { key: 'upi', emoji: '📱', label: 'UPI', icon: CreditCard, color: 'text-blue-600', bar: 'from-blue-500 to-blue-400' },
-    { key: 'bank_transfer', emoji: '🏦', label: 'Bank Transfer', icon: Wallet, color: 'text-purple-600', bar: 'from-purple-500 to-purple-400' },
-    { key: 'cheque', emoji: '📄', label: 'Cheque', icon: Receipt, color: 'text-amber-600', bar: 'from-amber-500 to-amber-400' },
+    { key: 'cash', emoji: '💵', label: 'Cash', icon: Banknote, color: 'text-amber-400', bar: 'from-amber-500 to-amber-400' },
+    { key: 'upi', emoji: '📱', label: 'UPI', icon: CreditCard, color: 'text-amber-400', bar: 'from-amber-500 to-amber-400' },
+    { key: 'bank_transfer', emoji: '🏦', label: 'Bank Transfer', icon: Wallet, color: 'text-amber-400', bar: 'from-amber-500 to-amber-400' },
+    { key: 'cheque', emoji: '📄', label: 'Cheque', icon: Receipt, color: 'text-amber-400', bar: 'from-amber-500 to-amber-400' },
   ];
 
   const dist = stats.paymentMethodDistribution || [];
@@ -869,22 +868,22 @@ function PaymentSummaryCard({ stats }: { stats: Stats }) {
 
   return (
     <div
-      className="bg-card border border-border rounded-xl p-4 shadow-sm cursor-pointer hover:border-primary/50 transition-all"
+      className="rounded-2xl p-4 bg-white/[0.045] border border-white/10 backdrop-blur-2xl shadow-[0_12px_40px_rgba(252,211,77,0.06)] cursor-pointer hover:border-amber-300/20 transition-all"
       onClick={() => setExpanded(e => !e)}
     >
       <div className="flex items-start justify-between mb-3">
         <div>
-<p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-            <CreditCard className="w-3.5 h-3.5" /> Payment Summary
+          <p className="text-xs font-medium text-white/70 flex items-center gap-1">
+            <CreditCard className="w-3.5 h-3.5 text-amber-300" /> Payment Summary
           </p>
-          <p className="text-2xl font-bold mt-1 text-emerald-600">{formatCurrency(totalCollection)}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Overall Collection</p>
+          <p className="text-2xl font-bold mt-1 text-white">{formatCurrency(totalCollection)}</p>
+          <p className="text-xs text-white/60 mt-0.5">Overall Collection</p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-muted">
-            <Wallet className="w-5 h-5 text-primary" />
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-amber-300/10 border border-amber-300/20">
+            <Wallet className="w-5 h-5 text-amber-300" />
           </div>
-          <span className="text-muted-foreground"><ChevronDown className={cn("w-4 h-4 transition-transform duration-300", expanded && "rotate-180")} /></span>
+          <span className="text-white/60"><ChevronDown className={cn("w-4 h-4 transition-transform duration-300", expanded && "rotate-180")} /></span>
         </div>
       </div>
 
@@ -981,14 +980,12 @@ function OutsiderCollectionCard({ festivalId, stats }: {
 <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
             🌍 Outsider Collection
           </p>
-          <p className="text-2xl font-bold mt-1 text-blue-600">
-            {loading ? '—' : formatCurrency(totalCollection)}
-          </p>
+          <p className="text-2xl font-bold mt-1 text-white">{loading ? '—' : formatCurrency(totalCollection)}</p>
           <p className="text-xs text-muted-foreground mt-0.5">Outsider Collection for this Festival</p>
         </div>
         <div className="flex flex-col items-end gap-1">
           <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-muted">
-            <Globe className="w-5 h-5 text-blue-600" />
+            <Globe className="w-5 h-5 text-amber-300" />
           </div>
           <span className="text-muted-foreground"><ChevronDown className={cn("w-4 h-4 transition-transform duration-300", expanded && "rotate-180")} /></span>
         </div>
@@ -1005,8 +1002,8 @@ function OutsiderCollectionCard({ festivalId, stats }: {
           <div className="space-y-3 pt-2 border-t border-border">
             <div className="grid grid-cols-2 gap-2">
               <div className="p-2.5 rounded-xl bg-primary/5 border border-primary/10">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><IndianRupee className="w-3 h-3" /> Total Collection</p>
-                <p className="text-base font-bold text-emerald-600 mt-0.5">{formatCurrency(data?.totalCollection ?? 0)}</p>
+                  <p className="text-[10px] font-semibold text-white/70 uppercase tracking-wider flex items-center gap-1"><IndianRupee className="w-3 h-3 text-amber-300" /> Total Collection</p>
+                    <p className="text-base font-bold text-white mt-0.5">{formatCurrency(data?.totalCollection ?? 0)}</p>
               </div>
               <div className="p-2.5 rounded-xl bg-primary/5 border border-primary/10">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Receipt className="w-3 h-3" /> Total Donations</p>
@@ -1014,7 +1011,7 @@ function OutsiderCollectionCard({ festivalId, stats }: {
               </div>
               <div className="p-2.5 rounded-xl bg-primary/5 border border-primary/10">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Average Donation</p>
-                <p className="text-base font-bold text-purple-600 mt-0.5">{formatCurrency(data?.averageDonation ?? 0)}</p>
+                <p className="text-base font-bold text-white mt-0.5">{formatCurrency(data?.averageDonation ?? 0)}</p>
               </div>
               <div className="p-2.5 rounded-xl bg-primary/5 border border-primary/10">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Trophy className="w-3 h-3" /> Highest Donation</p>
@@ -1321,41 +1318,53 @@ const fetchStats = useCallback(async () => {
   const hasActiveFilters = filterDonationStatus || filterBuildingId || filterWingId || filterPaymentMethod || filterDateFrom || filterDateTo || filterAmountMin || filterAmountMax || filterAdminId || filterPendingReason;
 
   return (
-    <div className="w-full min-h-screen bg-muted/10 pb-20">
-      <div className="bg-secondary text-secondary-foreground py-8 px-4 border-b border-border shadow-sm">
-        <div className="container mx-auto max-w-6xl">
-          <div className="flex items-center gap-4">
-            <Link href="/admin/festivals" className="flex items-center gap-2 text-white/70 hover:text-white transition-colors"><ArrowLeft className="w-5 h-5" /></Link>
-            <div className="flex-1">
-              <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-serif font-bold text-white">{festival.name}</h1>
-                <span className={cn("inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider", statusColors[festival.status] || statusColors.upcoming)}>
-                  <StatusIcon className="w-3 h-3" />{festival.status}
-                </span>
-                <span className="text-white/60 font-mono text-lg font-bold">{festival.year}</span>
-              </div>
-              <p className="text-white/70 flex items-center gap-2 mt-1"><CalendarDays className="w-4 h-4" />{festival.startDate ? formatDate(festival.startDate) : 'N/A'} – {festival.endDate ? formatDate(festival.endDate) : 'N/A'}</p>
+    <div className="relative min-h-screen bg-[#080808] overflow-hidden pb-20">
+      {/* Cinematic overlays */}
+      <div className="absolute inset-0 z-0 bg-black/45" />
+      <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_50%_20%,rgba(255,170,70,0.12),transparent_40%)]" />
+      <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/30 via-transparent to-black/90" />
+
+      <motion.div
+        className="absolute z-0 left-1/2 top-[18%] h-[380px] w-[380px] -translate-x-1/2 rounded-full bg-amber-400/10 blur-[120px]"
+        animate={{ scale: [1, 1.12, 1], opacity: [0.35, 0.55, 0.35] }}
+        transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
+      />
+
+      <div className="container relative z-10 mx-auto max-w-6xl px-4 py-8">
+        <div className="flex items-center gap-4">
+          <Link href="/admin/festivals" className="inline-flex items-center gap-2 text-white/80 hover:text-white transition-colors rounded-full bg-white/[0.04] border border-white/10 px-3 py-2 backdrop-blur-xl">
+            <ArrowLeft className="w-5 h-5 text-amber-300" />
+          </Link>
+          <div className="flex-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-4xl font-serif font-semibold tracking-[-0.03em] text-white">{festival.name}</h1>
+              <span className={cn("inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold tracking-wider bg-white/[0.04] border border-white/10 text-white/80", statusColors[festival.status] || '')}>
+                <StatusIcon className="w-4 h-4 text-amber-300" /> {festival.status}
+              </span>
+              <span className="text-white/60 font-mono text-lg font-semibold">{festival.year}</span>
             </div>
-            <Link href={`/admin/festivals/${festival.id}/edit`} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary/90 transition-all shadow-lg">
-              <Edit3 className="w-4 h-4" /> Edit
-            </Link>
+            <p className="text-white/70 flex items-center gap-2 mt-1"><CalendarDays className="w-4 h-4 text-amber-300" />{festival.startDate ? formatDate(festival.startDate) : 'N/A'} – {festival.endDate ? formatDate(festival.endDate) : 'N/A'}</p>
           </div>
+          {/* <Link href={`/admin/festivals/${festival.id}/edit`} className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2 text-sm font-semibold text-black shadow-[0_0_35px_rgba(255,255,255,0.12)]">
+            <Edit3 className="w-4 h-4" /> Edit
+          </Link> */}
         </div>
+        {festival.description && <p className="mt-4 text-white/65 max-w-3xl">{festival.description}</p>}
       </div>
 
-      <div className="container mx-auto max-w-6xl px-4 py-6">
+      <div className="container relative z-10 mx-auto max-w-6xl px-4 py-6">
         {stats && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <StatsCard title="Total Collection" value={formatCurrency(stats.totalCollection)} icon={IndianRupee} color="text-emerald-600" />
-<StatsCard title="Residents Paid" value={String(stats.residentsPaid)} icon={Users} color="text-emerald-600" subtitle={`of ${stats.totalResidents || 0} total`} />
+              <StatsCard title="Total Collection" value={formatCurrency(stats.totalCollection)} icon={IndianRupee} color="text-white" />
+<StatsCard title="Residents Paid" value={String(stats.residentsPaid)} icon={Users} color="text-white" subtitle={`of ${stats.totalResidents || 0} total`} />
 <PaymentSummaryCard stats={stats} />
               <OutsiderCollectionCard festivalId={festival.id} stats={stats} />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
               <StatsCard title="Pending Collection" value={formatCurrency(stats.pendingCollection)} icon={IndianRupee} color="text-amber-600" />
               <StatsCard title="Total Entries" value={String(stats.totalEntries)} icon={Receipt} color="text-primary" />
-              <StatsCard title="Total Residents" value={String(stats.totalResidents || stats.residentsPaid + stats.residentsPending)} icon={Users} color="text-purple-600" />
+              <StatsCard title="Total Residents" value={String(stats.totalResidents || stats.residentsPaid + stats.residentsPending)} icon={Users} color="text-white" />
             </div>
           </>
         )}
@@ -1364,7 +1373,7 @@ const fetchStats = useCallback(async () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           {/* Collection by Date */}
           <div className="glass-card-glow rounded-2xl p-5 relative overflow-hidden">
-            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-purple-500 to-teal-400 opacity-70" />
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-300 via-orange-300 to-amber-500 opacity-70" />
             <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
               <div className="flex items-center gap-2">
                 <CalendarDays className="w-4 h-4 text-primary" />
@@ -1394,23 +1403,23 @@ const fetchStats = useCallback(async () => {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <div className="p-3 rounded-xl bg-primary/5 border border-primary/10">
                   <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><IndianRupee className="w-3 h-3" /> Total Collection</p>
-                  <p className="text-lg font-bold text-emerald-600 mt-1">{formatCurrency(collectionSummary.totalCollection)}</p>
+                  <p className="text-lg font-bold text-white mt-1">{formatCurrency(collectionSummary.totalCollection)}</p>
                 </div>
                 <div className="p-3 rounded-xl bg-primary/5 border border-primary/10">
                   <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Receipt className="w-3 h-3" /> Total Donations</p>
                   <p className="text-lg font-bold text-foreground mt-1">{collectionSummary.totalDonations}</p>
                 </div>
-                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-900/30">
-                  <p className="text-[11px] font-semibold text-emerald-600 uppercase tracking-wider flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Paid</p>
-                  <p className="text-lg font-bold text-emerald-600 mt-1">{collectionSummary.paidCount}</p>
+                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/8">
+                  <p className="text-[11px] font-semibold text-white uppercase tracking-wider flex items-center gap-1"><CheckCircle className="w-3 h-3 text-amber-300" /> Paid</p>
+                  <p className="text-lg font-bold text-white mt-1">{collectionSummary.paidCount}</p>
                 </div>
                 <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/30">
                   <p className="text-[11px] font-semibold text-amber-600 uppercase tracking-wider flex items-center gap-1"><Clock className="w-3 h-3" /> Pending</p>
                   <p className="text-lg font-bold text-amber-600 mt-1">{collectionSummary.pendingCount}</p>
                 </div>
-                <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-950/20 border border-purple-200/50 dark:border-purple-900/30 md:col-span-1 col-span-2">
-                  <p className="text-[11px] font-semibold text-purple-600 uppercase tracking-wider flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Average</p>
-                  <p className="text-lg font-bold text-purple-600 mt-1">{formatCurrency(collectionSummary.averageDonation)}</p>
+                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/8 md:col-span-1 col-span-2">
+                  <p className="text-[11px] font-semibold text-white/70 uppercase tracking-wider flex items-center gap-1"><TrendingUp className="w-3 h-3 text-amber-300" /> Average</p>
+                  <p className="text-lg font-bold text-white mt-1">{formatCurrency(collectionSummary.averageDonation)}</p>
                 </div>
               </div>
             )}
@@ -1464,8 +1473,8 @@ const fetchStats = useCallback(async () => {
           <button onClick={() => setShowPending(true)} className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl font-semibold text-sm hover:bg-amber-600 transition-all shadow-lg">
             <Clock className="w-4 h-4" /> View Pending Residents
           </button>
-<Link href={`/admin/tshirt-registrations?festivalId=${festival.id}`} className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-white rounded-xl font-semibold text-sm hover:bg-teal-600 transition-all shadow-lg">
-            <Shirt className="w-4 h-4" /> T-Shirt Registrations
+          <Link href={`/admin/tshirt-registrations?festivalId=${festival.id}`} className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] border border-white/10 text-white font-semibold text-sm hover:bg-white/[0.06] transition-all shadow-sm">
+            <Shirt className="w-4 h-4 text-amber-300" /> T-Shirt Registrations
           </Link>
         </div>
 
@@ -1475,17 +1484,17 @@ const fetchStats = useCallback(async () => {
           </div>
         )}
 
-        <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden mb-6">
-          <div className="p-4 border-b border-border bg-muted/20 flex items-center justify-between">
+        <div className="rounded-2xl overflow-hidden mb-6 bg-white/[0.03] border border-white/8 backdrop-blur-2xl shadow-[0_12px_40px_rgba(0,0,0,0.6)]">
+          <div className="p-4 border-b border-white/8 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-serif font-bold text-foreground">Donation Records</h2>
               <p className="text-xs text-muted-foreground">Manage festival donations</p>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => setShowFilters(!showFilters)} className={cn("flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition-all", showFilters || hasActiveFilters ? 'bg-primary/10 border-primary/30 text-primary' : 'border-border text-muted-foreground hover:bg-muted/50')}>
-                <ListFilter className="w-3.5 h-3.5" /> Filters {hasActiveFilters && <span className="w-2 h-2 rounded-full bg-primary" />}
+              <button onClick={() => setShowFilters(!showFilters)} className={cn("flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold border transition-all", showFilters || hasActiveFilters ? 'bg-white/[0.04] border-amber-300/20 text-white' : 'border-white/10 text-white/70 hover:bg-white/[0.02]')}>
+                <ListFilter className="w-3.5 h-3.5 text-amber-300" /> Filters {hasActiveFilters && <span className="w-2 h-2 rounded-full bg-amber-300" />}
               </button>
-              <button onClick={() => { fetchDonations(); fetchStats(); fetchCollectionSummary(collectionDate); }} disabled={isLoadingDonations} className="px-3 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-muted/50 transition-all">
+              <button onClick={() => { fetchDonations(); fetchStats(); fetchCollectionSummary(collectionDate); }} disabled={isLoadingDonations} className="px-3 py-2 border border-white/10 rounded-full text-sm font-semibold hover:bg-white/[0.02] transition-all text-white/70">
                 <RefreshCw className={cn("w-4 h-4", isLoadingDonations && "animate-spin")} />
               </button>
             </div>
@@ -1496,21 +1505,21 @@ const fetchStats = useCallback(async () => {
               <div className="flex-1 min-w-[200px]">
                 <label className="block text-xs font-semibold text-foreground mb-1"><Search className="w-3 h-3 inline mr-1" /> Search</label>
                 <div className="flex gap-2">
-                  <input type="text" value={donationSearchInput} onChange={e => setDonationSearchInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleDonationSearch()} placeholder="Name, Mobile, Flat, Receipt..." className="flex-1 px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none" />
-                  <button onClick={handleDonationSearch} className="px-3 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-all"><Search className="w-4 h-4" /></button>
+                  <input type="text" value={donationSearchInput} onChange={e => setDonationSearchInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleDonationSearch()} placeholder="Name, Mobile, Flat, Receipt..." className="flex-1 px-3 py-2 text-sm rounded-full border border-white/10 bg-white/[0.05] text-white placeholder:text-white/35 backdrop-blur-xl focus:ring-2 focus:ring-amber-300/10 outline-none" />
+                  <button onClick={handleDonationSearch} className="px-4 py-2 bg-white text-black rounded-full text-sm font-semibold hover:scale-[0.995] transition-all shadow-[0_0_35px_rgba(255,255,255,0.12)]"><Search className="w-4 h-4" /></button>
                 </div>
               </div>
               <div className="w-[130px]">
-                <label className="block text-xs font-semibold text-foreground mb-1">Status</label>
-                <select value={filterDonationStatus} onChange={e => { setFilterDonationStatus(e.target.value); setDonationPagination(p => ({ ...p, page: 1 })); }} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none">
+                <label className="block text-xs font-semibold text-white/80 mb-1">Status</label>
+                <select value={filterDonationStatus} onChange={e => { setFilterDonationStatus(e.target.value); setDonationPagination(p => ({ ...p, page: 1 })); }} className="w-full px-3 py-2 text-sm rounded-full border border-white/10 bg-white/[0.04] text-white backdrop-blur-xl focus:ring-2 focus:ring-amber-300/10 outline-none">
                   <option value="">All</option>
                   <option value="paid">Paid</option>
                   <option value="pending">Pending</option>
                 </select>
               </div>
               <div className="w-[140px]">
-                <label className="block text-xs font-semibold text-foreground mb-1">Method</label>
-                <select value={filterPaymentMethod} onChange={e => { setFilterPaymentMethod(e.target.value); setDonationPagination(p => ({ ...p, page: 1 })); }} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none">
+                <label className="block text-xs font-semibold text-white/80 mb-1">Method</label>
+                <select value={filterPaymentMethod} onChange={e => { setFilterPaymentMethod(e.target.value); setDonationPagination(p => ({ ...p, page: 1 })); }} className="w-full px-3 py-2 text-sm rounded-full border border-white/10 bg-white/[0.04] text-white backdrop-blur-xl focus:ring-2 focus:ring-amber-300/10 outline-none">
                   <option value="">All</option>
                   <option value="cash">Cash</option>
                   <option value="upi">UPI</option>
@@ -1568,13 +1577,13 @@ const fetchStats = useCallback(async () => {
             )}
           </div>
 
-          {isLoadingDonations ? (
-            <div className="flex items-center justify-center py-16"><div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /></div>
+            {isLoadingDonations ? (
+            <div className="flex items-center justify-center py-16"><div className="w-8 h-8 border-2 border-white/20 border-t-amber-300 rounded-full animate-spin" /></div>
           ) : donations.length === 0 ? (
-            <div className="text-center py-16 text-muted-foreground">
-              <IndianRupee className="w-12 h-12 mx-auto mb-3 text-muted-foreground/40" />
-              <p className="font-semibold text-foreground">{hasActiveFilters ? 'No donations match your filters' : 'No donations recorded yet'}</p>
-              <p className="text-sm mt-1">{hasActiveFilters ? 'Try adjusting your filters.' : 'Click "Add Donation" to record the first donation.'}</p>
+            <div className="text-center py-16 text-white/60">
+              <IndianRupee className="w-12 h-12 mx-auto mb-3 text-white/20" />
+              <p className="font-semibold text-white">{hasActiveFilters ? 'No donations match your filters' : 'No donations recorded yet'}</p>
+              <p className="text-sm mt-1 text-white/60">{hasActiveFilters ? 'Try adjusting your filters.' : 'Click "Add Donation" to record the first donation.'}</p>
             </div>
           ) : (
             <>
@@ -1603,7 +1612,7 @@ const fetchStats = useCallback(async () => {
                         <tr key={d.id} className={cn("border-b border-border/50 transition-colors hover:bg-muted/20", idx % 2 === 0 ? "bg-background" : "bg-muted/10")}>
                           <td className="px-3 py-3 text-xs text-muted-foreground font-mono">{(donationPagination.page - 1) * donationPagination.limit + idx + 1}</td>
                           <td className="px-3 py-3">
-                            <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold", isPaid(d) ? 'text-emerald-700 bg-emerald-100' : 'text-amber-700 bg-amber-100')}>
+                            <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold", isPaid(d) ? 'text-white bg-white/[0.04]' : 'text-amber-700 bg-amber-100/30')}>
                               {isPaid(d) ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                               {isPaid(d) ? 'Paid' : 'Pending'}
                             </span>
@@ -1643,7 +1652,7 @@ const fetchStats = useCallback(async () => {
                               <button onClick={() => setEditDonation(d)} className="p-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-950/30 transition-colors text-amber-600" title="Edit"><Edit3 className="w-3.5 h-3.5" /></button>
                               <button onClick={() => setDeleteDonation(d)} className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-destructive" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
                               {isPaid(d) && d.receiptNumber && (
-                                <button onClick={() => { const msg = buildWhatsAppReceipt(d, festival.name); openWhatsApp(d.residentMobile, msg); }} className="p-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-950/30 transition-colors text-emerald-600" title="Send WhatsApp Receipt">
+                                <button onClick={() => { const msg = buildWhatsAppReceipt(d, festival.name); openWhatsApp(d.residentMobile, msg); }} className="p-1.5 rounded-lg hover:bg-white/[0.04] transition-colors text-amber-300" title="Send WhatsApp Receipt">
                                   <MessageSquare className="w-3.5 h-3.5" />
                                 </button>
                               )}

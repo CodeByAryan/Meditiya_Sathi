@@ -1,13 +1,42 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  useState,
+  useEffect,
+  useRef,
+  type KeyboardEvent,
+  type FormEvent,
+} from 'react';
 import { Link } from 'wouter';
-import { ArrowLeft, MapPin, Search, Plus, X, CheckCircle, Clock, Building2, Home, Phone, User, IndianRupee, Save, ChevronDown, AlertTriangle, MessageCircleMore } from 'lucide-react';
+import {
+  ArrowLeft,
+  MapPin,
+  Search,
+  Plus,
+  X,
+  CheckCircle2,
+  Building2,
+  Phone,
+  User,
+  IndianRupee,
+  Save,
+  ChevronDown,
+  AlertTriangle,
+  Clock3,
+  WalletCards,
+  Banknote,
+  Smartphone,
+  Landmark,
+  FileText,
+  History,
+  Sparkles,
+} from 'lucide-react';
 import { toast } from 'sonner';
+
 import { cn, getApiUrl } from '@/lib/utils';
 import { PENDING_REASONS } from '@/lib/pending-reasons';
-import { generatePendingNoticePDF, downloadPDF } from '@/lib/pdf-generator';
-import { sendPendingReminderViaWhatsApp } from '@/lib/whatsapp-service';
 
-// ── Types ────────────────────────────────────────────────────────────────────
+/* -------------------------------------------------------------------------- */
+/* Types                                                                      */
+/* -------------------------------------------------------------------------- */
 
 interface FestivalOption {
   id: number;
@@ -17,44 +46,157 @@ interface FestivalOption {
 }
 
 interface SearchResident {
-  id: number; fullName: string; mobile: string;
-  flatNo: string; buildingId: number; wingId: number | null;
-  buildingName: string; wingName: string;
+  id: number;
+  fullName: string;
+  mobile: string;
+  flatNo: string;
+  buildingId: number;
+  wingId: number | null;
+  buildingName: string;
+  wingName: string;
   address?: string | null;
 }
 
 interface FestivalHistory {
-  festivalName: string; year: number; festivalId: number;
-  status: string; amount: number | null;
-  receiptNumber: string | null; paymentDate: string | null;
-  paymentMethod: string | null; collectedBy: string; notes: string | null;
+  festivalName: string;
+  year: number;
+  festivalId: number;
+  status: string;
+  amount: number | null;
+  receiptNumber: string | null;
+  paymentDate: string | null;
+  paymentMethod: string | null;
+  collectedBy: string;
+  notes: string | null;
 }
 
-// ── Auth helpers ─────────────────────────────────────────────────────────────
+/* -------------------------------------------------------------------------- */
+/* Auth helpers                                                               */
+/* -------------------------------------------------------------------------- */
 
 function getAdminToken(): string | null {
   try {
     const stored = localStorage.getItem('admin_auth');
-    if (!stored) return null;
-    return JSON.parse(stored)?.token || null;
-  } catch { return null; }
+
+    if (!stored) {
+      return null;
+    }
+
+    const parsed = JSON.parse(stored);
+
+    return parsed?.token || null;
+  } catch {
+    return null;
+  }
 }
 
 function authHeaders(): Record<string, string> {
   const token = getAdminToken();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   return headers;
 }
 
 function formatCurrency(amount: number | null): string {
-  if (amount == null) return '—';
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
+  if (amount == null) {
+    return '—';
+  }
+
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(amount);
 }
 
-// ── Festival Searchable Dropdown ─────────────────────────────────────────────
+/* -------------------------------------------------------------------------- */
+/* Reusable UI                                                                */
+/* -------------------------------------------------------------------------- */
 
-function FestivalDropdown({ selectedId, onSelect }: {
+function SectionHeader({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: typeof User;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="flex items-start gap-3 mb-6">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+        <Icon className="h-5 w-5" />
+      </div>
+
+      <div>
+        <h2 className="text-lg font-bold tracking-tight text-foreground">
+          {title}
+        </h2>
+
+        {description && (
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {description}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FieldLabel({
+  children,
+  required = false,
+  optional = false,
+}: {
+  children: React.ReactNode;
+  required?: boolean;
+  optional?: boolean;
+}) {
+  return (
+    <label className="mb-2 block text-sm font-semibold text-foreground">
+      {children}
+
+      {required && (
+        <span className="ml-1 text-destructive">*</span>
+      )}
+
+      {optional && (
+        <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+          (optional)
+        </span>
+      )}
+    </label>
+  );
+}
+
+function ErrorMessage({ message }: { message?: string }) {
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-destructive">
+      <AlertTriangle className="h-3.5 w-3.5" />
+      {message}
+    </p>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Festival Dropdown                                                          */
+/* -------------------------------------------------------------------------- */
+
+function FestivalDropdown({
+  selectedId,
+  onSelect,
+}: {
   selectedId: number | null;
   onSelect: (festival: FestivalOption) => void;
 }) {
@@ -62,99 +204,218 @@ function FestivalDropdown({ selectedId, onSelect }: {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+
   const wrapperRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   useEffect(() => {
-    fetch(`${getApiUrl()}/api/admin/festivals`, { headers: authHeaders() })
-      .then(r => r.json())
-      .then((data: FestivalOption[]) => {
-        setFestivals(data);
-        const active = data.filter(f => f.status === 'active');
-        if (active.length === 1 && !selectedId) {
-          onSelect(active[0]);
+    let mounted = true;
+
+    async function loadFestivals() {
+      try {
+        const response = await fetch(
+          `${getApiUrl()}/api/admin/festivals`,
+          {
+            headers: authHeaders(),
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error('Failed to load festivals');
         }
-      })
-      .catch(() => toast.error('Failed to load festivals'))
-      .finally(() => setIsLoading(false));
+
+        const data: FestivalOption[] = await response.json();
+
+        if (!mounted) {
+          return;
+        }
+
+        setFestivals(data);
+
+        const activeFestivals = data.filter(
+          (festival) => festival.status === 'active',
+        );
+
+        if (activeFestivals.length === 1 && !selectedId) {
+          onSelect(activeFestivals[0]);
+        }
+      } catch {
+        toast.error('Failed to load festivals');
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadFestivals();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  const selected = festivals.find(f => f.id === selectedId);
-  const filtered = festivals.filter(f => {
-    const q = search.toLowerCase();
-    return f.name.toLowerCase().includes(q) || String(f.year).includes(q);
+  const selectedFestival = festivals.find(
+    (festival) => festival.id === selectedId,
+  );
+
+  const filteredFestivals = festivals.filter((festival) => {
+    const query = search.toLowerCase().trim();
+
+    return (
+      festival.name.toLowerCase().includes(query) ||
+      String(festival.year).includes(query)
+    );
   });
+
+  const openDropdown = () => {
+    setIsOpen((previous) => !previous);
+
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 100);
+  };
 
   return (
     <div ref={wrapperRef} className="relative">
-      <label className="block text-xs font-semibold text-foreground mb-1.5">Festival <span className="text-destructive">*</span></label>
+      <FieldLabel required>Festival</FieldLabel>
+
       <button
         type="button"
-        onClick={() => { setIsOpen(!isOpen); setTimeout(() => searchInputRef.current?.focus(), 100); }}
-        className="w-full px-4 py-3 text-sm rounded-xl border border-border bg-background text-left flex items-center justify-between gap-2 hover:border-primary/50 transition-all focus:ring-2 focus:ring-primary outline-none"
-      >
-        {selected ? (
-          <span className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-primary shrink-0" />
-            <span className="font-semibold text-foreground">{selected.name}</span>
-            <span className="text-xs text-muted-foreground">({selected.year})</span>
-            {selected.status === 'active' && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400">
-                <CheckCircle className="w-2.5 h-2.5" /> Active
-              </span>
-            )}
-          </span>
-        ) : (
-          <span className="text-muted-foreground flex items-center gap-2">
-            <MapPin className="w-4 h-4 shrink-0" />
-            {isLoading ? 'Loading festivals...' : 'Select a festival'}
-          </span>
+        onClick={openDropdown}
+        className={cn(
+          'flex w-full items-center justify-between gap-3 rounded-xl border bg-background px-4 py-3.5 text-left transition-all',
+          'hover:border-primary/40',
+          'focus:outline-none focus:ring-2 focus:ring-primary/20',
+          isOpen
+            ? 'border-primary ring-2 ring-primary/10'
+            : 'border-border',
         )}
-        <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+      >
+        {selectedFestival ? (
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <MapPin className="h-4 w-4" />
+            </div>
+
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="truncate text-sm font-bold text-foreground">
+                  {selectedFestival.name}
+                </span>
+
+                <span className="text-xs text-muted-foreground">
+                  {selectedFestival.year}
+                </span>
+
+                {selectedFestival.status === 'active' && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Active
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+              <MapPin className="h-4 w-4" />
+            </div>
+
+            <span>
+              {isLoading
+                ? 'Loading festivals...'
+                : 'Select a festival'}
+            </span>
+          </div>
+        )}
+
+        <ChevronDown
+          className={cn(
+            'h-5 w-5 shrink-0 text-muted-foreground transition-transform',
+            isOpen && 'rotate-180',
+          )}
+        />
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full border border-border rounded-xl bg-card shadow-xl max-h-72 overflow-hidden">
-          <div className="p-2 border-b border-border">
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search festivals..."
-              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
-            />
+        <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+          <div className="border-b border-border bg-muted/20 p-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search festival or year..."
+                className="w-full rounded-xl border border-border bg-background py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
           </div>
-          <div className="overflow-y-auto max-h-52">
-            {filtered.length === 0 ? (
-              <div className="p-4 text-center text-sm text-muted-foreground">No festivals found</div>
+
+          <div className="max-h-72 overflow-y-auto p-2">
+            {filteredFestivals.length === 0 ? (
+              <div className="py-8 text-center">
+                <MapPin className="mx-auto mb-2 h-6 w-6 text-muted-foreground/50" />
+                <p className="text-sm font-medium text-muted-foreground">
+                  No festivals found
+                </p>
+              </div>
             ) : (
-              filtered.map(f => (
+              filteredFestivals.map((festival) => (
                 <button
-                  key={f.id}
+                  key={festival.id}
                   type="button"
-                  onClick={() => { onSelect(f); setIsOpen(false); setSearch(''); }}
+                  onClick={() => {
+                    onSelect(festival);
+                    setIsOpen(false);
+                    setSearch('');
+                  }}
                   className={cn(
-                    "w-full px-3 py-3 text-left hover:bg-muted/50 transition-colors border-b border-border/50 last:border-0 flex items-center justify-between",
-                    selectedId === f.id && "bg-primary/5"
+                    'flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition-colors',
+                    'hover:bg-muted/70',
+                    selectedId === festival.id &&
+                      'bg-primary/10',
                   )}
                 >
-                  <div>
-                    <span className="font-semibold text-foreground text-sm">{f.name}</span>
-                    <span className="text-xs text-muted-foreground ml-2">{f.year}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <MapPin className="h-4 w-4" />
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">
+                        {festival.name}
+                      </p>
+
+                      <p className="text-xs text-muted-foreground">
+                        {festival.year}
+                      </p>
+                    </div>
                   </div>
-                  {f.status === 'active' && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400">
+
+                  {festival.status === 'active' && (
+                    <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-bold text-emerald-600">
                       Active
                     </span>
                   )}
@@ -168,9 +429,15 @@ function FestivalDropdown({ selectedId, onSelect }: {
   );
 }
 
-// ── Resident Search Dropdown ─────────────────────────────────────────────────
+/* -------------------------------------------------------------------------- */
+/* Resident Search                                                            */
+/* -------------------------------------------------------------------------- */
 
-function ResidentSearchDropdown({ onSelect, selectedResident, onClear }: {
+function ResidentSearchDropdown({
+  onSelect,
+  selectedResident,
+  onClear,
+}: {
   onSelect: (resident: SearchResident) => void;
   selectedResident: SearchResident | null;
   onClear: () => void;
@@ -179,494 +446,1170 @@ function ResidentSearchDropdown({ onSelect, selectedResident, onClear }: {
   const [results, setResults] = useState<SearchResident[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedIdx, setSelectedIdx] = useState(-1);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const searchTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   useEffect(() => {
-    if (selectedResident) return;
-    if (searchTimeout.current) clearTimeout(searchTimeout.current);
-    if (query.length < 1) { setResults([]); setIsOpen(false); return; }
+    if (selectedResident) {
+      return;
+    }
+
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+    }
+
+    if (query.trim().length < 1) {
+      setResults([]);
+      setIsOpen(false);
+      return;
+    }
+
     searchTimeout.current = setTimeout(async () => {
       setIsSearching(true);
+
       try {
-        const res = await fetch(`${getApiUrl()}/api/admin/residents/search?q=${encodeURIComponent(query)}`, { headers: authHeaders() });
-        if (res.ok) {
-          const data = await res.json();
-          setResults(data.residents || []);
-          setIsOpen(true);
-          setSelectedIdx(-1);
+        const response = await fetch(
+          `${getApiUrl()}/api/admin/residents/search?q=${encodeURIComponent(
+            query.trim(),
+          )}`,
+          {
+            headers: authHeaders(),
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error('Search failed');
         }
-      } catch { /* ignore */ }
-      finally { setIsSearching(false); }
+
+        const data = await response.json();
+
+        setResults(data.residents || []);
+        setSelectedIndex(-1);
+        setIsOpen(true);
+      } catch {
+        setResults([]);
+      } finally {
+        setIsSearching(false);
+      }
     }, 300);
-    return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current); };
+
+    return () => {
+      if (searchTimeout.current) {
+        clearTimeout(searchTimeout.current);
+      }
+    };
   }, [query, selectedResident]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!isOpen || results.length === 0) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIdx(i => Math.min(i + 1, results.length - 1)); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedIdx(i => Math.max(i - 1, 0)); }
-    else if (e.key === 'Enter' && selectedIdx >= 0) { e.preventDefault(); handleSelect(results[selectedIdx]); }
-    else if (e.key === 'Escape') { setIsOpen(false); }
-  };
-
-  const handleSelect = (r: SearchResident) => {
-    onSelect(r);
-    setQuery(r.fullName);
+  const handleSelect = (resident: SearchResident) => {
+    onSelect(resident);
+    setQuery(resident.fullName);
     setIsOpen(false);
   };
 
-  const handleClear = () => {
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (!isOpen || results.length === 0) {
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+
+      setSelectedIndex((index) =>
+        Math.min(index + 1, results.length - 1),
+      );
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+
+      setSelectedIndex((index) => Math.max(index - 1, 0));
+    }
+
+    if (event.key === 'Enter' && selectedIndex >= 0) {
+      event.preventDefault();
+
+      handleSelect(results[selectedIndex]);
+    }
+
+    if (event.key === 'Escape') {
+      setIsOpen(false);
+    }
+  };
+
+  const clearResident = () => {
     onClear();
     setQuery('');
     setResults([]);
     setIsOpen(false);
-    inputRef.current?.focus();
+
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
   };
 
   return (
     <div ref={wrapperRef} className="relative">
-      <label className="block text-xs font-semibold text-foreground mb-1.5">Search Resident <span className="text-destructive">*</span></label>
+      <FieldLabel required>Search Resident</FieldLabel>
+
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
         <input
           ref={inputRef}
           type="text"
           value={query}
-          onChange={e => { setQuery(e.target.value); if (selectedResident) handleClear(); }}
+          onChange={(event) => {
+            const value = event.target.value;
+
+            if (selectedResident) {
+              onClear();
+            }
+
+            setQuery(value);
+          }}
+          onFocus={() => {
+            if (results.length > 0) {
+              setIsOpen(true);
+            }
+          }}
           onKeyDown={handleKeyDown}
-          onFocus={() => { if (results.length > 0) setIsOpen(true); }}
-          placeholder="Type name, mobile, building, wing, or flat..."
-          className="w-full pl-10 pr-10 py-2.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
+          placeholder="Name, mobile, building, wing or flat number..."
+          className={cn(
+            'w-full rounded-xl border bg-background py-3.5 pl-11 pr-11 text-sm outline-none transition-all',
+            'focus:border-primary focus:ring-2 focus:ring-primary/20',
+            selectedResident
+              ? 'border-emerald-300 dark:border-emerald-800'
+              : 'border-border',
+          )}
         />
-        {isSearching && <span className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />}
+
+        {isSearching && (
+          <span className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+        )}
+
         {!isSearching && selectedResident && (
-          <button type="button" onClick={handleClear} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-destructive">
-            <X className="w-4 h-4" />
+          <button
+            type="button"
+            onClick={clearResident}
+            className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-destructive"
+          >
+            <X className="h-4 w-4" />
           </button>
         )}
       </div>
 
-      {/* Dropdown */}
       {isOpen && results.length > 0 && !selectedResident && (
-        <div className="absolute z-50 mt-1 w-full border border-border rounded-xl bg-card shadow-xl max-h-80 overflow-y-auto">
-          {results.map((r, idx) => (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => handleSelect(r)}
-              className={cn(
-                "w-full px-3 py-3 text-left hover:bg-muted/50 transition-colors border-b border-border/50 last:border-0",
-                idx === selectedIdx && "bg-muted/30"
-              )}
-            >
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <User className="w-4 h-4 text-primary" />
+        <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+          <div className="max-h-80 overflow-y-auto p-2">
+            {results.map((resident, index) => (
+              <button
+                key={resident.id}
+                type="button"
+                onClick={() => handleSelect(resident)}
+                className={cn(
+                  'flex w-full items-start gap-3 rounded-xl p-3 text-left transition',
+                  'hover:bg-muted/70',
+                  index === selectedIndex && 'bg-muted',
+                )}
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <User className="h-4 w-4" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <span className="font-semibold text-foreground text-sm block truncate">{r.fullName}</span>
-                  <span className="text-xs text-muted-foreground block">
-                    <Building2 className="w-3 h-3 inline mr-0.5" />
-                    {r.buildingName}{r.wingName ? ` - ${r.wingName}` : ''} - {r.flatNo}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    <Phone className="w-3 h-3 inline mr-0.5" />{r.mobile}
-                  </span>
+
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-foreground">
+                    {resident.fullName}
+                  </p>
+
+                  <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Building2 className="h-3.5 w-3.5 shrink-0" />
+
+                    <span className="truncate">
+                      {resident.buildingName}
+                      {resident.wingName
+                        ? ` • ${resident.wingName}`
+                        : ''}
+                      {' • Flat '}
+                      {resident.flatNo}
+                    </span>
+                  </div>
+
+                  <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Phone className="h-3.5 w-3.5" />
+                    {resident.mobile}
+                  </div>
                 </div>
-<ChevronDown className="w-4 h-4 text-muted-foreground shrink-0 mt-1" />
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
 
-      {isOpen && results.length === 0 && query.length >= 2 && !isSearching && (
-        <div className="absolute z-50 mt-1 w-full border border-border rounded-xl bg-card shadow-xl p-4 text-center text-sm text-muted-foreground">
-          No residents found matching "{query}"
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Selected Resident Card ───────────────────────────────────────────────────
-
-function SelectedResidentCard({ resident, festivalHistory }: {
-  resident: SearchResident;
-  festivalHistory: FestivalHistory[];
-}) {
-  return (
-    <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-bold text-primary uppercase tracking-wider">Selected Resident</span>
-      </div>
-      <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-          <User className="w-5 h-5 text-primary" />
-        </div>
-        <div className="flex-1">
-          <p className="font-bold text-foreground">{resident.fullName}</p>
-          <p className="text-sm text-muted-foreground flex items-center gap-1">
-            <Building2 className="w-3.5 h-3.5" />
-            {resident.buildingName}{resident.wingName ? ` - ${resident.wingName}` : ''}, Flat {resident.flatNo}
-          </p>
-          <p className="text-sm text-muted-foreground flex items-center gap-1">
-            <Phone className="w-3.5 h-3.5" />
-            {resident.mobile}
-          </p>
-        </div>
-      </div>
-
-      {festivalHistory.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-primary/10">
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Previous Festival Donations</p>
-          <div className="space-y-1.5">
-            {festivalHistory.map((h, hi) => (
-              <div key={hi} className="flex items-center justify-between text-sm">
-                <span className="text-foreground">{h.festivalName} {h.year}</span>
-                <span className={cn("font-semibold", h.status === 'paid' ? 'text-emerald-600' : 'text-amber-600')}>
-                  {h.status === 'paid' ? `Paid ${formatCurrency(h.amount)}` : 'Pending'}
-                </span>
-              </div>
+                <ChevronDown className="mt-2 h-4 w-4 shrink-0 -rotate-90 text-muted-foreground" />
+              </button>
             ))}
           </div>
         </div>
       )}
+
+      {isOpen &&
+        results.length === 0 &&
+        query.trim().length >= 2 &&
+        !isSearching && (
+          <div className="absolute z-50 mt-2 w-full rounded-2xl border border-border bg-card p-6 text-center shadow-2xl">
+            <Search className="mx-auto mb-2 h-7 w-7 text-muted-foreground/50" />
+
+            <p className="text-sm font-semibold text-foreground">
+              No residents found
+            </p>
+
+            <p className="mt-1 text-xs text-muted-foreground">
+              Try searching with a different name, mobile number or flat.
+            </p>
+          </div>
+        )}
     </div>
   );
 }
 
-// ── Main Page ────────────────────────────────────────────────────────────────
+/* -------------------------------------------------------------------------- */
+/* Selected Resident Card                                                     */
+/* -------------------------------------------------------------------------- */
+
+function SelectedResidentCard({
+  resident,
+  festivalHistory,
+}: {
+  resident: SearchResident;
+  festivalHistory: FestivalHistory[];
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/50 dark:bg-emerald-950/10">
+      <div className="flex items-center gap-2 border-b border-emerald-200/70 px-4 py-3 dark:border-emerald-900/40">
+        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+
+        <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+          Resident Selected
+        </span>
+      </div>
+
+      <div className="p-4">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <User className="h-6 w-6" />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <h3 className="text-base font-bold text-foreground">
+              {resident.fullName}
+            </h3>
+
+            <div className="mt-2 grid gap-1.5 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 shrink-0" />
+
+                <span>
+                  {resident.buildingName}
+                  {resident.wingName
+                    ? ` • ${resident.wingName}`
+                    : ''}
+                  {' • Flat '}
+                  {resident.flatNo}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 shrink-0" />
+
+                <span>{resident.mobile}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {festivalHistory.length > 0 && (
+          <div className="mt-5 border-t border-emerald-200/70 pt-4 dark:border-emerald-900/40">
+            <div className="mb-3 flex items-center gap-2">
+              <History className="h-4 w-4 text-muted-foreground" />
+
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Previous Festival Donations
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {festivalHistory.map((history, index) => (
+                <div
+                  key={`${history.festivalId}-${index}`}
+                  className="flex items-center justify-between gap-3 rounded-xl bg-background/70 px-3 py-2.5"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {history.festivalName}
+                    </p>
+
+                    <p className="text-xs text-muted-foreground">
+                      {history.year}
+                    </p>
+                  </div>
+
+                  <div
+                    className={cn(
+                      'shrink-0 text-right text-xs font-bold',
+                      history.status === 'paid'
+                        ? 'text-emerald-600'
+                        : 'text-amber-600',
+                    )}
+                  >
+                    {history.status === 'paid'
+                      ? `Paid ${formatCurrency(history.amount)}`
+                      : 'Pending'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Payment Method Card                                                        */
+/* -------------------------------------------------------------------------- */
+
+const paymentMethods = [
+  {
+    value: 'cash',
+    label: 'Cash',
+    icon: Banknote,
+  },
+  {
+    value: 'upi',
+    label: 'UPI',
+    icon: Smartphone,
+  },
+  {
+    value: 'bank_transfer',
+    label: 'Bank Transfer',
+    icon: Landmark,
+  },
+  {
+    value: 'cheque',
+    label: 'Cheque',
+    icon: FileText,
+  },
+];
+
+/* -------------------------------------------------------------------------- */
+/* Main Page                                                                  */
+/* -------------------------------------------------------------------------- */
 
 export default function AdminAddDonation() {
-  const [selectedFestival, setSelectedFestival] = useState<FestivalOption | null>(null);
-  const [selectedResident, setSelectedResident] = useState<SearchResident | null>(null);
-  const [festivalHistory, setFestivalHistory] = useState<FestivalHistory[]>([]);
-const [donationStatus, setDonationStatus] = useState<'paid' | 'pending'>('pending');
+  const [selectedFestival, setSelectedFestival] =
+    useState<FestivalOption | null>(null);
+
+  const [selectedResident, setSelectedResident] =
+    useState<SearchResident | null>(null);
+
+  const [festivalHistory, setFestivalHistory] = useState<
+    FestivalHistory[]
+  >([]);
+
+  const [donationStatus, setDonationStatus] = useState<
+    'paid' | 'pending'
+  >('pending');
+
   const [pendingReason, setPendingReason] = useState('');
   const [pendingCustomReason, setPendingCustomReason] = useState('');
+
   const [paymentMethod, setPaymentMethod] = useState('cash');
+
   const [amount, setAmount] = useState('');
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+
+  const [paymentDate, setPaymentDate] = useState(
+    new Date().toISOString().split('T')[0],
+  );
+
   const [notes, setNotes] = useState('');
+
   const [isSaving, setIsSaving] = useState(false);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Track touched fields for validation display
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>(
+    {},
+  );
 
-  const handleResidentSelect = async (resident: SearchResident) => {
+  /* ---------------------------------------------------------------------- */
+  /* Resident selection                                                     */
+  /* ---------------------------------------------------------------------- */
+
+  const handleResidentSelect = async (
+    resident: SearchResident,
+  ) => {
     setSelectedResident(resident);
-    setErrors(prev => { const { ...rest } = prev; delete rest.resident; return rest; });
+
+    setErrors((previous) => {
+      const next = { ...previous };
+      delete next.resident;
+      return next;
+    });
+
     try {
-      const res = await fetch(`${getApiUrl()}/api/admin/residents/${resident.id}/festival-history`, { headers: authHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        setFestivalHistory(data || []);
+      const response = await fetch(
+        `${getApiUrl()}/api/admin/residents/${resident.id}/festival-history`,
+        {
+          headers: authHeaders(),
+        },
+      );
+
+      if (!response.ok) {
+        return;
       }
-    } catch { /* ignore */ }
+
+      const data: FestivalHistory[] = await response.json();
+
+      setFestivalHistory(data || []);
+    } catch {
+      setFestivalHistory([]);
+    }
   };
+
+  /* ---------------------------------------------------------------------- */
+  /* Clear form                                                             */
+  /* ---------------------------------------------------------------------- */
 
   const clearForm = () => {
     setSelectedResident(null);
     setFestivalHistory([]);
+
     setDonationStatus('pending');
+
+    setPendingReason('');
+    setPendingCustomReason('');
+
     setPaymentMethod('cash');
+
     setAmount('');
+
     setPaymentDate(new Date().toISOString().split('T')[0]);
+
     setNotes('');
+
     setErrors({});
     setTouched({});
   };
 
+  /* ---------------------------------------------------------------------- */
+  /* Validation                                                             */
+  /* ---------------------------------------------------------------------- */
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
-    if (!selectedFestival) newErrors.festival = 'Please select a festival';
-    if (!selectedResident) newErrors.resident = 'Please select a resident';
-    if (donationStatus === 'paid') {
-      if (!amount || parseFloat(amount) <= 0) newErrors.amount = 'Valid donation amount is required';
-      if (!paymentMethod) newErrors.paymentMethod = 'Payment method is required';
+
+    if (!selectedFestival) {
+      newErrors.festival = 'Please select a festival';
     }
+
+    if (!selectedResident) {
+      newErrors.resident = 'Please select a resident';
+    }
+
+    if (donationStatus === 'paid') {
+      if (!amount || Number(amount) <= 0) {
+        newErrors.amount =
+          'Enter a valid donation amount';
+      }
+
+      if (!paymentMethod) {
+        newErrors.paymentMethod =
+          'Please select a payment method';
+      }
+    }
+
+    if (donationStatus === 'pending') {
+      const reason =
+        pendingReason === 'Other'
+          ? pendingCustomReason
+          : pendingReason;
+
+      if (!reason.trim()) {
+        newErrors.pendingReason =
+          'Please select a pending reason';
+      }
+    }
+
     setErrors(newErrors);
-    setTouched({ festival: true, resident: true, status: true, amount: true, paymentMethod: true });
+
+    setTouched({
+      festival: true,
+      resident: true,
+      status: true,
+      amount: true,
+      paymentMethod: true,
+      pendingReason: true,
+    });
+
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
+  /* ---------------------------------------------------------------------- */
+  /* Submit                                                                 */
+  /* ---------------------------------------------------------------------- */
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+
+    if (!validate()) {
+      return;
+    }
+
+    if (!selectedFestival || !selectedResident) {
+      return;
+    }
 
     setIsSaving(true);
+
     try {
-      const body: any = {
-        residentId: selectedResident!.id,
-        paymentMethod: donationStatus === 'paid' ? paymentMethod : 'pending',
+      const body: Record<string, unknown> = {
+        residentId: selectedResident.id,
+        paymentMethod:
+          donationStatus === 'paid'
+            ? paymentMethod
+            : 'pending',
         notes: notes.trim() || null,
       };
+
       if (donationStatus === 'paid') {
-        body.amount = parseFloat(amount);
+        body.amount = Number(amount);
         body.paymentDate = paymentDate;
       } else {
-        // Include pending reason for pending donations
-        const reasonValue = pendingReason === 'Other' ? pendingCustomReason : pendingReason;
-        body.pendingReason = reasonValue.trim() || null;
+        const reason =
+          pendingReason === 'Other'
+            ? pendingCustomReason
+            : pendingReason;
+
+        body.pendingReason = reason.trim() || null;
       }
-      const res = await fetch(`${getApiUrl()}/api/admin/festivals/${selectedFestival!.id}/donations`, {
-        method: 'POST', headers: authHeaders(),
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Failed to save' }));
-        if (res.status === 409) {
-          toast.error(err.error, { duration: 5000 });
+
+      const response = await fetch(
+        `${getApiUrl()}/api/admin/festivals/${selectedFestival.id}/donations`,
+        {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify(body),
+        },
+      );
+
+      if (!response.ok) {
+        const errorData = await response
+          .json()
+          .catch(() => ({
+            error: 'Failed to save donation',
+          }));
+
+        if (response.status === 409) {
+          toast.error(errorData.error, {
+            duration: 5000,
+          });
         } else {
-          toast.error(err.error || 'Failed to save donation');
+          toast.error(
+            errorData.error ||
+              'Failed to save donation',
+          );
         }
+
         return;
       }
-      toast.success(donationStatus === 'paid' ? 'Donation recorded successfully' : 'Pending donation recorded');
+
+      toast.success(
+        donationStatus === 'paid'
+          ? 'Donation recorded successfully'
+          : 'Pending donation recorded successfully',
+      );
+
       clearForm();
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to save donation');
-    } finally { setIsSaving(false); }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to save donation';
+
+      toast.error(message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
+  /* ---------------------------------------------------------------------- */
+  /* Render                                                                 */
+  /* ---------------------------------------------------------------------- */
+
   return (
-    <div className="w-full min-h-screen bg-muted/10 pb-20">
-      {/* Header */}
-      <div className="bg-secondary text-secondary-foreground py-8 px-4 border-b border-border shadow-sm">
-        <div className="container mx-auto max-w-4xl">
+    <div className="min-h-screen bg-gradient-to-b from-muted/30 via-background to-background pb-32">
+      {/* ------------------------------------------------------------------ */}
+      {/* Header                                                             */}
+      {/* ------------------------------------------------------------------ */}
+
+      <header className="relative overflow-hidden border-b border-border bg-secondary text-secondary-foreground">
+        <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-primary/20 blur-3xl" />
+
+        <div className="absolute -bottom-32 -left-20 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+
+        <div className="relative mx-auto max-w-5xl px-4 py-7 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
             <Link
-              href={selectedFestival ? `/admin/festivals/${selectedFestival.id}` : '/admin/festivals'}
-              className="flex items-center gap-2 text-white/70 hover:text-white transition-colors"
+              href={
+                selectedFestival
+                  ? `/admin/festivals/${selectedFestival.id}`
+                  : '/admin/festivals'
+              }
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/80 transition hover:bg-white/10 hover:text-white"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="h-5 w-5" />
             </Link>
-            <div className="flex-1">
-              <h1 className="text-3xl font-serif font-bold text-white flex items-center gap-3">
-                <Plus className="w-7 h-7 text-primary" /> Add Donation
-              </h1>
-              <p className="text-white/70">Record a festival donation for a resident</p>
+
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg sm:flex">
+                <Plus className="h-5 w-5" />
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                    Add Donation
+                  </h1>
+
+                  <Sparkles className="hidden h-5 w-5 text-primary sm:block" />
+                </div>
+
+                <p className="mt-1 text-sm text-white/60">
+                  Record and manage festival contributions
+                </p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="container mx-auto max-w-4xl px-4 py-8">
-        <form onSubmit={handleSubmit}>
-          {/* Card: Festival Selection */}
-          <div className="bg-card border border-border rounded-2xl shadow-sm p-6 mb-6">
+      {/* ------------------------------------------------------------------ */}
+      {/* Main                                                               */}
+      {/* ------------------------------------------------------------------ */}
+
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* -------------------------------------------------------------- */}
+          {/* Festival                                                        */}
+          {/* -------------------------------------------------------------- */}
+
+          <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
+            <SectionHeader
+              icon={MapPin}
+              title="Festival"
+              description="Choose the festival for this donation."
+            />
+
             <FestivalDropdown
               selectedId={selectedFestival?.id || null}
-              onSelect={(f) => { setSelectedFestival(f); setErrors(prev => { const { ...rest } = prev; delete rest.festival; return rest; }); }}
+              onSelect={(festival) => {
+                setSelectedFestival(festival);
+
+                setErrors((previous) => {
+                  const next = { ...previous };
+                  delete next.festival;
+                  return next;
+                });
+              }}
             />
-            {touched.festival && errors.festival && (
-              <p className="text-xs text-destructive mt-1 flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" /> {errors.festival}
-              </p>
+
+            {touched.festival && (
+              <ErrorMessage message={errors.festival} />
             )}
-          </div>
+          </section>
 
-          {/* Card: Resident Search */}
-          <div className="bg-card border border-border rounded-2xl shadow-sm p-6 mb-6">
-            <h2 className="text-lg font-serif font-bold text-foreground mb-4">Resident Details</h2>
-            <div className="space-y-4">
-<ResidentSearchDropdown
-                selectedResident={selectedResident}
-                onSelect={handleResidentSelect}
-                onClear={() => { setSelectedResident(null); setFestivalHistory([]); }}
-              />
-              {touched.resident && errors.resident && (
-                <p className="text-xs text-destructive flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" /> {errors.resident}
-                </p>
-              )}
+          {/* -------------------------------------------------------------- */}
+          {/* Resident                                                        */}
+          {/* -------------------------------------------------------------- */}
 
-              {selectedResident && (
-                <SelectedResidentCard resident={selectedResident} festivalHistory={festivalHistory} />
-              )}
-            </div>
-          </div>
+          <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
+            <SectionHeader
+              icon={User}
+              title="Resident"
+              description="Search for the resident who made the contribution."
+            />
 
-          {/* Card: Donation Details */}
-          <div className="bg-card border border-border rounded-2xl shadow-sm p-6 mb-6">
-            <h2 className="text-lg font-serif font-bold text-foreground mb-4">Donation Details</h2>
-            <div className="space-y-5">
-              {/* Donation Status Dropdown */}
-              <div>
-                <label className="block text-xs font-semibold text-foreground mb-1.5">Donation Status <span className="text-destructive">*</span></label>
-                <select
-                  value={donationStatus}
-                  onChange={e => { setDonationStatus(e.target.value as 'paid' | 'pending'); setTouched(prev => ({ ...prev, status: true })); }}
+            <ResidentSearchDropdown
+              selectedResident={selectedResident}
+              onSelect={handleResidentSelect}
+              onClear={() => {
+                setSelectedResident(null);
+                setFestivalHistory([]);
+              }}
+            />
+
+            {touched.resident && (
+              <ErrorMessage message={errors.resident} />
+            )}
+
+            {selectedResident && (
+              <div className="mt-5">
+                <SelectedResidentCard
+                  resident={selectedResident}
+                  festivalHistory={festivalHistory}
+                />
+              </div>
+            )}
+          </section>
+
+          {/* -------------------------------------------------------------- */}
+          {/* Donation Details                                                */}
+          {/* -------------------------------------------------------------- */}
+
+          <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
+            <SectionHeader
+              icon={WalletCards}
+              title="Donation Details"
+              description="Enter the payment and collection information."
+            />
+
+            {/* Status */}
+            <div className="mb-6">
+              <FieldLabel required>
+                Donation Status
+              </FieldLabel>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDonationStatus('pending')
+                  }
                   className={cn(
-                    "w-full px-3 py-2.5 text-sm rounded-lg border bg-background focus:ring-2 focus:ring-primary outline-none",
-                    donationStatus === 'paid' ? 'border-emerald-300 focus:border-emerald-500' : 'border-amber-300 focus:border-amber-500'
+                    'group flex items-center gap-3 rounded-xl border p-4 text-left transition-all',
+                    donationStatus === 'pending'
+                      ? 'border-amber-400 bg-amber-50 shadow-sm dark:border-amber-700 dark:bg-amber-950/20'
+                      : 'border-border hover:border-amber-300 hover:bg-muted/40',
                   )}
                 >
-                  <option value="pending">⏳ Pending</option>
-                  <option value="paid">✅ Paid</option>
-                </select>
-              </div>
-
-{/* Pending Reason (only when Pending) */}
-              {donationStatus === 'pending' && (
-                <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1.5">Pending Reason <span className="text-destructive">*</span></label>
-                  <select
-                    value={pendingReason}
-                    onChange={e => {
-                      setPendingReason(e.target.value);
-                      if (e.target.value !== 'Other') setPendingCustomReason('');
-                    }}
-                    className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
+                  <div
+                    className={cn(
+                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
+                      donationStatus === 'pending'
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-muted text-muted-foreground',
+                    )}
                   >
-                    <option value="">Select a reason...</option>
-                    {PENDING_REASONS.map(r => (
-                      <option key={r.value} value={r.value}>{r.label}</option>
-                    ))}
-                  </select>
-                  {pendingReason === 'Other' && (
+                    <Clock3 className="h-5 w-5" />
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-foreground">
+                      Pending
+                    </p>
+
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Payment not received
+                    </p>
+                  </div>
+
+                  {donationStatus === 'pending' && (
+                    <CheckCircle2 className="ml-auto h-5 w-5 shrink-0 text-amber-600" />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDonationStatus('paid')
+                  }
+                  className={cn(
+                    'group flex items-center gap-3 rounded-xl border p-4 text-left transition-all',
+                    donationStatus === 'paid'
+                      ? 'border-emerald-400 bg-emerald-50 shadow-sm dark:border-emerald-700 dark:bg-emerald-950/20'
+                      : 'border-border hover:border-emerald-300 hover:bg-muted/40',
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
+                      donationStatus === 'paid'
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-muted text-muted-foreground',
+                    )}
+                  >
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-foreground">
+                      Paid
+                    </p>
+
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Payment received
+                    </p>
+                  </div>
+
+                  {donationStatus === 'paid' && (
+                    <CheckCircle2 className="ml-auto h-5 w-5 shrink-0 text-emerald-600" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Pending Reason */}
+            {donationStatus === 'pending' && (
+              <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-900/50 dark:bg-amber-950/10">
+                <FieldLabel required>
+                  Pending Reason
+                </FieldLabel>
+
+                <select
+                  value={pendingReason}
+                  onChange={(event) => {
+                    const value = event.target.value;
+
+                    setPendingReason(value);
+
+                    if (value !== 'Other') {
+                      setPendingCustomReason('');
+                    }
+
+                    setErrors((previous) => {
+                      const next = { ...previous };
+                      delete next.pendingReason;
+                      return next;
+                    });
+                  }}
+                  className="w-full rounded-xl border border-amber-200 bg-background px-4 py-3 text-sm outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 dark:border-amber-900/60"
+                >
+                  <option value="">
+                    Select a reason...
+                  </option>
+
+                  {PENDING_REASONS.map((reason) => (
+                    <option
+                      key={reason.value}
+                      value={reason.value}
+                    >
+                      {reason.label}
+                    </option>
+                  ))}
+                </select>
+
+                {pendingReason === 'Other' && (
+                  <input
+                    type="text"
+                    value={pendingCustomReason}
+                    onChange={(event) =>
+                      setPendingCustomReason(
+                        event.target.value,
+                      )
+                    }
+                    placeholder="Enter the pending reason..."
+                    className="mt-3 w-full rounded-xl border border-amber-200 bg-background px-4 py-3 text-sm outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 dark:border-amber-900/60"
+                  />
+                )}
+
+                {touched.pendingReason && (
+                  <ErrorMessage
+                    message={errors.pendingReason}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Paid fields */}
+            {donationStatus === 'paid' && (
+              <div className="space-y-6">
+                {/* Amount */}
+                <div>
+                  <FieldLabel required>
+                    Donation Amount
+                  </FieldLabel>
+
+                  <div className="relative">
+                    <IndianRupee className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
                     <input
-                      type="text"
-                      value={pendingCustomReason}
-                      onChange={e => setPendingCustomReason(e.target.value)}
-                      placeholder="Please specify the reason..."
-                      className="w-full mt-2 px-3 py-2.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={amount}
+                      onChange={(event) => {
+                        setAmount(event.target.value);
+
+                        setErrors((previous) => {
+                          const next = { ...previous };
+                          delete next.amount;
+                          return next;
+                        });
+                      }}
+                      placeholder="Enter donation amount"
+                      className={cn(
+                        'w-full rounded-xl border bg-background py-3.5 pl-11 pr-4 text-sm outline-none transition',
+                        'focus:border-primary focus:ring-2 focus:ring-primary/20',
+                        touched.amount &&
+                          errors.amount
+                          ? 'border-destructive'
+                          : 'border-border',
+                      )}
+                    />
+                  </div>
+
+                  {touched.amount && (
+                    <ErrorMessage message={errors.amount} />
+                  )}
+                </div>
+
+                {/* Payment method */}
+                <div>
+                  <FieldLabel required>
+                    Payment Method
+                  </FieldLabel>
+
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {paymentMethods.map((method) => {
+                      const Icon = method.icon;
+
+                      const isSelected =
+                        paymentMethod === method.value;
+
+                      return (
+                        <button
+                          key={method.value}
+                          type="button"
+                          onClick={() => {
+                            setPaymentMethod(
+                              method.value,
+                            );
+
+                            setErrors((previous) => {
+                              const next = {
+                                ...previous,
+                              };
+
+                              delete next.paymentMethod;
+
+                              return next;
+                            });
+                          }}
+                          className={cn(
+                            'flex flex-col items-center justify-center gap-2 rounded-xl border px-3 py-4 transition-all',
+                            isSelected
+                              ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                              : 'border-border text-muted-foreground hover:border-primary/40 hover:bg-muted/40',
+                          )}
+                        >
+                          <Icon className="h-5 w-5" />
+
+                          <span className="text-xs font-bold">
+                            {method.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {touched.paymentMethod && (
+                    <ErrorMessage
+                      message={errors.paymentMethod}
                     />
                   )}
                 </div>
-              )}
 
-              {/* Payment Method (disabled when Pending) */}
-              <div>
-                <label className="block text-xs font-semibold text-foreground mb-1.5">
-                  Payment Method {donationStatus === 'paid' && <span className="text-destructive">*</span>}
-                  {donationStatus === 'pending' && <span className="text-muted-foreground text-[10px]">(select when status is Paid)</span>}
-                </label>
-                <select
-                  value={donationStatus === 'paid' ? paymentMethod : ''}
-                  onChange={e => { setPaymentMethod(e.target.value); setTouched(prev => ({ ...prev, paymentMethod: true })); }}
-                  disabled={donationStatus === 'pending'}
-                  className={cn(
-                    "w-full px-3 py-2.5 text-sm rounded-lg border bg-background focus:ring-2 focus:ring-primary outline-none",
-                    donationStatus === 'pending' && "opacity-50 cursor-not-allowed",
-                    donationStatus === 'paid' ? 'border-border' : 'border-border/50'
-                  )}
-                >
-                  <option value="">Select payment method</option>
-                  <option value="cash">💵 Cash</option>
-                  <option value="upi">📱 UPI</option>
-                  <option value="bank_transfer">🏦 Bank Transfer</option>
-                  <option value="cheque">📄 Cheque</option>
-                </select>
-                {touched.paymentMethod && errors.paymentMethod && (
-                  <p className="text-xs text-destructive mt-1 flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" /> {errors.paymentMethod}
-                  </p>
-                )}
-              </div>
-
-              {/* Donation Amount */}
-              <div>
-                <label className="block text-xs font-semibold text-foreground mb-1.5">
-                  Donation Amount (₹) {donationStatus === 'paid' && <span className="text-destructive">*</span>}
-                  {donationStatus === 'pending' && <span className="text-muted-foreground text-[10px]">(optional when Pending)</span>}
-                </label>
-                <div className="relative">
-                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                  <input
-                    type="number"
-                    value={amount}
-                    onChange={e => { setAmount(e.target.value); setTouched(prev => ({ ...prev, amount: true })); }}
-                    min={0}
-                    step={1}
-                    placeholder={donationStatus === 'pending' ? 'Leave empty or enter 0' : 'Enter amount'}
-                    className={cn(
-                      "w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border bg-background focus:ring-2 focus:ring-primary outline-none",
-                      donationStatus === 'paid' && !amount && touched.amount ? 'border-destructive' : 'border-border'
-                    )}
-                  />
-                </div>
-                {touched.amount && errors.amount && (
-                  <p className="text-xs text-destructive mt-1 flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" /> {errors.amount}
-                  </p>
-                )}
-              </div>
-
-              {/* Payment Date (only when Paid) */}
-              {donationStatus === 'paid' && (
+                {/* Date */}
                 <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1.5">Payment Date</label>
+                  <FieldLabel>
+                    Payment Date
+                  </FieldLabel>
+
                   <input
                     type="date"
                     value={paymentDate}
-                    onChange={e => setPaymentDate(e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none"
+                    onChange={(event) =>
+                      setPaymentDate(event.target.value)
+                    }
+                    className="w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Notes */}
-              <div>
-                <label className="block text-xs font-semibold text-foreground mb-1.5">
-                  Additional Notes <span className="text-muted-foreground text-[10px]">(optional)</span>
-                </label>
-                <textarea
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  rows={3}
-                  placeholder={donationStatus === 'pending' ? 'Will pay next week, Paid through committee member, Requested receipt later...' : 'Any additional remarks...'}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none resize-none"
-                />
+            {/* Notes */}
+            <div className="mt-6">
+              <FieldLabel optional>
+                Additional Notes
+              </FieldLabel>
+
+              <textarea
+                value={notes}
+                onChange={(event) =>
+                  setNotes(event.target.value)
+                }
+                rows={4}
+                placeholder={
+                  donationStatus === 'pending'
+                    ? 'Example: Will pay next Sunday...'
+                    : 'Add any additional remarks...'
+                }
+                className="w-full resize-none rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+          </section>
+
+          {/* -------------------------------------------------------------- */}
+          {/* Summary                                                         */}
+          {/* -------------------------------------------------------------- */}
+
+          {(selectedFestival || selectedResident) && (
+            <section className="rounded-2xl border border-border bg-muted/30 p-5 sm:p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+
+                <h3 className="text-sm font-bold text-foreground">
+                  Donation Summary
+                </h3>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-border bg-card p-4">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Festival
+                  </p>
+
+                  <p className="mt-1 truncate text-sm font-bold text-foreground">
+                    {selectedFestival
+                      ? `${selectedFestival.name} ${selectedFestival.year}`
+                      : 'Not selected'}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-border bg-card p-4">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Resident
+                  </p>
+
+                  <p className="mt-1 truncate text-sm font-bold text-foreground">
+                    {selectedResident
+                      ? selectedResident.fullName
+                      : 'Not selected'}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-border bg-card p-4">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Status
+                  </p>
+
+                  <div className="mt-1 flex items-center gap-2">
+                    {donationStatus === 'paid' ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+
+                        <span className="text-sm font-bold text-emerald-600">
+                          Paid
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Clock3 className="h-4 w-4 text-amber-600" />
+
+                        <span className="text-sm font-bold text-amber-600">
+                          Pending
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* -------------------------------------------------------------- */}
+          {/* Actions                                                         */}
+          {/* -------------------------------------------------------------- */}
+
+          <div className="sticky bottom-3 z-40 rounded-2xl border border-border bg-card/95 p-3 shadow-2xl backdrop-blur-md sm:p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="hidden sm:block">
+                <p className="text-sm font-semibold text-foreground">
+                  {donationStatus === 'paid'
+                    ? 'Ready to record donation'
+                    : 'Ready to mark donation as pending'}
+                </p>
+
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Check the details before saving.
+                </p>
+              </div>
+
+              <div className="flex w-full gap-2 sm:w-auto">
+                <button
+                  type="button"
+                  onClick={clearForm}
+                  disabled={isSaving}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border px-5 py-3 font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+                >
+                  <X className="h-4 w-4" />
+                  Clear
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={
+                    isSaving ||
+                    !selectedFestival ||
+                    !selectedResident
+                  }
+                  className={cn(
+                    'flex flex-[2] items-center justify-center gap-2 rounded-xl px-6 py-3 font-bold text-primary-foreground shadow-lg transition-all sm:flex-none',
+                    donationStatus === 'paid'
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : 'bg-amber-600 hover:bg-amber-700',
+                    'disabled:cursor-not-allowed disabled:opacity-50',
+                  )}
+                >
+                  {isSaving ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4" />
+
+                      {donationStatus === 'paid'
+                        ? 'Record Donation'
+                        : 'Mark as Pending'}
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
-
-          {/* Submit Button */}
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            <button
-              type="submit"
-              disabled={isSaving || !selectedFestival || !selectedResident}
-              className="w-full sm:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-bold text-lg hover:bg-primary/90 transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isSaving ? (
-                <>
-                  <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-5 h-5" />
-                  {donationStatus === 'paid' ? 'Record Donation' : 'Mark as Pending'}
-                </>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={clearForm}
-              disabled={isSaving}
-              className="w-full sm:w-auto px-8 py-3.5 border border-border text-foreground rounded-xl font-bold text-lg hover:bg-muted/50 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              <X className="w-5 h-5" /> Clear Form
-            </button>
-          </div>
         </form>
-      </div>
+      </main>
     </div>
   );
 }
