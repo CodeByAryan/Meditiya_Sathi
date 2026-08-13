@@ -33,6 +33,7 @@ import {
   UserRound,
   PartyPopper,
   ClipboardList,
+  Github,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -169,21 +170,20 @@ export default function Shell({
 
   /* ============================================================
      ADMIN NAVIGATION
-     
-     IMPORTANT:
+
      Super Admin:
        Admin Management
        Building
        Resident
        Festival
        Events
-     
+
      Admin:
        Building
        Resident
        Festival
        Events
-     
+
      Admin Management is ONLY visible to Super Admin.
   ============================================================ */
 
@@ -247,10 +247,6 @@ export default function Shell({
   };
 
   const isMoreActive = moreLinks.some((link) =>
-    isActive(link.href)
-  );
-
-  const isAdminSectionActive = adminLinks.some((link) =>
     isActive(link.href)
   );
 
@@ -1425,7 +1421,9 @@ export default function Shell({
 
           <div className="grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-4">
 
-            {/* BRAND */}
+            {/* ========================================================
+                BRAND
+            ======================================================== */}
 
             <motion.div
               initial={{
@@ -1483,7 +1481,9 @@ export default function Shell({
 
             </motion.div>
 
-            {/* QUICK LINKS */}
+            {/* ========================================================
+                QUICK LINKS
+            ======================================================== */}
 
             <FooterColumn title="Quick Links">
 
@@ -1505,7 +1505,9 @@ export default function Shell({
 
             </FooterColumn>
 
-            {/* SERVICES */}
+            {/* ========================================================
+                SERVICES
+            ======================================================== */}
 
             <FooterColumn title="Services">
 
@@ -1527,7 +1529,9 @@ export default function Shell({
 
             </FooterColumn>
 
-            {/* CONTACT */}
+            {/* ========================================================
+                CONTACT
+            ======================================================== */}
 
             <motion.div
               initial={{
@@ -1582,22 +1586,54 @@ export default function Shell({
 
           </div>
 
-          <div className="mt-14 flex flex-col items-center justify-between gap-4 border-t border-white/[0.07] pt-7 text-center md:flex-row md:text-left">
+          {/* ==========================================================
+              FOOTER BOTTOM
+          ========================================================== */}
 
-            <p className="text-[11px] text-muted-foreground dark:text-white/25">
+          <div className="mt-14 flex flex-col gap-6 border-t border-white/[0.07] pt-7 md:flex-row md:items-center md:justify-between">
+
+            {/* COPYRIGHT */}
+
+            <p className="text-center text-[11px] text-muted-foreground dark:text-white/25 md:text-left">
               © {new Date().getFullYear()} Meditiya Nagar
               Society. All rights reserved.
             </p>
 
-            <p className="text-[11px] text-muted-foreground dark:text-white/25">
+            {/* CREATOR SHOWCASE */}
 
-              Designed with{' '}
+            <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-3">
 
-              <Heart className="mx-1 inline h-3 w-3 text-amber-500 dark:text-amber-400" />
+              {/* <p className="text-[11px] text-muted-foreground dark:text-white/25">
+                Crafted with{' '}
+                <Heart className="mx-1 inline h-3 w-3 text-amber-500 dark:text-amber-400" />
+                by
+              </p> */}
 
-              for the community.
+              <a
+                href="https://github.com/CodeByAryan"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Visit Aryan Palekar on GitHub"
+                className="group inline-flex items-center gap-2 rounded-full border border-amber-300/15 bg-amber-300/[0.04] px-3.5 py-1.5 transition-all duration-300 hover:border-amber-300/30 hover:bg-amber-300/[0.08] hover:shadow-[0_0_20px_rgba(245,158,11,0.10)]"
+              >
 
-            </p>
+                <span className="text-[11px] font-semibold text-foreground transition-colors dark:text-white">
+                  Aryan Palekar
+                </span>
+
+                <span className="h-3 w-px bg-white/10" />
+
+                <Github className="h-3.5 w-3.5 text-amber-500 transition-transform duration-300 group-hover:scale-110 dark:text-amber-300" />
+
+                <span className="text-[10px] font-medium text-muted-foreground transition-colors group-hover:text-amber-600 dark:text-white/35 dark:group-hover:text-amber-300">
+                  CodeByAryan
+                </span>
+
+                <ArrowUpRight className="h-3 w-3 text-white/20 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-amber-300" />
+
+              </a>
+
+            </div>
 
           </div>
 

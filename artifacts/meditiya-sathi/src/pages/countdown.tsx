@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
-import { Link } from 'wouter';
+import React, { useEffect, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { Link } from "wouter";
 import {
   ArrowLeft,
   ArrowRight,
@@ -8,10 +8,10 @@ import {
   Sparkles,
   Clock3,
   PartyPopper,
-} from 'lucide-react';
+} from "lucide-react";
 
-import { useGetUpcomingEventsSummary } from '@workspace/api-client-react';
-import { getActiveFestival } from '@/lib/festival-countdown';
+import { useGetUpcomingEventsSummary } from "@workspace/api-client-react";
+import { getActiveFestival } from "@/lib/festival-countdown";
 
 function useTimer(targetDate: Date | null) {
   const [now, setNow] = useState(Date.now());
@@ -45,7 +45,7 @@ function useTimer(targetDate: Date | null) {
 }
 
 function pad(value: number) {
-  return String(value).padStart(2, '0');
+  return String(value).padStart(2, "0");
 }
 
 export default function CountdownPage() {
@@ -53,9 +53,7 @@ export default function CountdownPage() {
 
   const { data: events } = useGetUpcomingEventsSummary();
 
-  const nextEvent =
-    events && events.length > 0 ? events[0] : null;
-
+  const nextEvent = events?.[0] || null;
   const fallback = getActiveFestival();
 
   const event = nextEvent
@@ -70,27 +68,27 @@ export default function CountdownPage() {
         }
       : null;
 
-  const timer = useTimer(event ? event.date : null);
+  const timer = useTimer(event?.date || null);
 
   const timeUnits = timer
     ? [
         {
-          label: 'Days',
+          label: "Days",
           value: timer.days,
           icon: CalendarDays,
         },
         {
-          label: 'Hours',
+          label: "Hours",
           value: timer.hours,
           icon: Clock3,
         },
         {
-          label: 'Minutes',
+          label: "Minutes",
           value: timer.minutes,
           icon: Clock3,
         },
         {
-          label: 'Seconds',
+          label: "Seconds",
           value: timer.seconds,
           icon: Sparkles,
         },
@@ -103,344 +101,231 @@ export default function CountdownPage() {
           BACKGROUND
       ====================================================== */}
 
-      {/* Animated grid */}
       <div className="pointer-events-none absolute inset-0">
+        {/* Subtle grid */}
         <div
-          className="
-            absolute inset-0
-            opacity-[0.18]
-            [background-image:linear-gradient(rgba(255,255,255,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.07)_1px,transparent_1px)]
-            [background-size:55px_55px]
-          "
+          className="absolute inset-0 opacity-[0.10]"
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)
+            `,
+            backgroundSize: "60px 60px",
+          }}
         />
 
-        {/* Moving grid glow */}
+        {/* Main glow */}
         <motion.div
-          className="
-            absolute inset-0
-            opacity-30
-            bg-[radial-gradient(circle_at_50%_35%,rgba(245,158,11,0.20),transparent_35%)]
-          "
+          className="absolute left-1/2 top-[12%] h-[300px] w-[300px] -translate-x-1/2 rounded-full bg-amber-400/[0.08] blur-[110px] sm:h-[420px] sm:w-[420px]"
           animate={
             reduceMotion
               ? undefined
               : {
-                  opacity: [0.2, 0.4, 0.2],
-                  scale: [1, 1.08, 1],
+                  scale: [1, 1.12, 1],
+                  opacity: [0.35, 0.55, 0.35],
                 }
           }
           transition={{
             duration: 8,
             repeat: Infinity,
-            ease: 'easeInOut',
+            ease: "easeInOut",
           }}
         />
+
+        {/* Side glow */}
+        <motion.div
+          className="absolute -right-32 top-1/2 h-[280px] w-[280px] rounded-full bg-orange-500/[0.05] blur-[110px] sm:h-[380px] sm:w-[380px]"
+          animate={
+            reduceMotion
+              ? undefined
+              : {
+                  x: [0, -25, 0],
+                }
+          }
+          transition={{
+            duration: 9,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+
+        {/* Bottom glow */}
+        <div className="absolute bottom-0 left-1/2 h-[220px] w-[500px] -translate-x-1/2 rounded-full bg-amber-400/[0.035] blur-[100px]" />
       </div>
-
-      {/* Ambient orange glow */}
-      <motion.div
-        className="
-          pointer-events-none
-          absolute
-          left-1/2
-          top-[18%]
-          h-[420px]
-          w-[420px]
-          -translate-x-1/2
-          rounded-full
-          bg-orange-500/10
-          blur-[130px]
-        "
-        animate={
-          reduceMotion
-            ? undefined
-            : {
-                scale: [1, 1.15, 1],
-                opacity: [0.3, 0.6, 0.3],
-              }
-        }
-        transition={{
-          duration: 7,
-          repeat: Infinity,
-          ease: 'easeInOut',
-        }}
-      />
-
-      {/* Left glow */}
-      <motion.div
-        className="
-          pointer-events-none
-          absolute
-          -left-40
-          top-1/3
-          h-96
-          w-96
-          rounded-full
-          bg-amber-400/10
-          blur-[120px]
-        "
-        animate={
-          reduceMotion
-            ? undefined
-            : {
-                x: [0, 40, 0],
-                y: [0, -30, 0],
-              }
-        }
-        transition={{
-          duration: 10,
-          repeat: Infinity,
-          ease: 'easeInOut',
-        }}
-      />
-
-      {/* Right glow */}
-      <motion.div
-        className="
-          pointer-events-none
-          absolute
-          -right-40
-          bottom-20
-          h-96
-          w-96
-          rounded-full
-          bg-purple-500/10
-          blur-[130px]
-        "
-        animate={
-          reduceMotion
-            ? undefined
-            : {
-                x: [0, -40, 0],
-                y: [0, 30, 0],
-              }
-        }
-        transition={{
-          duration: 12,
-          repeat: Infinity,
-          ease: 'easeInOut',
-        }}
-      />
-
-      {/* =====================================================
-          PARTICLES
-      ====================================================== */}
-
-      <div className="pointer-events-none absolute inset-0">
-        {[...Array(24)].map((_, index) => (
-          <motion.span
-            key={index}
-            className="absolute h-[2px] w-[2px] rounded-full bg-amber-200/50"
-            style={{
-              left: `${(index * 17) % 95}%`,
-              top: `${(index * 29) % 90}%`,
-            }}
-            animate={
-              reduceMotion
-                ? undefined
-                : {
-                    y: [-10, -35, -10],
-                    opacity: [0.1, 0.7, 0.1],
-                    scale: [0.8, 1.4, 0.8],
-                  }
-            }
-            transition={{
-              duration: 3 + (index % 5),
-              repeat: Infinity,
-              delay: index * 0.2,
-              ease: 'easeInOut',
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Bottom vignette */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black via-black/40 to-transparent" />
 
       {/* =====================================================
           CONTENT
       ====================================================== */}
 
-      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-20 sm:px-6">
-        <div className="w-full max-w-6xl">
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 py-5 sm:px-6 sm:py-8">
+        {/* =====================================================
+            TOP BAR
+        ====================================================== */}
 
-          {/* Top navigation */}
-          <motion.div
-            initial={{ opacity: 0, y: -15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="mb-12 flex items-center justify-between"
-          >
-            <Link href="/">
-              <a
-                className="
-                  group
-                  inline-flex
-                  items-center
-                  gap-2
-                  rounded-full
-                  border
-                  border-white/10
-                  bg-white/[0.04]
-                  px-4
-                  py-2
-                  text-sm
-                  text-white/70
-                  backdrop-blur-xl
-                  transition-all
-                  hover:border-white/20
-                  hover:bg-white/[0.08]
-                  hover:text-white
-                "
-              >
-                <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-                Back Home
-              </a>
-            </Link>
-
-            <div
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex items-center justify-between"
+        >
+          <Link href="/">
+            <a
               className="
-                hidden
+                group
+                inline-flex
                 items-center
                 gap-2
                 rounded-full
-                border
-                border-white/10
+                border border-white/10
                 bg-white/[0.04]
-                px-4
-                py-2
-                text-[10px]
-                font-semibold
-                uppercase
-                tracking-[0.25em]
-                text-white/50
+                px-3.5 py-2
+                text-xs
+                font-medium
+                text-white/65
                 backdrop-blur-xl
-                sm:flex
+                transition-all
+                hover:border-white/20
+                hover:bg-white/[0.07]
+                hover:text-white
+                sm:px-4
+                sm:text-sm
               "
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-300 shadow-[0_0_12px_rgba(252,211,77,0.9)]" />
-              Meditiya Nagar
-            </div>
-          </motion.div>
+              <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-1 sm:h-4 sm:w-4" />
+              <span>Back</span>
+            </a>
+          </Link>
 
-          {/* Main card */}
+          <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 sm:flex">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-300 shadow-[0_0_10px_rgba(252,211,77,0.8)]" />
+
+            <span className="text-[9px] font-semibold uppercase tracking-[0.25em] text-white/40">
+              Meditiya Nagar
+            </span>
+          </div>
+        </motion.div>
+
+        {/* =====================================================
+            MAIN CONTENT
+        ====================================================== */}
+
+        <div className="flex flex-1 items-center justify-center py-8 sm:py-12">
           <motion.section
-            initial={{ opacity: 0, y: 30, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{
-              duration: 0.9,
+              duration: 0.7,
               ease: [0.22, 1, 0.36, 1],
             }}
             className="
               relative
+              w-full
+              max-w-3xl
               overflow-hidden
-              rounded-[32px]
-              border
-              border-white/10
+              rounded-[24px]
+              border border-white/[0.09]
               bg-white/[0.035]
-              p-6
-              shadow-[0_30px_100px_rgba(0,0,0,0.45)]
+              p-5
+              shadow-[0_25px_80px_rgba(0,0,0,0.4)]
               backdrop-blur-2xl
-              sm:p-10
-              md:p-14
+              sm:rounded-[28px]
+              sm:p-8
+              md:p-10
             "
           >
-
             {/* Card glow */}
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(251,191,36,0.12),transparent_40%)]" />
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(251,191,36,0.10),transparent_45%)]" />
 
-            {/* Top shine */}
-            <div className="pointer-events-none absolute left-1/2 top-0 h-px w-2/3 -translate-x-1/2 bg-gradient-to-r from-transparent via-amber-300/60 to-transparent" />
+            {/* Top line */}
+            <div className="pointer-events-none absolute left-[15%] right-[15%] top-0 h-px bg-gradient-to-r from-transparent via-amber-300/50 to-transparent" />
 
             <div className="relative">
+              {/* =================================================
+                  HEADER
+              ================================================== */}
 
-              {/* Eyebrow */}
               <motion.div
-                initial={{ opacity: 0, y: 15 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 }}
-                className="mb-6 flex justify-center"
+                transition={{ delay: 0.1 }}
+                className="flex flex-col items-center"
               >
-                <div
+                {/* Icon */}
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-amber-300/15 bg-amber-300/[0.06] sm:h-12 sm:w-12">
+                  <PartyPopper className="h-5 w-5 text-amber-300 sm:h-5 sm:w-5" />
+                </div>
+
+                {/* Label */}
+                <div className="mb-3 flex items-center gap-2">
+                  <Sparkles className="h-3 w-3 text-amber-300/70" />
+
+                  <span className="text-[9px] font-semibold uppercase tracking-[0.28em] text-amber-300/70 sm:text-[10px]">
+                    Celebration Countdown
+                  </span>
+
+                  <Sparkles className="h-3 w-3 text-amber-300/70" />
+                </div>
+
+                {/* Title */}
+                <motion.h1
+                  initial={{
+                    opacity: 0,
+                    y: 15,
+                    filter: "blur(5px)",
+                  }}
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                    filter: "blur(0px)",
+                  }}
+                  transition={{
+                    delay: 0.2,
+                    duration: 0.7,
+                  }}
                   className="
-                    inline-flex
-                    items-center
-                    gap-2
-                    rounded-full
-                    border
-                    border-amber-300/15
-                    bg-amber-300/[0.06]
-                    px-4
-                    py-2
-                    backdrop-blur-xl
+                    max-w-2xl
+                    text-center
+                    text-3xl
+                    font-serif
+                    font-semibold
+                    leading-[1.08]
+                    tracking-[-0.035em]
+                    text-white
+                    sm:text-4xl
+                    md:text-5xl
                   "
                 >
-                  <PartyPopper className="h-4 w-4 text-amber-300" />
+                  {event?.title || "Upcoming Event"}
+                </motion.h1>
 
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-amber-200/80 sm:text-xs">
-                    The Celebration Begins In
+                {/* Date */}
+                <div className="mt-4 flex items-center gap-2 text-xs text-white/45 sm:text-sm">
+                  <CalendarDays className="h-3.5 w-3.5 text-amber-300/70 sm:h-4 sm:w-4" />
+
+                  <span>
+                    {event
+                      ? event.date.toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })
+                      : "Date to be announced"}
                   </span>
                 </div>
               </motion.div>
 
-              {/* Event title */}
-              <motion.h1
-                initial={{
-                  opacity: 0,
-                  y: 25,
-                  filter: 'blur(8px)',
-                }}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                  filter: 'blur(0px)',
-                }}
-                transition={{
-                  delay: 0.25,
-                  duration: 0.9,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-                className="
-                  text-center
-                  text-4xl
-                  font-serif
-                  font-semibold
-                  tracking-[-0.04em]
-                  text-white
-                  sm:text-5xl
-                  md:text-6xl
-                  lg:text-7xl
-                "
-              >
-                {event ? event.title : 'Upcoming Event'}
-              </motion.h1>
+              {/* =================================================
+                  DIVIDER
+              ================================================== */}
 
-              {/* Date */}
-              <motion.div
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="mt-5 flex justify-center"
-              >
-                <div className="flex items-center gap-2 text-sm text-white/45">
-                  <CalendarDays className="h-4 w-4 text-amber-300/70" />
+              <div className="mx-auto my-7 h-px max-w-md bg-gradient-to-r from-transparent via-white/10 to-transparent sm:my-8" />
 
-                  {event
-                    ? event.date.toLocaleDateString('en-IN', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                      })
-                    : 'Date to be announced'}
-                </div>
-              </motion.div>
+              {/* =================================================
+                  COUNTDOWN
+              ================================================== */}
 
-              {/* Divider */}
-              <div className="mx-auto my-10 h-px max-w-xl bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-
-              {/* Countdown */}
               {timer ? (
-                <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-4">
+                <div className="grid grid-cols-4 gap-2 sm:gap-3">
                   {timeUnits.map((unit, index) => {
                     const Icon = unit.icon;
 
@@ -449,62 +334,64 @@ export default function CountdownPage() {
                         key={unit.label}
                         initial={{
                           opacity: 0,
-                          y: 25,
+                          y: 15,
                         }}
                         animate={{
                           opacity: 1,
                           y: 0,
                         }}
                         transition={{
-                          delay: 0.5 + index * 0.08,
-                          duration: 0.6,
-                        }}
-                        whileHover={{
-                          y: -5,
-                          scale: 1.02,
+                          delay: 0.3 + index * 0.07,
+                          duration: 0.5,
                         }}
                         className="
                           group
                           relative
                           overflow-hidden
-                          rounded-2xl
-                          border
-                          border-white/10
-                          bg-black/25
-                          p-5
+                          rounded-xl
+                          border border-white/[0.08]
+                          bg-black/20
+                          px-2
+                          py-4
                           text-center
                           backdrop-blur-xl
-                          transition-colors
-                          hover:border-amber-300/20
-                          sm:p-7
+                          transition-all
+                          hover:border-amber-300/15
+                          hover:bg-white/[0.04]
+                          sm:rounded-2xl
+                          sm:px-3
+                          sm:py-5
                         "
                       >
                         {/* Hover glow */}
-                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-amber-300/[0.07] to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-amber-300/[0.06] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
                         <div className="relative">
-                          <Icon className="mx-auto mb-3 h-4 w-4 text-amber-300/60" />
+                          <Icon className="mx-auto mb-2 h-3.5 w-3.5 text-amber-300/50 sm:h-4 sm:w-4" />
 
                           <motion.div
                             key={unit.value}
-                            initial={{ opacity: 0.5, scale: 0.9 }}
+                            initial={{
+                              opacity: 0.5,
+                              scale: 0.94,
+                            }}
                             animate={{
                               opacity: 1,
                               scale: 1,
                             }}
                             className="
-                              text-4xl
+                              text-2xl
                               font-semibold
                               tracking-tight
                               text-white
-                              sm:text-5xl
-                              md:text-6xl
+                              sm:text-3xl
+                              md:text-4xl
                             "
                           >
                             {pad(unit.value)}
                           </motion.div>
 
-                          <div className="mt-2 text-[9px] font-semibold uppercase tracking-[0.25em] text-white/35 sm:text-[10px]">
+                          <div className="mt-1.5 text-[7px] font-semibold uppercase tracking-[0.2em] text-white/30 sm:text-[8px] sm:tracking-[0.25em]">
                             {unit.label}
                           </div>
                         </div>
@@ -513,103 +400,121 @@ export default function CountdownPage() {
                   })}
                 </div>
               ) : (
-                <div className="py-16 text-center text-white/40">
+                <div className="py-10 text-center text-sm text-white/35">
                   No upcoming event available.
                 </div>
               )}
 
-              {/* Bottom message */}
+              {/* =================================================
+                  MESSAGE
+              ================================================== */}
+
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.9 }}
+                transition={{ delay: 0.7 }}
                 className="
                   mx-auto
-                  mt-10
-                  max-w-xl
+                  mt-7
+                  max-w-lg
                   text-center
-                  text-sm
-                  leading-6
-                  text-white/40
+                  text-xs
+                  leading-5
+                  text-white/35
+                  sm:text-sm
+                  sm:leading-6
                 "
               >
-                Get ready to celebrate, connect, and create unforgettable
-                moments together with the Meditiya Nagar community.
+                Get ready to celebrate, connect, and create memorable moments
+                together with the Meditiya Nagar community.
               </motion.p>
 
-              {/* Buttons */}
+              {/* =================================================
+                  ACTIONS
+              ================================================== */}
+
               <motion.div
-                initial={{ opacity: 0, y: 15 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1 }}
-                className="mt-8 flex flex-wrap justify-center gap-3"
+                transition={{ delay: 0.85 }}
+                className="mt-6 flex flex-col items-stretch justify-center gap-2.5 sm:flex-row sm:items-center"
               >
                 <Link href="/festivals">
-                  <motion.a
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
+                  <a
                     className="
                       group
                       inline-flex
+                      w-full
                       items-center
+                      justify-center
                       gap-2
                       rounded-full
                       bg-white
-                      px-6
+                      px-5
                       py-3
-                      text-sm
+                      text-xs
                       font-semibold
                       text-black
-                      shadow-[0_0_30px_rgba(255,255,255,0.10)]
+                      shadow-[0_10px_35px_rgba(255,255,255,0.08)]
+                      transition-all
+                      hover:scale-[1.02]
+                      sm:w-auto
+                      sm:text-sm
                     "
                   >
                     Explore Festivals
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  </motion.a>
+
+                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                  </a>
                 </Link>
 
                 <Link href="/">
-                  <motion.a
-                    whileHover={{
-                      scale: 1.03,
-                      backgroundColor: 'rgba(255,255,255,0.08)',
-                    }}
-                    whileTap={{ scale: 0.97 }}
+                  <a
                     className="
                       inline-flex
+                      w-full
                       items-center
+                      justify-center
                       gap-2
                       rounded-full
-                      border
-                      border-white/10
-                      bg-white/[0.04]
-                      px-6
+                      border border-white/10
+                      bg-white/[0.035]
+                      px-5
                       py-3
-                      text-sm
+                      text-xs
                       font-medium
-                      text-white/80
+                      text-white/65
                       backdrop-blur-xl
+                      transition-all
+                      hover:border-white/20
+                      hover:bg-white/[0.06]
+                      hover:text-white
+                      sm:w-auto
+                      sm:text-sm
                     "
                   >
                     Home
-                  </motion.a>
+                  </a>
                 </Link>
               </motion.div>
             </div>
           </motion.section>
-
-          {/* Footer label */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.3 }}
-            className="mt-8 text-center"
-          >
-            <span className="text-[9px] uppercase tracking-[0.35em] text-white/20">
-              One Community • Many Celebrations
-            </span>
-          </motion.div>
         </div>
+
+        {/* =====================================================
+            FOOTER
+        ====================================================== */}
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1 }}
+          className="pb-1 text-center"
+        >
+          <span className="text-[8px] uppercase tracking-[0.3em] text-white/20 sm:text-[9px]">
+            Meditiya Nagar • One Community • Many Celebrations
+          </span>
+        </motion.div>
       </div>
     </main>
   );

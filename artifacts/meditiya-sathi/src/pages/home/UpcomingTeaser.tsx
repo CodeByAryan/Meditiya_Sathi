@@ -25,239 +25,199 @@ export default function UpcomingTeaser() {
         month: "long",
         year: "numeric",
       })
-    : "TBA";
+    : "Date TBA";
 
   if (!title) return null;
 
   return (
-    <section className="relative overflow-hidden bg-[var(--page-bg-soft)] py-24 md:py-32">
+    <section className="relative overflow-hidden bg-[var(--page-bg-soft)] py-14 sm:py-16 md:py-20">
       {/* =========================================================
-          BACKGROUND GRID
+          AMBIENT BACKGROUND
       ========================================================== */}
 
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.12]"
-        style={{
-          backgroundImage: `
-            linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)
-          `,
-          backgroundSize: "60px 60px",
-        }}
-      />
+      <div className="pointer-events-none absolute inset-0">
+        {/* Soft center glow */}
+        <motion.div
+          className="absolute left-1/2 top-1/2 h-[280px] w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-400/[0.07] blur-[90px] sm:h-[350px] sm:w-[350px]"
+          animate={{
+            scale: [1, 1.08, 1],
+            opacity: [0.35, 0.55, 0.35],
+          }}
+          transition={{
+            duration: 7,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
 
-      {/* Moving grid glow */}
-      <motion.div
-        className="pointer-events-none absolute inset-0"
-        animate={{
-          backgroundPosition: ["0px 0px", "60px 60px"],
-        }}
-        transition={{
-          duration: 18,
-          repeat: Infinity,
-          ease: "linear",
-        }}
-        style={{
-          backgroundImage: `
-            linear-gradient(rgba(245,158,11,0.035) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(245,158,11,0.035) 1px, transparent 1px)
-          `,
-          backgroundSize: "60px 60px",
-        }}
-      />
+        {/* Small side glow */}
+        <div className="absolute -right-24 top-1/2 h-48 w-48 -translate-y-1/2 rounded-full bg-orange-500/[0.06] blur-[80px]" />
 
-      {/* Central glow */}
-      <motion.div
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-400/[0.06] blur-[140px]"
-        animate={{
-          scale: [1, 1.15, 1],
-          opacity: [0.35, 0.6, 0.35],
-        }}
-        transition={{
-          duration: 8,
-          repeat: Infinity,
-          ease: "easeInOut",
-        }}
-      />
-
-      {/* Side glow */}
-      <motion.div
-        className="pointer-events-none absolute -right-40 top-1/2 h-[350px] w-[350px] -translate-y-1/2 rounded-full bg-orange-500/[0.05] blur-[120px]"
-        animate={{
-          x: [0, -30, 0],
-        }}
-        transition={{
-          duration: 9,
-          repeat: Infinity,
-          ease: "easeInOut",
-        }}
-      />
+        {/* Subtle grid */}
+        <div
+          className="absolute inset-0 opacity-[0.035]"
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)
+            `,
+            backgroundSize: "55px 55px",
+          }}
+        />
+      </div>
 
       {/* =========================================================
           CONTENT
       ========================================================== */}
 
-      <div className="container relative z-10 mx-auto px-5 sm:px-6 lg:px-8">
+      <div className="container relative z-10 mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
-          initial={{ opacity: 0, y: 35 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.25 }}
+          initial={{
+            opacity: 0,
+            y: 20,
+          }}
+          whileInView={{
+            opacity: 1,
+            y: 0,
+          }}
+          viewport={{
+            once: true,
+            amount: 0.25,
+          }}
           transition={{
-            duration: 0.9,
+            duration: 0.7,
             ease: [0.22, 1, 0.36, 1],
           }}
-          className="mx-auto max-w-6xl"
+          className="mx-auto max-w-4xl"
         >
           {/* =====================================================
-              SECTION LABEL
+              SMALL SECTION LABEL
           ====================================================== */}
 
-          <div className="mb-8 flex items-center justify-center gap-3">
-            <motion.span
-              initial={{ width: 0 }}
-              whileInView={{ width: 45 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.7 }}
-              className="h-px bg-gradient-to-r from-transparent to-amber-300/60"
-            />
+          <div className="mb-5 flex items-center justify-center gap-2">
+            <span className="h-px w-6 bg-gradient-to-r from-transparent to-amber-300/50 sm:w-8" />
 
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="h-3 w-3 text-amber-300" />
 
-              <span className="text-[10px] font-semibold uppercase tracking-[0.32em] text-amber-300/80">
+              <span className="text-[9px] font-semibold uppercase tracking-[0.28em] text-amber-300/75">
                 Up Next
               </span>
             </div>
 
-            <motion.span
-              initial={{ width: 0 }}
-              whileInView={{ width: 45 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.7 }}
-              className="h-px bg-gradient-to-l from-transparent to-amber-300/60"
-            />
+            <span className="h-px w-6 bg-gradient-to-l from-transparent to-amber-300/50 sm:w-8" />
           </div>
 
           {/* =====================================================
-              MAIN GLASS CARD
+              COMPACT CARD
           ====================================================== */}
 
           <Link href="/countdown">
             <motion.div
               whileHover={{
-                y: -6,
-                scale: 1.005,
+                y: -3,
               }}
-              transition={{
-                duration: 0.35,
-                ease: "easeOut",
+              whileTap={{
+                scale: 0.99,
               }}
-              className="group relative cursor-pointer overflow-hidden rounded-[30px] border border-border bg-card/80 backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.035]"
+              className="group relative overflow-hidden rounded-2xl border border-white/[0.09] bg-black/[0.28] backdrop-blur-2xl transition-all duration-300 hover:border-amber-300/20 hover:shadow-[0_15px_50px_rgba(245,158,11,0.08)] dark:bg-white/[0.025]"
             >
-              {/* Top glowing line */}
-              <motion.div
-                className="absolute left-[12%] right-[12%] top-0 h-px bg-gradient-to-r from-transparent via-amber-300/60 to-transparent"
-                animate={{
-                  opacity: [0.35, 1, 0.35],
-                }}
-                transition={{
-                  duration: 3,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-              />
+              {/* Top glow line */}
+              <div className="absolute left-[15%] right-[15%] top-0 h-px bg-gradient-to-r from-transparent via-amber-300/50 to-transparent" />
 
               {/* Card glow */}
-              <div className="pointer-events-none absolute -right-32 -top-32 h-80 w-80 rounded-full bg-amber-400/[0.07] blur-[100px] transition-all duration-700 group-hover:bg-amber-400/[0.13]" />
+              <div className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-amber-400/[0.06] blur-[70px] transition-all duration-500 group-hover:bg-amber-400/[0.11]" />
 
-              <div className="pointer-events-none absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-orange-500/[0.05] blur-[100px]" />
+              <div className="relative flex flex-col gap-5 p-5 sm:p-6 md:flex-row md:items-center md:justify-between md:gap-8">
+                {/* =================================================
+                    LEFT CONTENT
+                ================================================== */}
 
-              {/* =================================================
-                  CARD CONTENT
-              ================================================== */}
-
-              <div className="relative grid gap-10 p-7 sm:p-10 md:grid-cols-[1fr_auto] md:items-center md:p-14">
-                {/* LEFT */}
-                <div>
-                  {/* Event icon */}
+                <div className="flex min-w-0 items-center gap-4">
+                  {/* Icon */}
                   <motion.div
-                    whileHover={{ rotate: 5, scale: 1.05 }}
-                    className="mb-7 flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-300/15 bg-amber-300/[0.08] shadow-[0_0_30px_rgba(245,158,11,0.08)]"
+                    whileHover={{
+                      rotate: 4,
+                      scale: 1.05,
+                    }}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-300/15 bg-amber-300/[0.08] shadow-[0_0_25px_rgba(245,158,11,0.07)] sm:h-12 sm:w-12"
                   >
-                    <CalendarDays className="h-6 w-6 text-amber-300" />
+                    <CalendarDays className="h-5 w-5 text-amber-300" />
                   </motion.div>
 
-                  <p className="mb-3 text-[9px] font-semibold uppercase tracking-[0.28em] text-muted-foreground dark:text-white/35">
-                    Upcoming Celebration
-                  </p>
-
-                  <h2 className="max-w-3xl text-4xl font-serif font-semibold leading-[1.05] tracking-[-0.03em] text-foreground sm:text-5xl md:text-6xl dark:text-white">
-                    {title}
-                  </h2>
-
-                  {/* Date */}
-                  <div className="mt-6 flex items-center gap-3">
-                    <div className="h-px w-8 bg-amber-300/40" />
-
-                    <p className="text-sm font-medium text-muted-foreground sm:text-base dark:text-white/55">
-                      {date}
+                  {/* Text */}
+                  <div className="min-w-0">
+                    <p className="mb-1 text-[8px] font-semibold uppercase tracking-[0.25em] text-amber-300/65">
+                      Upcoming Celebration
                     </p>
-                  </div>
 
-                  <p className="mt-4 max-w-md text-sm leading-6 text-muted-foreground dark:text-white/35">
-                    Get ready for the celebration. Explore the countdown and
-                    stay connected with everything happening in the community.
-                  </p>
+                    <h2 className="truncate font-serif text-xl font-semibold tracking-tight text-foreground sm:text-2xl dark:text-white">
+                      {title}
+                    </h2>
+
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <span className="h-px w-4 bg-amber-300/35" />
+
+                      <p className="text-xs text-muted-foreground dark:text-white/45">
+                        {date}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 {/* =================================================
-                    RIGHT CTA
+                    CTA
                 ================================================== */}
 
-                <div className="md:min-w-[190px] md:text-right">
+                <div className="flex items-center justify-between border-t border-white/[0.07] pt-4 md:border-0 md:pt-0">
+                  <p className="text-[8px] uppercase tracking-[0.2em] text-white/25 md:hidden">
+                    Celebration begins soon
+                  </p>
+
                   <motion.div
                     whileHover={{
-                      scale: 1.04,
+                      x: 2,
                     }}
-                    whileTap={{
-                      scale: 0.97,
-                    }}
-                    className="inline-flex items-center justify-center gap-3 rounded-full bg-white px-7 py-4 text-sm font-semibold text-black shadow-[0_15px_50px_rgba(255,255,255,0.08)] transition-all duration-300 group-hover:shadow-[0_15px_60px_rgba(245,158,11,0.15)]"
+                    className="flex shrink-0 items-center gap-2 rounded-full bg-white px-4 py-2.5 text-xs font-semibold text-black shadow-[0_8px_25px_rgba(255,255,255,0.06)] transition-all group-hover:shadow-[0_8px_30px_rgba(245,158,11,0.12)] sm:px-5 sm:py-3"
                   >
                     <span>View Countdown</span>
 
-                    <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                    <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" />
                   </motion.div>
-
-                  <p className="mt-4 text-[9px] uppercase tracking-[0.25em] text-white/25">
-                    The celebration begins soon
-                  </p>
                 </div>
               </div>
 
-              {/* Bottom border */}
-              <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+              {/* Bottom glow */}
+              <div className="absolute bottom-0 left-[20%] right-[20%] h-px bg-gradient-to-r from-transparent via-amber-300/10 to-transparent" />
             </motion.div>
           </Link>
 
           {/* =====================================================
-              BOTTOM TEXT
+              SMALL FOOTER TEXT
           ====================================================== */}
 
           <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.4 }}
-            className="mt-8 flex items-center justify-center gap-3"
+            initial={{
+              opacity: 0,
+            }}
+            whileInView={{
+              opacity: 1,
+            }}
+            viewport={{
+              once: true,
+            }}
+            transition={{
+              delay: 0.3,
+            }}
+            className="mt-5 flex items-center justify-center gap-2"
           >
-            <span className="h-1 w-1 rounded-full bg-amber-300/50" />
+            <span className="h-1 w-1 rounded-full bg-amber-300/40" />
 
-            <span className="text-[9px] uppercase tracking-[0.28em] text-white/25">
+            <span className="text-[8px] uppercase tracking-[0.25em] text-muted-foreground/40 dark:text-white/20">
               Meditiya Nagar • Community Celebrations
             </span>
 
-            <span className="h-1 w-1 rounded-full bg-amber-300/50" />
+            <span className="h-1 w-1 rounded-full bg-amber-300/40" />
           </motion.div>
         </motion.div>
       </div>
