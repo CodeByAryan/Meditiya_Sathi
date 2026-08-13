@@ -15,7 +15,6 @@ import {
   Package,
   MapPin,
   Shield,
-  UserCheck,
   ClipboardList,
   HeartHandshake,
   Shirt,
@@ -23,6 +22,7 @@ import {
   Sparkles,
   Search,
   Activity,
+  ArrowLeft,
 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -104,8 +104,6 @@ export default function Admin() {
 
   /* =======================================================
      DASHBOARD MODULES
-     Keep the top-priority cards in the required order while
-     preserving the rest of the existing dashboard cards.
      ======================================================= */
 
   const sections: Section[] = [
@@ -119,6 +117,7 @@ export default function Admin() {
           },
         ]
       : []),
+
     ...(canManageBuildings
       ? [
           {
@@ -129,6 +128,7 @@ export default function Admin() {
           },
         ]
       : []),
+
     ...(canManageResidents
       ? [
           {
@@ -139,6 +139,7 @@ export default function Admin() {
           },
         ]
       : []),
+
     ...(canManageFestivals
       ? [
           {
@@ -613,7 +614,52 @@ export default function Admin() {
           "
         />
 
-        <div className="relative mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:px-8">
+        <div className="relative mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+          {/* =================================================
+              BACK BUTTON
+              ================================================= */}
+
+          <motion.div
+            initial={{ opacity: 0, x: -15 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-6"
+          >
+            <Link href="/">
+              <motion.div
+                whileHover={{ x: -3 }}
+                whileTap={{ scale: 0.97 }}
+                className="
+                  group inline-flex
+                  items-center gap-2
+                  rounded-xl
+                  border border-white/10
+                  bg-white/[0.035]
+                  px-3.5 py-2.5
+                  text-sm
+                  font-medium
+                  text-white/60
+                  backdrop-blur-xl
+                  transition-all duration-300
+                  hover:border-amber-300/25
+                  hover:bg-amber-300/[0.06]
+                  hover:text-amber-200
+                  hover:shadow-[0_10px_30px_rgba(245,158,11,0.08)]
+                "
+              >
+                <ArrowLeft
+                  className="
+                    h-4 w-4
+                    transition-transform duration-300
+                    group-hover:-translate-x-0.5
+                  "
+                />
+
+                <span>Back to Home</span>
+              </motion.div>
+            </Link>
+          </motion.div>
+
           <motion.div
             variants={containerVariants}
             initial="hidden"
