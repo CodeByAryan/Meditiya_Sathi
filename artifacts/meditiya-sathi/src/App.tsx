@@ -1,44 +1,54 @@
+import { lazy, Suspense } from 'react';
 import { Switch, Route, Router as WouterRouter, Redirect } from 'wouter';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from 'sonner';
 import { ThemeProvider } from 'next-themes';
 
 import Shell from '@/components/layout/Shell';
-import Home from '@/pages/home';
-import Countdown from '@/pages/countdown';
-import About from '@/pages/about';
-import Events from '@/pages/events';
-import Festivals from '@/pages/festivals';
-import Notices from '@/pages/notices';
-import Gallery from '@/pages/gallery';
-import Donations from '@/pages/donations';
-import Volunteers from '@/pages/volunteers';
-import Competitions from '@/pages/competitions';
-import Services from '@/pages/services';
-import Emergency from '@/pages/emergency';
-import Marketplace from '@/pages/marketplace';
-import LostFound from '@/pages/lost-found';
-import Live from '@/pages/live';
-import Contact from '@/pages/contact';
-import Admin from '@/pages/admin';
-import AdminResidents from '@/pages/admin/residents';
-import AdminResidentsList from '@/pages/admin/residents-list';
-import AdminBuildings from '@/pages/admin/buildings';
-import AdminEventsCrud from '@/pages/admin/events-crud';
-import AdminNoticesCrud from '@/pages/admin/notices-crud';
-import AdminGalleryCrud from '@/pages/admin/gallery-crud';
-import AdminFestivalsList from '@/pages/admin/festivals-list';
-import AdminFestivalCreate from '@/pages/admin/festival-create';
-import AdminFestivalDetail from '@/pages/admin/festival-detail';
-import AdminAddDonation from '@/pages/admin/add-donation';
-import AdminOutsiderDonations from '@/pages/admin/outsider-donations';
-import AdminTshirtRegistrations from '@/pages/admin/tshirt-registrations';
-import AdminManagement from '@/pages/admin/admin-management';
-import AdminLogin from '@/pages/admin-login';
-import NotFound from '@/pages/not-found';
 import { AdminAuthProvider, useAdminAuth } from '@/lib/AdminAuthContext';
 
-const queryClient = new QueryClient();
+const Home = lazy(() => import('@/pages/home'));
+const Countdown = lazy(() => import('@/pages/countdown'));
+const About = lazy(() => import('@/pages/about'));
+const Events = lazy(() => import('@/pages/events'));
+const Festivals = lazy(() => import('@/pages/festivals'));
+const Notices = lazy(() => import('@/pages/notices'));
+const Gallery = lazy(() => import('@/pages/gallery'));
+const Donations = lazy(() => import('@/pages/donations'));
+const Volunteers = lazy(() => import('@/pages/volunteers'));
+const Competitions = lazy(() => import('@/pages/competitions'));
+const Services = lazy(() => import('@/pages/services'));
+const Emergency = lazy(() => import('@/pages/emergency'));
+const Marketplace = lazy(() => import('@/pages/marketplace'));
+const LostFound = lazy(() => import('@/pages/lost-found'));
+const Live = lazy(() => import('@/pages/live'));
+const Contact = lazy(() => import('@/pages/contact'));
+const Admin = lazy(() => import('@/pages/admin'));
+const AdminResidents = lazy(() => import('@/pages/admin/residents'));
+const AdminResidentsList = lazy(() => import('@/pages/admin/residents-list'));
+const AdminBuildings = lazy(() => import('@/pages/admin/buildings'));
+const AdminEventsCrud = lazy(() => import('@/pages/admin/events-crud'));
+const AdminNoticesCrud = lazy(() => import('@/pages/admin/notices-crud'));
+const AdminGalleryCrud = lazy(() => import('@/pages/admin/gallery-crud'));
+const AdminFestivalsList = lazy(() => import('@/pages/admin/festivals-list'));
+const AdminFestivalCreate = lazy(() => import('@/pages/admin/festival-create'));
+const AdminFestivalDetail = lazy(() => import('@/pages/admin/festival-detail'));
+const AdminAddDonation = lazy(() => import('@/pages/admin/add-donation'));
+const AdminOutsiderDonations = lazy(() => import('@/pages/admin/outsider-donations'));
+const AdminTshirtRegistrations = lazy(() => import('@/pages/admin/tshirt-registrations'));
+const AdminManagement = lazy(() => import('@/pages/admin/admin-management'));
+const AdminLogin = lazy(() => import('@/pages/admin-login'));
+const NotFound = lazy(() => import('@/pages/not-found'));
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function ProtectedAdmin({ children }: { children: React.ReactNode }) {
@@ -58,6 +68,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   return (
     <AdminAuthProvider>
+      <Suspense fallback={<div className="min-h-[100dvh] bg-[var(--page-bg)]" />}>
       <Switch>
         <Route path="/admin-login" component={AdminLogin} />
         
@@ -131,6 +142,7 @@ function AppRoutes() {
           <Shell><NotFound /></Shell>
         </Route>
       </Switch>
+      </Suspense>
       <Toaster position="top-center" richColors />
     </AdminAuthProvider>
   );

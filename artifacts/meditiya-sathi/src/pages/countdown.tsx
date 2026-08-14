@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Link } from "wouter";
 import {
   ArrowLeft,
@@ -48,9 +48,36 @@ function pad(value: number) {
   return String(value).padStart(2, "0");
 }
 
-export default function CountdownPage() {
-  const reduceMotion = useReducedMotion();
+function CountdownUnits({ targetDate }: { targetDate: Date | null }) {
+  const timer = useTimer(targetDate);
+  if (!timer) return <div className="py-10 text-center text-sm text-white/35">No upcoming event available.</div>;
 
+  const timeUnits = [
+    { label: "Days", value: timer.days, icon: CalendarDays },
+    { label: "Hours", value: timer.hours, icon: Clock3 },
+    { label: "Minutes", value: timer.minutes, icon: Clock3 },
+    { label: "Seconds", value: timer.seconds, icon: Sparkles },
+  ];
+
+  return (
+    <div className="grid grid-cols-4 gap-2 sm:gap-3">
+      {timeUnits.map((unit) => {
+        const Icon = unit.icon;
+        return (
+          <div key={unit.label} className="group relative overflow-hidden rounded-xl border border-white/[0.08] bg-black/20 px-2 py-4 text-center sm:backdrop-blur-sm">
+            <div className="relative">
+              <Icon className="mx-auto mb-2 h-3.5 w-3.5 text-amber-300/50 sm:h-4 sm:w-4" />
+              <span className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">{pad(unit.value)}</span>
+              <div className="mt-1.5 text-[7px] font-semibold uppercase tracking-[0.2em] text-white/30 sm:text-[8px] sm:tracking-[0.25em]">{unit.label}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export default function CountdownPage() {
   const { data: events } = useGetUpcomingEventsSummary();
 
   const nextEvent = events?.[0] || null;
@@ -67,33 +94,6 @@ export default function CountdownPage() {
           date: new Date(fallback.date),
         }
       : null;
-
-  const timer = useTimer(event?.date || null);
-
-  const timeUnits = timer
-    ? [
-        {
-          label: "Days",
-          value: timer.days,
-          icon: CalendarDays,
-        },
-        {
-          label: "Hours",
-          value: timer.hours,
-          icon: Clock3,
-        },
-        {
-          label: "Minutes",
-          value: timer.minutes,
-          icon: Clock3,
-        },
-        {
-          label: "Seconds",
-          value: timer.seconds,
-          icon: Sparkles,
-        },
-      ]
-    : [];
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
@@ -115,42 +115,13 @@ export default function CountdownPage() {
         />
 
         {/* Main glow */}
-        <motion.div
-          className="absolute left-1/2 top-[12%] h-[300px] w-[300px] -translate-x-1/2 rounded-full bg-amber-400/[0.08] blur-[110px] sm:h-[420px] sm:w-[420px]"
-          animate={
-            reduceMotion
-              ? undefined
-              : {
-                  scale: [1, 1.12, 1],
-                  opacity: [0.35, 0.55, 0.35],
-                }
-          }
-          transition={{
-            duration: 8,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
+        <div className="absolute left-1/2 top-[12%] h-[240px] w-[240px] -translate-x-1/2 rounded-full bg-amber-400/[0.06] blur-[64px] sm:h-[340px] sm:w-[340px] sm:blur-[88px]" />
 
         {/* Side glow */}
-        <motion.div
-          className="absolute -right-32 top-1/2 h-[280px] w-[280px] rounded-full bg-orange-500/[0.05] blur-[110px] sm:h-[380px] sm:w-[380px]"
-          animate={
-            reduceMotion
-              ? undefined
-              : {
-                  x: [0, -25, 0],
-                }
-          }
-          transition={{
-            duration: 9,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
+        <div className="absolute -right-32 top-1/2 hidden h-[300px] w-[300px] rounded-full bg-orange-500/[0.04] blur-[72px] sm:block" />
 
         {/* Bottom glow */}
-        <div className="absolute bottom-0 left-1/2 h-[220px] w-[500px] -translate-x-1/2 rounded-full bg-amber-400/[0.035] blur-[100px]" />
+        <div className="absolute bottom-0 left-1/2 hidden h-[180px] w-[360px] -translate-x-1/2 rounded-full bg-amber-400/[0.03] blur-[64px] sm:block" />
       </div>
 
       {/* =====================================================
@@ -227,7 +198,7 @@ export default function CountdownPage() {
               bg-white/[0.035]
               p-5
               shadow-[0_25px_80px_rgba(0,0,0,0.4)]
-              backdrop-blur-2xl
+              sm:backdrop-blur-md
               sm:rounded-[28px]
               sm:p-8
               md:p-10
@@ -324,86 +295,7 @@ export default function CountdownPage() {
                   COUNTDOWN
               ================================================== */}
 
-              {timer ? (
-                <div className="grid grid-cols-4 gap-2 sm:gap-3">
-                  {timeUnits.map((unit, index) => {
-                    const Icon = unit.icon;
-
-                    return (
-                      <motion.div
-                        key={unit.label}
-                        initial={{
-                          opacity: 0,
-                          y: 15,
-                        }}
-                        animate={{
-                          opacity: 1,
-                          y: 0,
-                        }}
-                        transition={{
-                          delay: 0.3 + index * 0.07,
-                          duration: 0.5,
-                        }}
-                        className="
-                          group
-                          relative
-                          overflow-hidden
-                          rounded-xl
-                          border border-white/[0.08]
-                          bg-black/20
-                          px-2
-                          py-4
-                          text-center
-                          backdrop-blur-xl
-                          transition-all
-                          hover:border-amber-300/15
-                          hover:bg-white/[0.04]
-                          sm:rounded-2xl
-                          sm:px-3
-                          sm:py-5
-                        "
-                      >
-                        {/* Hover glow */}
-                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-amber-300/[0.06] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-
-                        <div className="relative">
-                          <Icon className="mx-auto mb-2 h-3.5 w-3.5 text-amber-300/50 sm:h-4 sm:w-4" />
-
-                          <motion.div
-                            key={unit.value}
-                            initial={{
-                              opacity: 0.5,
-                              scale: 0.94,
-                            }}
-                            animate={{
-                              opacity: 1,
-                              scale: 1,
-                            }}
-                            className="
-                              text-2xl
-                              font-semibold
-                              tracking-tight
-                              text-white
-                              sm:text-3xl
-                              md:text-4xl
-                            "
-                          >
-                            {pad(unit.value)}
-                          </motion.div>
-
-                          <div className="mt-1.5 text-[7px] font-semibold uppercase tracking-[0.2em] text-white/30 sm:text-[8px] sm:tracking-[0.25em]">
-                            {unit.label}
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="py-10 text-center text-sm text-white/35">
-                  No upcoming event available.
-                </div>
-              )}
+              <CountdownUnits targetDate={event?.date || null} />
 
               {/* =================================================
                   MESSAGE

@@ -40,7 +40,7 @@ export default function Marketplace() {
               <Card key={item.id} className="overflow-hidden border-border bg-card hover:shadow-xl transition-all group flex flex-col">
                 <div className="relative h-48 bg-muted border-b border-border overflow-hidden">
                   {item.imageUrl ? (
-                    <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    <img src={item.imageUrl} alt={item.title} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <Tag className="w-12 h-12 text-muted-foreground/30" />

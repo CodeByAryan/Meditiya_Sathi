@@ -92,6 +92,7 @@ type Section = {
 
 export default function Admin() {
   const {
+    user,
     isSuperAdmin,
     isAdmin,
     isVolunteer,
@@ -101,6 +102,10 @@ export default function Admin() {
     canManageVolunteers,
     canManageAdmins,
   } = useAdminAuth();
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const adminName = user?.fullName?.trim() || user?.username?.trim() || user?.email?.split('@')[0] || 'Admin';
 
   /* =======================================================
      DASHBOARD MODULES
@@ -295,12 +300,6 @@ export default function Admin() {
       ? 'Administrator'
       : 'Volunteer';
 
-  const accessLevel = isSuperAdmin
-    ? 'Full'
-    : isAdmin
-      ? 'Admin'
-      : 'Assigned';
-
   /* =======================================================
      MODULE CARD
      ======================================================= */
@@ -323,11 +322,11 @@ export default function Admin() {
         <Card
           className="
             group relative h-full overflow-hidden
-            rounded-2xl
+            rounded-xl sm:rounded-2xl
             border border-white/10
-            bg-white/[0.035]
-            backdrop-blur-2xl
-            shadow-[0_20px_60px_rgba(0,0,0,0.35)]
+            bg-white/[0.04] sm:bg-white/[0.035]
+            sm:backdrop-blur-2xl
+            shadow-[0_8px_24px_rgba(0,0,0,0.2)] sm:shadow-[0_20px_60px_rgba(0,0,0,0.35)]
             transition-all duration-300
             hover:border-amber-300/30
             hover:bg-white/[0.055]
@@ -354,7 +353,7 @@ export default function Admin() {
             className="
               pointer-events-none absolute
               -right-20 -top-20
-              h-40 w-40
+              hidden h-40 w-40 sm:block
               rounded-full
               bg-amber-400/[0.06]
               blur-3xl
@@ -363,13 +362,13 @@ export default function Admin() {
             "
           />
 
-          <CardContent className="relative flex h-full flex-col p-5 sm:p-6">
+          <CardContent className="relative flex h-full flex-col p-3 sm:p-6">
             <div className="flex items-start justify-between">
               {/* Icon */}
               <div
                 className="
-                  flex h-12 w-12 items-center justify-center
-                  rounded-xl
+                  flex h-8 w-8 items-center justify-center
+                  rounded-lg sm:h-12 sm:w-12 sm:rounded-xl
                   border border-amber-300/15
                   bg-amber-300/[0.08]
                   text-amber-300
@@ -380,14 +379,14 @@ export default function Admin() {
                   group-hover:shadow-[0_0_30px_rgba(251,191,36,0.12)]
                 "
               >
-                <Icon className="h-5 w-5" />
+                <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
 
               {/* Arrow */}
               {section.href && (
                 <div
                   className="
-                    flex h-8 w-8 items-center justify-center
+                    flex h-6 w-6 items-center justify-center sm:h-8 sm:w-8
                     rounded-full
                     border border-white/5
                     bg-white/[0.035]
@@ -398,16 +397,16 @@ export default function Admin() {
                     group-hover:text-amber-300
                   "
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </div>
               )}
             </div>
 
             {/* Content */}
-            <div className="mt-5">
+            <div className="mt-3 sm:mt-5">
               <h2
                 className="
-                  text-base font-semibold
+                  text-[13px] font-semibold
                   tracking-tight
                   text-white
                   transition-colors duration-300
@@ -420,11 +419,11 @@ export default function Admin() {
 
               <p
                 className="
-                  mt-1.5
-                  text-sm leading-6
+                  mt-1 text-[10px] leading-4
                   text-white/40
                   transition-colors duration-300
                   group-hover:text-white/55
+                  sm:mt-1.5 sm:text-sm sm:leading-6
                 "
               >
                 {section.description}
@@ -432,11 +431,11 @@ export default function Admin() {
             </div>
 
             {/* Footer */}
-            <div className="mt-auto pt-5">
+            <div className="mt-auto pt-2 sm:pt-5">
               <div
                 className="
                   flex items-center gap-2
-                  text-[10px]
+                  text-[8px] sm:text-[10px]
                   font-semibold
                   uppercase
                   tracking-[0.22em]
@@ -660,6 +659,24 @@ export default function Admin() {
             </Link>
           </motion.div>
 
+          {/* Mobile-only identity card. The existing desktop header remains unchanged. */}
+          <section className="mb-4 rounded-2xl border border-amber-300/20 bg-card/95 p-4 text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.12)] dark:border-amber-300/15 dark:bg-white/[0.045] dark:text-white lg:hidden">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-300/75">Admin workspace</p>
+                <h1 className="mt-1 truncate text-lg font-semibold tracking-tight text-foreground dark:text-white">
+                  {greeting}, {adminName} <span aria-hidden="true">👋</span>
+                </h1>
+                <p className="mt-1 text-[11px] leading-4 text-muted-foreground dark:text-white/45">
+                  Manage your Meditiya Nagar community from one place.
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full border border-amber-300/20 bg-amber-300/[0.08] px-2.5 py-1 text-[8px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-200">
+                {isSuperAdmin ? 'Super Admin' : 'Admin'}
+              </span>
+            </div>
+          </section>
+
           <motion.div
             variants={containerVariants}
             initial="hidden"
@@ -669,7 +686,7 @@ export default function Admin() {
                 HEADER TOP
                 ================================================= */}
 
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="hidden flex-col gap-5 sm:flex-row sm:items-center sm:justify-between lg:flex">
               <motion.div
                 variants={itemVariants}
                 className="flex items-center gap-4"
@@ -763,103 +780,6 @@ export default function Admin() {
               </motion.div>
             </div>
 
-            {/* =================================================
-                STATS
-                ================================================= */}
-
-            <motion.div
-              variants={itemVariants}
-              className="
-                mt-7
-                grid grid-cols-2
-                gap-2
-                sm:grid-cols-4
-              "
-            >
-              {/* Modules */}
-              <div
-                className="
-                  rounded-xl
-                  border border-white/8
-                  bg-white/[0.025]
-                  p-4
-                  backdrop-blur-xl
-                "
-              >
-                <p className="text-[10px] uppercase tracking-wider text-white/30">
-                  Available Modules
-                </p>
-
-                <p className="mt-1 text-xl font-semibold text-white">
-                  {sections.length}
-                </p>
-              </div>
-
-              {/* Access */}
-              <div
-                className="
-                  rounded-xl
-                  border border-white/8
-                  bg-white/[0.025]
-                  p-4
-                  backdrop-blur-xl
-                "
-              >
-                <p className="text-[10px] uppercase tracking-wider text-white/30">
-                  Access Level
-                </p>
-
-                <p className="mt-1 text-lg font-semibold text-white">
-                  {accessLevel}
-                </p>
-              </div>
-
-              {/* Platform */}
-              <div
-                className="
-                  rounded-xl
-                  border border-white/8
-                  bg-white/[0.025]
-                  p-4
-                  backdrop-blur-xl
-                "
-              >
-                <p className="text-[10px] uppercase tracking-wider text-white/30">
-                  Platform
-                </p>
-
-                <p className="mt-1 text-lg font-semibold text-white">
-                  Community
-                </p>
-              </div>
-
-              {/* Status */}
-              <div
-                className="
-                  rounded-xl
-                  border border-white/8
-                  bg-white/[0.025]
-                  p-4
-                  backdrop-blur-xl
-                "
-              >
-                <p className="text-[10px] uppercase tracking-wider text-white/30">
-                  Status
-                </p>
-
-                <p className="mt-1 flex items-center gap-2 text-lg font-semibold text-white">
-                  <span
-                    className="
-                      h-1.5 w-1.5
-                      rounded-full
-                      bg-emerald-300
-                      shadow-[0_0_10px_rgba(110,231,183,0.8)]
-                    "
-                  />
-                  Active
-                </p>
-              </div>
-            </motion.div>
           </motion.div>
         </div>
       </header>
@@ -1055,9 +975,9 @@ export default function Admin() {
           animate="visible"
           className="
             relative
-            grid grid-cols-1
-            gap-4
-            sm:grid-cols-2
+            grid grid-cols-2
+            gap-3
+            sm:gap-4
             lg:grid-cols-3
             xl:grid-cols-4
           "

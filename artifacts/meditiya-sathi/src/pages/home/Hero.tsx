@@ -41,37 +41,15 @@ export default function Hero() {
           AMBIENT LIGHT
       ========================================================== */}
 
-      <motion.div
-        className="
-          absolute
-          left-1/2
-          top-[25%]
-          z-[2]
-          h-[420px]
-          w-[420px]
-          -translate-x-1/2
-          rounded-full
-          bg-amber-400/10
-          blur-[120px]
-        "
-        animate={{
-          scale: [1, 1.15, 1],
-          opacity: [0.35, 0.55, 0.35],
-        }}
-        transition={{
-          duration: 7,
-          repeat: Infinity,
-          ease: 'easeInOut',
-        }}
-      />
+      <div className="absolute left-1/2 top-[25%] z-[2] h-[260px] w-[260px] -translate-x-1/2 rounded-full bg-amber-400/[0.07] blur-[72px] sm:h-[360px] sm:w-[360px] sm:blur-[96px]" />
 
       {/* =========================================================
           FLOATING PARTICLES
       ========================================================== */}
 
       <div className="pointer-events-none absolute inset-0 z-[2]">
-        {[...Array(18)].map((_, i) => (
-          <motion.span
+        {[...Array(6)].map((_, i) => (
+          <span
             key={i}
             className="
               absolute
@@ -83,16 +61,6 @@ export default function Hero() {
             style={{
               left: `${5 + ((i * 17) % 90)}%`,
               top: `${12 + ((i * 23) % 78)}%`,
-            }}
-            animate={{
-              y: [-10, -35, -10],
-              opacity: [0.15, 0.7, 0.15],
-            }}
-            transition={{
-              duration: 3 + (i % 4),
-              repeat: Infinity,
-              delay: i * 0.25,
-              ease: 'easeInOut',
             }}
           />
         ))}

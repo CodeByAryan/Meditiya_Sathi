@@ -41,7 +41,7 @@ export default function LostFound() {
                   <Card key={item.id} className="overflow-hidden border-border bg-card flex flex-col sm:flex-row">
                     {item.imageUrl ? (
                       <div className="w-full sm:w-40 h-48 sm:h-auto shrink-0 bg-muted">
-                        <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+                        <img src={item.imageUrl} alt={item.title} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       </div>
                     ) : (
                       <div className="w-full sm:w-40 h-48 sm:h-auto shrink-0 bg-muted flex items-center justify-center border-r border-border">

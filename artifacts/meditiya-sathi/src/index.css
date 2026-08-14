@@ -170,8 +170,8 @@
 
 .glass {
   background-color: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
 }
@@ -183,8 +183,8 @@
 
 .glass-card {
   background-color: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
   transition: all 0.5s ease;
@@ -201,8 +201,8 @@
 
 .glass-card-strong {
   background-color: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.3);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
@@ -214,8 +214,8 @@
 
 .glass-card-glow {
   background-color: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 10px 15px -3px hsl(var(--primary) / 0.1), 0 4px 6px -4px hsl(var(--primary) / 0.1);
   transition: all 0.5s ease;
@@ -237,8 +237,8 @@
 
 .glass-gradient {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.4));
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.3);
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
 }
@@ -344,4 +344,25 @@
 
 .section-padding {
   @apply py-20 md:py-28;
+}
+
+/* WebKit is particularly sensitive to blur and repeated compositing during scroll. */
+@media (max-width: 639px) {
+  .glass, .glass-card, .glass-card-strong, .glass-card-glow, .glass-gradient {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

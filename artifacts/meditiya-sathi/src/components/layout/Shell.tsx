@@ -47,7 +47,8 @@ export default function Shell({
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(false);
+  // Administration is intentionally open in the mobile drawer so admins can act immediately.
+  const [adminOpen, setAdminOpen] = useState(true);
 
   const [location] = useLocation();
 
@@ -60,24 +61,35 @@ export default function Shell({
   const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
+    let frameId = 0;
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+      if (frameId) return;
+      frameId = window.requestAnimationFrame(() => {
+        const nextIsScrolled = window.scrollY > 20;
+        setIsScrolled((current) => current === nextIsScrolled ? current : nextIsScrolled);
+        frameId = 0;
+      });
     };
 
     handleScroll();
 
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
+      window.cancelAnimationFrame(frameId);
     };
   }, []);
 
   useEffect(() => {
     setMobileMenuOpen(false);
     setMoreOpen(false);
-    setAdminOpen(false);
+    setAdminOpen(true);
   }, [location]);
+
+  useEffect(() => {
+    if (mobileMenuOpen) setAdminOpen(true);
+  }, [mobileMenuOpen]);
 
   /* ============================================================
      PUBLIC NAVIGATION
@@ -270,11 +282,11 @@ export default function Shell({
 
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
 
-        <div className="absolute -left-40 top-20 h-[500px] w-[500px] rounded-full bg-amber-500/15 blur-[140px] dark:bg-amber-500/[0.035]" />
+        <div className="absolute -left-32 top-20 h-[320px] w-[320px] rounded-full bg-amber-500/10 blur-[72px] sm:h-[420px] sm:w-[420px] sm:blur-[96px] dark:bg-amber-500/[0.035]" />
 
-        <div className="absolute -right-40 top-[35%] h-[500px] w-[500px] rounded-full bg-orange-500/10 blur-[140px] dark:bg-orange-500/[0.025]" />
+        <div className="absolute -right-32 top-[35%] hidden h-[420px] w-[420px] rounded-full bg-orange-500/[0.07] blur-[96px] sm:block dark:bg-orange-500/[0.025]" />
 
-        <div className="absolute bottom-0 left-[40%] h-[350px] w-[350px] rounded-full bg-yellow-400/10 blur-[120px] dark:bg-yellow-400/[0.015]" />
+        <div className="absolute bottom-0 left-[40%] hidden h-[280px] w-[280px] rounded-full bg-yellow-400/[0.07] blur-[80px] md:block dark:bg-yellow-400/[0.015]" />
 
         <div
           className="absolute inset-0 opacity-[0.04] dark:opacity-[0.02]"
@@ -291,20 +303,11 @@ export default function Shell({
           HEADER
       ============================================================ */}
 
-      <motion.header
-        initial={false}
-        animate={{
-          paddingTop: isScrolled ? 10 : 16,
-          paddingBottom: isScrolled ? 10 : 16,
-        }}
-        transition={{
-          duration: shouldReduceMotion ? 0 : 0.3,
-          ease: [0.22, 1, 0.36, 1],
-        }}
+      <header
         className={cn(
-          'fixed inset-x-0 top-0 z-50 transition-colors duration-300',
+          'fixed inset-x-0 top-0 z-50 py-2.5 transition-colors duration-200 md:py-3',
           isScrolled
-            ? 'bg-[color:var(--page-bg)]/80 backdrop-blur-2xl'
+            ? 'bg-[color:var(--page-bg)]/95 sm:bg-[color:var(--page-bg)]/85 sm:backdrop-blur-md'
             : 'bg-transparent'
         )}
       >
@@ -477,7 +480,7 @@ export default function Shell({
                       className="absolute right-0 top-full w-64 pt-3"
                     >
 
-                      <div className="overflow-hidden rounded-2xl border border-border bg-[color:var(--surface-strong)] p-2 shadow-2xl backdrop-blur-2xl dark:border-white/10 dark:bg-[#0c0c0c]/95">
+                      <div className="overflow-hidden rounded-2xl border border-border bg-[color:var(--surface-strong)] p-2 shadow-xl sm:backdrop-blur-md dark:border-white/10 dark:bg-[#0c0c0c]/95">
 
                         <div className="mb-2 flex items-center gap-2 border-b border-border px-3 py-3 dark:border-white/[0.07]">
 
@@ -655,7 +658,7 @@ export default function Shell({
 
         </div>
 
-      </motion.header>
+      </header>
 
       {/* ============================================================
           MOBILE NAVIGATION
@@ -675,7 +678,7 @@ export default function Shell({
             {/* BACKDROP */}
 
             <div
-              className="absolute inset-0 bg-black/50 backdrop-blur-xl dark:bg-black/75"
+              className="absolute inset-0 bg-black/65 sm:bg-black/50 sm:backdrop-blur-sm dark:bg-black/75"
               onClick={() => setMobileMenuOpen(false)}
             />
 
@@ -697,22 +700,22 @@ export default function Shell({
               transition={{
                 duration: shouldReduceMotion ? 0 : 0.25,
               }}
-              className="absolute inset-x-0 bottom-0 top-16 overflow-y-auto border-t border-white/[0.08] bg-[#0a0a09]/95 backdrop-blur-3xl md:top-20"
+              className="absolute inset-x-0 bottom-0 top-16 overflow-y-auto border-t border-white/[0.08] bg-[#0a0a09] sm:bg-[#0a0a09]/95 sm:backdrop-blur-md md:top-20"
             >
 
               {/* GOLD AMBIENT GLOW */}
 
-              <div className="pointer-events-none absolute -right-32 top-0 h-72 w-72 rounded-full bg-amber-400/10 blur-[110px]" />
+              <div className="pointer-events-none absolute -right-32 top-0 hidden h-72 w-72 rounded-full bg-amber-400/10 blur-[72px] sm:block" />
 
-              <div className="pointer-events-none absolute -left-32 top-[40%] h-72 w-72 rounded-full bg-orange-500/[0.06] blur-[110px]" />
+              <div className="pointer-events-none absolute -left-32 top-[40%] hidden h-72 w-72 rounded-full bg-orange-500/[0.06] blur-[72px] sm:block" />
 
-              <div className="relative mx-auto max-w-lg px-4 pb-10 pt-5">
+              <div className="relative mx-auto flex max-w-lg flex-col px-4 pb-6 pt-4">
 
                 {/* ==================================================
                     MOBILE MENU HEADER
                 ================================================== */}
 
-                <div className="mb-6 flex items-center justify-between">
+                <div className="order-0 mb-4 flex items-center justify-between">
 
                   <div>
 
@@ -726,21 +729,19 @@ export default function Shell({
 
                     </div>
 
-                    <h2 className="mt-1 font-serif text-2xl font-bold text-white">
-                      Explore Meditiya
+                    <h2 className="mt-1 font-serif text-lg font-bold text-white">
+                      Meditiya Sathi
                     </h2>
 
-                    <p className="mt-1 text-xs text-white/35">
-                      Everything your community needs
+                    <p className="mt-0.5 text-[11px] text-white/35">
+                      Explore Meditiya
                     </p>
 
                   </div>
 
-                  <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-300/15 bg-amber-300/[0.06]">
+                  <div className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-amber-300/15 bg-amber-300/[0.06]">
 
-                    <Sparkles className="h-5 w-5 text-amber-300" />
-
-                    <span className="absolute inset-0 rounded-2xl border border-amber-300/10 animate-pulse" />
+                    <Sparkles className="h-4 w-4 text-amber-300" />
 
                   </div>
 
@@ -750,7 +751,7 @@ export default function Shell({
                     MAIN NAVIGATION
                 ================================================== */}
 
-                <section>
+                <section className="order-1">
 
                   <div className="mb-3 flex items-center justify-between">
 
@@ -764,7 +765,7 @@ export default function Shell({
 
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="grid grid-cols-2 gap-2">
 
                     {navLinks.map((link, index) => {
 
@@ -795,22 +796,18 @@ export default function Shell({
                               setMobileMenuOpen(false)
                             }
                             className={cn(
-                              'group relative flex min-h-[82px] flex-col justify-between overflow-hidden rounded-2xl border p-3.5 transition-all duration-300 active:scale-[0.97]',
+                              'group relative flex min-h-[56px] items-center gap-2 overflow-hidden rounded-xl border px-3 py-2.5 text-left transition-colors duration-200 active:scale-[0.98]',
                               active
-                                ? 'border-amber-300/40 bg-amber-300/[0.10] shadow-[0_0_25px_rgba(245,158,11,0.08)]'
+                                ? 'border-amber-300/35 bg-amber-300/[0.08]'
                                 : 'border-white/[0.08] bg-white/[0.025] hover:border-amber-300/20 hover:bg-white/[0.05]'
                             )}
                           >
-
-                            {active && (
-                              <div className="absolute -right-5 -top-5 h-16 w-16 rounded-full bg-amber-300/10 blur-2xl" />
-                            )}
 
                             <div className="relative flex items-center justify-between">
 
                               <div
                                 className={cn(
-                                  'flex h-9 w-9 items-center justify-center rounded-xl transition-all',
+                                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors',
                                   active
                                     ? 'bg-amber-300/15 text-amber-300'
                                     : 'bg-white/[0.05] text-white/55 group-hover:text-amber-300'
@@ -827,7 +824,7 @@ export default function Shell({
 
                             <span
                               className={cn(
-                                'relative mt-3 text-sm font-semibold',
+                                'relative text-xs font-semibold',
                                 active
                                   ? 'text-amber-300'
                                   : 'text-white/65'
@@ -850,7 +847,7 @@ export default function Shell({
                     MORE FEATURES
                 ================================================== */}
 
-                <section className="mt-5">
+                <section className="order-3 mt-4">
 
                   <div
                     className={cn(
@@ -866,12 +863,12 @@ export default function Shell({
                       onClick={() =>
                         setMoreOpen((prev) => !prev)
                       }
-                      className="flex w-full items-center justify-between p-4 text-left"
+                      className="flex w-full items-center justify-between p-3 text-left"
                     >
 
                       <div className="flex items-center gap-3">
 
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-300/[0.08]">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-300/[0.08]">
 
                           <Sparkles className="h-4.5 w-4.5 text-amber-300" />
 
@@ -879,7 +876,7 @@ export default function Shell({
 
                         <div>
 
-                          <p className="font-serif text-base font-bold text-white">
+                          <p className="text-sm font-semibold text-white">
                             More
                           </p>
 
@@ -975,7 +972,7 @@ export default function Shell({
                     ADMINISTRATION
                 ================================================== */}
 
-                <section className="mt-5">
+                <section className="order-2 mt-4">
 
                   <div
                     className={cn(
@@ -993,7 +990,7 @@ export default function Shell({
                       onClick={() =>
                         setAdminOpen((prev) => !prev)
                       }
-                      className="flex w-full items-center justify-between p-4 text-left"
+                      className={cn('w-full items-center justify-between p-3 text-left', isAuthenticated ? 'flex' : 'hidden')}
                     >
 
                       <div className="flex items-center gap-3">
@@ -1097,12 +1094,12 @@ export default function Shell({
                                 onClick={() =>
                                   setMobileMenuOpen(false)
                                 }
-                                className="group flex w-full items-center justify-between rounded-xl border border-amber-300/20 bg-amber-300/[0.07] px-4 py-4 transition-all active:scale-[0.98]"
+                                className="group flex min-h-[58px] w-full items-center justify-between rounded-xl border border-amber-300/20 bg-amber-300/[0.07] px-3 py-2.5 transition-colors active:scale-[0.98]"
                               >
 
                                 <div className="flex items-center gap-3">
 
-                                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-300/10">
+                                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-300/10">
 
                                     <Shield className="h-4 w-4 text-amber-300" />
 
@@ -1139,12 +1136,12 @@ export default function Shell({
                                   onClick={() =>
                                     setMobileMenuOpen(false)
                                   }
-                                  className="group flex w-full items-center justify-between rounded-xl border border-amber-300/25 bg-amber-300/[0.08] px-4 py-4 transition-all hover:bg-amber-300/[0.12] active:scale-[0.98]"
+                                  className="group flex min-h-[62px] w-full items-center justify-between rounded-xl border border-amber-300/25 bg-amber-300/[0.08] px-3 py-3 transition-colors hover:bg-amber-300/[0.12] active:scale-[0.98]"
                                 >
 
                                   <div className="flex items-center gap-3">
 
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-300/10">
+                                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-300/10">
 
                                       <LayoutDashboard className="h-5 w-5 text-amber-300" />
 
@@ -1179,7 +1176,7 @@ export default function Shell({
                                       setMobileMenuOpen(false)
                                     }
                                     className={cn(
-                                      'group flex w-full items-center justify-between rounded-xl border px-4 py-4 transition-all active:scale-[0.98]',
+                                      'group flex min-h-[58px] w-full items-center justify-between rounded-xl border px-3 py-2.5 transition-colors active:scale-[0.98]',
                                       isActive('/admin/admin-management')
                                         ? 'border-amber-300/30 bg-amber-300/[0.08]'
                                         : 'border-white/[0.07] bg-white/[0.025] hover:bg-white/[0.05]'
@@ -1226,11 +1223,7 @@ export default function Shell({
                                   <div className="grid grid-cols-2 gap-2">
 
                                     {adminLinks
-                                      .filter(
-                                        (link) =>
-                                          !link.superAdminOnly ||
-                                          isSuperAdmin
-                                      )
+                                      .filter((link) => !link.superAdminOnly)
                                       .map((link) => {
 
                                         const Icon = link.icon;
@@ -1246,7 +1239,7 @@ export default function Shell({
                                               setMobileMenuOpen(false)
                                             }
                                             className={cn(
-                                              'group relative flex min-h-[90px] flex-col justify-between overflow-hidden rounded-xl border p-3 transition-all active:scale-[0.97]',
+                                              'group relative flex min-h-[58px] flex-col justify-between overflow-hidden rounded-xl border p-2.5 transition-colors active:scale-[0.98]',
                                               active
                                                 ? 'border-amber-300/30 bg-amber-300/[0.08]'
                                                 : 'border-white/[0.06] bg-white/[0.02] hover:border-amber-300/15 hover:bg-white/[0.04]'
@@ -1313,10 +1306,10 @@ export default function Shell({
                                     setMobileMenuOpen(false);
                                     logout();
                                   }}
-                                  className="flex w-full items-center gap-3 rounded-xl border border-red-400/10 bg-red-400/[0.035] px-4 py-4 text-left transition-all hover:bg-red-400/[0.07] active:scale-[0.98]"
+                                  className="flex min-h-[44px] w-full items-center gap-2.5 rounded-xl border border-red-400/15 bg-red-400/[0.035] px-3 py-2 text-left text-xs transition-colors hover:bg-red-400/[0.07] active:scale-[0.98]"
                                 >
 
-                                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-400/[0.06]">
+                                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-400/[0.06]">
 
                                     <LogOut className="h-4 w-4 text-red-400" />
 
@@ -1324,13 +1317,10 @@ export default function Shell({
 
                                   <div>
 
-                                    <p className="text-sm font-semibold text-red-400">
+                                    <p className="font-semibold text-red-400">
                                       Logout
                                     </p>
 
-                                    <p className="text-[10px] text-red-400/35">
-                                      Sign out of administration
-                                    </p>
 
                                   </div>
 
@@ -1354,7 +1344,7 @@ export default function Shell({
                     MOBILE FOOTER
                 ================================================== */}
 
-                <div className="pb-4 pt-8 text-center">
+                <div className="order-4 pb-2 pt-6 text-center">
 
                   <div className="mx-auto mb-4 flex items-center justify-center gap-2">
 
@@ -1402,7 +1392,7 @@ export default function Shell({
 
         <div className="pointer-events-none absolute inset-0">
 
-          <div className="absolute left-1/2 top-0 h-72 w-[600px] -translate-x-1/2 rounded-full bg-amber-400/[0.035] blur-[120px]" />
+          <div className="absolute left-1/2 top-0 hidden h-64 w-[480px] -translate-x-1/2 rounded-full bg-amber-400/[0.03] blur-[72px] sm:block" />
 
           <div
             className="absolute inset-0 opacity-[0.018]"

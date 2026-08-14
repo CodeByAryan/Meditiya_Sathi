@@ -37,21 +37,10 @@ export default function UpcomingTeaser() {
 
       <div className="pointer-events-none absolute inset-0">
         {/* Soft center glow */}
-        <motion.div
-          className="absolute left-1/2 top-1/2 h-[280px] w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-400/[0.07] blur-[90px] sm:h-[350px] sm:w-[350px]"
-          animate={{
-            scale: [1, 1.08, 1],
-            opacity: [0.35, 0.55, 0.35],
-          }}
-          transition={{
-            duration: 7,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
+        <div className="absolute left-1/2 top-1/2 h-[220px] w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-400/[0.05] blur-[64px] sm:h-[300px] sm:w-[300px] sm:blur-[80px]" />
 
         {/* Small side glow */}
-        <div className="absolute -right-24 top-1/2 h-48 w-48 -translate-y-1/2 rounded-full bg-orange-500/[0.06] blur-[80px]" />
+        <div className="absolute -right-24 top-1/2 hidden h-40 w-40 -translate-y-1/2 rounded-full bg-orange-500/[0.05] blur-[64px] sm:block" />
 
         {/* Subtle grid */}
         <div

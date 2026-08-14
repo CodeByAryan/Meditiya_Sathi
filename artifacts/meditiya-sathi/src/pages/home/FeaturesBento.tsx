@@ -79,18 +79,7 @@ export default function FeaturesBento() {
       />
 
       {/* Ambient glow */}
-      <motion.div
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[500px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-400/[0.045] blur-[150px]"
-        animate={{
-          scale: [1, 1.1, 1],
-          opacity: [0.35, 0.6, 0.35],
-        }}
-        transition={{
-          duration: 9,
-          repeat: Infinity,
-          ease: 'easeInOut',
-        }}
-      />
+      <div className="pointer-events-none absolute left-1/2 top-1/2 hidden h-[360px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-400/[0.035] blur-[88px] sm:block" />
 
       <div className="container relative z-10 mx-auto px-5 sm:px-6 lg:px-8">
 
@@ -202,17 +191,7 @@ export default function FeaturesBento() {
 
                     {/* Floating glow */}
 
-                    <motion.div
-                      className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-amber-400/[0.06] blur-3xl"
-                      animate={{
-                        scale: [1, 1.15, 1],
-                      }}
-                      transition={{
-                        duration: 5,
-                        repeat: Infinity,
-                        delay: index * 0.4,
-                      }}
-                    />
+                    <div className="pointer-events-none absolute -right-16 -top-16 hidden h-40 w-40 rounded-full bg-amber-400/[0.05] blur-2xl sm:block" />
 
                     {/* Icon + arrow */}
 
