@@ -1601,39 +1601,33 @@ export default function Shell({
 
             {/* CREATOR SHOWCASE */}
 
-            <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-3">
+<div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-3">
 
-              {/* <p className="text-[11px] text-muted-foreground dark:text-white/25">
-                Crafted with{' '}
-                <Heart className="mx-1 inline h-3 w-3 text-amber-500 dark:text-amber-400" />
-                by
-              </p> */}
+  <a
+    href="https://palekarlabs.vercel.app/"
+    aria-label="Palekar Labs"
+    className="group inline-flex items-center gap-2 rounded-full border border-amber-300/15 bg-amber-300/[0.04] px-3.5 py-1.5 transition-all duration-300 hover:border-amber-300/30 hover:bg-amber-300/[0.08] hover:shadow-[0_0_20px_rgba(245,158,11,0.10)]"
+  >
 
-              <a
-                href="https://github.com/CodeByAryan"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Visit Aryan Palekar on GitHub"
-                className="group inline-flex items-center gap-2 rounded-full border border-amber-300/15 bg-amber-300/[0.04] px-3.5 py-1.5 transition-all duration-300 hover:border-amber-300/30 hover:bg-amber-300/[0.08] hover:shadow-[0_0_20px_rgba(245,158,11,0.10)]"
-              >
+    <span className="text-[11px] font-semibold text-foreground transition-colors dark:text-white">
+      @palekarlabs
+    </span>
 
-                <span className="text-[11px] font-semibold text-foreground transition-colors dark:text-white">
-                  Aryan Palekar
-                </span>
+    <span className="h-3 w-px bg-white/10" />
 
-                <span className="h-3 w-px bg-white/10" />
+    <span className="flex h-5 w-5 items-center justify-center rounded-md bg-amber-300/10 text-[9px] font-bold text-amber-500 transition-transform duration-300 group-hover:scale-110 dark:text-amber-300">
+      PL
+    </span>
 
-                <Github className="h-3.5 w-3.5 text-amber-500 transition-transform duration-300 group-hover:scale-110 dark:text-amber-300" />
+    <span className="text-[10px] font-medium text-muted-foreground transition-colors group-hover:text-amber-600 dark:text-white/35 dark:group-hover:text-amber-300">
+      Palekar Labs
+    </span>
 
-                <span className="text-[10px] font-medium text-muted-foreground transition-colors group-hover:text-amber-600 dark:text-white/35 dark:group-hover:text-amber-300">
-                  CodeByAryan
-                </span>
+    <ArrowUpRight className="h-3 w-3 text-white/20 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-amber-300" />
 
-                <ArrowUpRight className="h-3 w-3 text-white/20 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-amber-300" />
+  </a>
 
-              </a>
-
-            </div>
+</div>
 
           </div>
 
