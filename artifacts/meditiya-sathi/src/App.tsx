@@ -11,6 +11,7 @@ const Home = lazy(() => import('@/pages/home'));
 const Countdown = lazy(() => import('@/pages/countdown'));
 const About = lazy(() => import('@/pages/about'));
 const Events = lazy(() => import('@/pages/events'));
+const EventDetail = lazy(() => import('@/pages/event-detail'));
 const Festivals = lazy(() => import('@/pages/festivals'));
 const Notices = lazy(() => import('@/pages/notices'));
 const Gallery = lazy(() => import('@/pages/gallery'));
@@ -79,6 +80,7 @@ function AppRoutes() {
         
         <Route path="/about"><Shell><About /></Shell></Route>
         <Route path="/events"><Shell><Events /></Shell></Route>
+        <Route path="/events/:id"><Shell><EventDetail /></Shell></Route>
         <Route path="/festivals"><Shell><Festivals /></Shell></Route>
         <Route path="/notices"><Shell><Notices /></Shell></Route>
         <Route path="/gallery"><Shell><Gallery /></Shell></Route>

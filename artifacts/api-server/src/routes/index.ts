@@ -24,6 +24,7 @@ import adminManagementRouter from "./admin-management";
 import outsiderDonationsRouter from "./outsider-donations";
 import tshirtRegistrationsRouter from "./tshirt-registrations";
 import tshirtCollectionRouter from "./tshirt-collection";
+import uploadsRouter from "./uploads";
 
 
 const router: IRouter = Router();
@@ -53,6 +54,7 @@ router.use(adminManagementRouter);
 router.use(outsiderDonationsRouter);
 router.use(tshirtRegistrationsRouter);
 router.use(tshirtCollectionRouter);
+router.use(uploadsRouter);
 
 
 export default router;

@@ -9,7 +9,8 @@
   },
   "scripts": {
     "push": "node ./scripts/push-db.mjs",
-    "push-force": "node ./scripts/push-db.mjs"
+    "push-force": "node ./scripts/push-db.mjs",
+    "migrate:events-management": "node ./scripts/migrate-events-management.mjs"
   },
 
 

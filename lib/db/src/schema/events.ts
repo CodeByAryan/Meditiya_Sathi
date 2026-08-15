@@ -8,6 +8,9 @@ export const eventsTable = pgTable("events", {
   title: text("title").notNull(),
   description: text("description").notNull(),
   date: timestamp("date", { withTimezone: true }).notNull(),
+  // Kept separately for clear display and editable forms; `date` remains the
+  // canonical instant used by the existing summary/countdown queries.
+  eventTime: text("event_time"),
   endDate: timestamp("end_date", { withTimezone: true }),
   location: text("location").notNull(),
   category: text("category").notNull(),
@@ -16,6 +19,7 @@ export const eventsTable = pgTable("events", {
   maxParticipants: integer("max_participants"),
   festivalId: integer("festival_id").references(() => festivalsTable.id),
   assignedVolunteerId: text("assigned_volunteer_id"), // references admin.id for volunteer assignment
+  createdBy: text("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

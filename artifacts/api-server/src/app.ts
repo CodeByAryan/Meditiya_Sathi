@@ -1,3 +1,4 @@
+import "./load-env.js";
 import express, {
   type Express,
   type Request,

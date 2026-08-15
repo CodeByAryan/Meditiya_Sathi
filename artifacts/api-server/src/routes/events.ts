@@ -12,8 +12,28 @@ import {
   RegisterForEventBody,
   ListEventsQueryParams,
 } from "@workspace/api-zod";
+import { z } from "zod";
 
 const router: IRouter = Router();
+
+const AdminEventBody = CreateEventBody.extend({
+  eventTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Event time must use HH:MM format").optional(),
+  status: z.enum(["upcoming", "ongoing", "completed", "cancelled"]).optional(),
+});
+
+const AdminEventUpdateBody = UpdateEventBody.extend({
+  eventTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Event time must use HH:MM format").nullable().optional(),
+  status: z.enum(["upcoming", "ongoing", "completed", "cancelled"]).optional(),
+});
+
+function isCloudinaryImageUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.hostname === "res.cloudinary.com";
+  } catch {
+    return false;
+  }
+}
 
 // ── Admin routes for event management ──────────────────────────────────────
 
@@ -125,13 +145,18 @@ router.get("/admin/events/:id", requireRole("Super Admin", "Admin", "Volunteer")
 // ── Create event: Only Super Admin and Admin ────────────────────────────────
 router.post("/admin/events", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
-    const parsed = CreateEventBody.safeParse(req.body);
+    const parsed = AdminEventBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+    if (parsed.data.imageUrl && !isCloudinaryImageUrl(parsed.data.imageUrl)) {
+      res.status(400).json({ error: "Event image must be a secure Cloudinary URL." });
+      return;
+    }
 
     const [event] = await db.insert(eventsTable).values({
       ...parsed.data,
       date: new Date(parsed.data.date),
       endDate: parsed.data.endDate ? new Date(parsed.data.endDate) : null,
+      createdBy: (req as any).admin.id,
     }).returning();
     res.status(201).json({ ...event, registrationCount: 0 });
   } catch (err: any) {
@@ -167,8 +192,12 @@ router.patch("/admin/events/:id", requireRole("Super Admin", "Admin", "Volunteer
       }
     }
 
-    const parsed = UpdateEventBody.safeParse(req.body);
+    const parsed = AdminEventUpdateBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+    if (parsed.data.imageUrl && !isCloudinaryImageUrl(parsed.data.imageUrl)) {
+      res.status(400).json({ error: "Event image must be a secure Cloudinary URL." });
+      return;
+    }
 
     const updateData: any = { ...parsed.data };
 
@@ -242,14 +271,14 @@ router.get("/events", async (req, res): Promise<void> => {
 
   const now = new Date();
   let conditions: any[] = [];
-  if (status === "upcoming") conditions.push(gte(eventsTable.date, now));
+  if (status === "upcoming") conditions.push(gte(eventsTable.date, now), eq(eventsTable.status, "upcoming"));
   if (status === "past") conditions.push(lt(eventsTable.date, now));
 
   const events = await db
     .select()
     .from(eventsTable)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(eventsTable.date))
+    .orderBy(status === "upcoming" ? eventsTable.date : desc(eventsTable.date))
     .limit(limit);
 
   const withCounts = await Promise.all(
@@ -267,7 +296,7 @@ router.get("/events/upcoming/summary", async (_req, res): Promise<void> => {
   const events = await db
     .select()
     .from(eventsTable)
-    .where(gte(eventsTable.date, now))
+    .where(and(gte(eventsTable.date, now), eq(eventsTable.status, "upcoming")))
     .orderBy(eventsTable.date)
     .limit(3);
 
