@@ -245,7 +245,7 @@ function BuildingSearchDropdown({ onSelect, selectedBuilding, onClear }: {
       </div>
 
       {isOpen && results.length > 0 && !selectedBuilding && (
-        <div className="absolute z-50 mt-1 w-full border border-border rounded-xl bg-card shadow-xl max-h-60 overflow-y-auto">
+        <div className="floating-suggestion-panel mt-1 max-h-60 overflow-y-auto rounded-xl border border-border shadow-xl">
           {results.map(b => (
             <button
               key={b.id}
@@ -262,7 +262,7 @@ function BuildingSearchDropdown({ onSelect, selectedBuilding, onClear }: {
       )}
 
       {isOpen && results.length === 0 && query.length >= 2 && (
-        <div className="absolute z-50 mt-1 w-full border border-border rounded-xl bg-card shadow-xl p-4 text-center text-sm text-muted-foreground">
+        <div className="floating-suggestion-panel mt-1 rounded-xl border border-border p-4 text-center text-sm text-muted-foreground shadow-xl">
           No buildings found matching "{query}"
         </div>
       )}
@@ -658,7 +658,7 @@ const clearForm = () => {
         )}
 
         {/* Registration Form */}
-        <div className="glass-card-glow rounded-2xl p-6 relative overflow-hidden mb-6">
+        <div className="glass-card-glow relative mb-6 rounded-2xl p-6">
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-purple-500 to-teal-400 opacity-70" />
           <h2 className="text-lg font-serif font-bold text-foreground mb-5 flex items-center gap-2">
             <Plus className="w-5 h-5 text-primary" /> Add T-Shirt Registration

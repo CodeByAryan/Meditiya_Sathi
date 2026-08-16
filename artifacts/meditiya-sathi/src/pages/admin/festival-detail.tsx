@@ -265,7 +265,7 @@ const handleClear = () => {
       </div>
 
         {isOpen && results.length > 0 && !selectedResident && (
-        <div className="absolute z-50 mt-1 w-full rounded-xl bg-white/[0.03] border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.6)] max-h-80 overflow-y-auto backdrop-blur-2xl">
+        <div className="floating-suggestion-panel mt-1 max-h-80 overflow-y-auto rounded-xl border border-white/10 bg-[#141412] text-white shadow-[0_12px_40px_rgba(0,0,0,0.6)]">
           {results.map((r, idx) => (
             <button
               key={r.id}
@@ -298,7 +298,7 @@ const handleClear = () => {
       )}
 
       {isOpen && results.length === 0 && query.length >= 2 && !isSearching && (
-        <div className="absolute z-50 mt-1 w-full rounded-xl bg-white/[0.03] border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-4 text-center text-sm text-white/60">
+        <div className="floating-suggestion-panel mt-1 rounded-xl border border-white/10 bg-[#141412] p-4 text-center text-sm text-white/60 shadow-[0_12px_40px_rgba(0,0,0,0.6)]">
           No residents found matching "{query}"
         </div>
       )}
@@ -1318,7 +1318,7 @@ const fetchStats = useCallback(async () => {
   const hasActiveFilters = filterDonationStatus || filterBuildingId || filterWingId || filterPaymentMethod || filterDateFrom || filterDateTo || filterAmountMin || filterAmountMax || filterAdminId || filterPendingReason;
 
   return (
-    <div className="relative min-h-screen bg-[#080808] overflow-hidden pb-20">
+    <div className="relative min-h-screen overflow-x-hidden bg-[#080808] pb-20">
       {/* Cinematic overlays */}
       <div className="absolute inset-0 z-0 bg-black/45" />
       <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_50%_20%,rgba(255,170,70,0.12),transparent_40%)]" />

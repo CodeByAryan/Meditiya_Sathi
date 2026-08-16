@@ -357,7 +357,7 @@ function FestivalDropdown({
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+        <div className="floating-suggestion-panel mt-2 overflow-hidden rounded-2xl border border-border shadow-2xl">
           <div className="border-b border-border bg-muted/20 p-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -621,7 +621,7 @@ function ResidentSearchDropdown({
       </div>
 
       {isOpen && results.length > 0 && !selectedResident && (
-        <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+        <div className="floating-suggestion-panel mt-2 overflow-hidden rounded-2xl border border-border shadow-2xl">
           <div className="max-h-80 overflow-y-auto p-2">
             {results.map((resident, index) => (
               <button
@@ -673,7 +673,7 @@ function ResidentSearchDropdown({
         results.length === 0 &&
         query.trim().length >= 2 &&
         !isSearching && (
-          <div className="absolute z-50 mt-2 w-full rounded-2xl border border-border bg-card p-6 text-center shadow-2xl">
+          <div className="floating-suggestion-panel mt-2 rounded-2xl border border-border p-6 text-center shadow-2xl">
             <Search className="mx-auto mb-2 h-7 w-7 text-muted-foreground/50" />
 
             <p className="text-sm font-semibold text-foreground">

@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import {
   motion,
@@ -60,6 +60,11 @@ export default function Shell({
 
   const shouldReduceMotion = useReducedMotion();
 
+  const closeMobileMenu = useCallback(() => {
+    setMobileMenuOpen(false);
+    setMoreOpen(false);
+  }, []);
+
   useEffect(() => {
     let frameId = 0;
     const handleScroll = () => {
@@ -82,10 +87,20 @@ export default function Shell({
   }, []);
 
   useEffect(() => {
-    setMobileMenuOpen(false);
-    setMoreOpen(false);
+    closeMobileMenu();
     setAdminOpen(true);
-  }, [location]);
+  }, [closeMobileMenu, location]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeMobileMenu();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [closeMobileMenu, mobileMenuOpen]);
 
   useEffect(() => {
     if (mobileMenuOpen) setAdminOpen(true);
@@ -673,13 +688,18 @@ export default function Shell({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-40 lg:hidden"
+            onClickCapture={(event) => {
+              if ((event.target as HTMLElement).closest('a[href]')) {
+                closeMobileMenu();
+              }
+            }}
           >
 
             {/* BACKDROP */}
 
             <div
               className="absolute inset-0 bg-black/65 sm:bg-black/50 sm:backdrop-blur-sm dark:bg-black/75"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={closeMobileMenu}
             />
 
             {/* MENU PANEL */}

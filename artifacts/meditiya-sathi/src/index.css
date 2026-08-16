@@ -166,6 +166,19 @@
   }
 }
 
+/* Floating field suggestions sit above their form surfaces without inheriting
+   translucent glass backgrounds from the surrounding page. */
+@layer components {
+  .floating-suggestion-panel {
+    position: absolute;
+    z-index: 60;
+    width: 100%;
+    background-color: hsl(var(--popover));
+    color: hsl(var(--popover-foreground));
+    isolation: isolate;
+  }
+}
+
 /* === Glassmorphism Utilities === */
 
 .glass {
