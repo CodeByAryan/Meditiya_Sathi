@@ -5,6 +5,7 @@ import express, {
   type Response,
 } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import pinoHttpModule from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -36,6 +37,7 @@ app.use(
 );
 
 app.use(cors({ credentials: true, origin: true }));
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

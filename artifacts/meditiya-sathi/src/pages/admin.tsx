@@ -254,7 +254,7 @@ export default function Admin() {
             name: 'Competitions',
             description: 'Manage society competitions',
             icon: Trophy,
-            href: null,
+             href: '/admin/competitions',
           },
           {
             name: 'Complaints',

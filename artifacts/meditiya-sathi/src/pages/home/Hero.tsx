@@ -308,8 +308,7 @@ export default function Hero() {
           >
             {/* PRIMARY */}
 
-            <Link href="/festivals">
-              <motion.a
+            <motion.a href="/festivals"
                 whileHover={{
                   scale: 1.03,
                 }}
@@ -343,13 +342,11 @@ export default function Hero() {
                     group-hover:translate-x-1
                   "
                 />
-              </motion.a>
-            </Link>
+            </motion.a>
 
             {/* SECONDARY */}
 
-            <Link href="/admin-login">
-              <motion.a
+            <motion.a href="/admin-login"
                 whileHover={{
                   scale: 1.03,
                   backgroundColor: 'rgba(255,255,255,0.12)',
@@ -387,8 +384,7 @@ export default function Hero() {
                 />
 
                 Admin Login
-              </motion.a>
-            </Link>
+            </motion.a>
           </motion.div>
 
           {/* =====================================================
@@ -425,8 +421,7 @@ export default function Hero() {
               sm:mt-14
             "
           >
-            <Link href="/countdown">
-              <motion.a
+            <motion.a href="/countdown"
                 whileHover={{
                   y: -4,
                 }}
@@ -545,15 +540,14 @@ export default function Hero() {
                     "
                   />
                 </div>
-              </motion.a>
-            </Link>
+            </motion.a>
           </motion.div>
         </motion.div>
       </div>
 
       {/* =========================================================
           SCROLL INDICATOR
-          
+
           MOBILE FIX:
           Positioned below countdown card instead of overlapping.
           Hidden on very small screens where vertical space is tight.

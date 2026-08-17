@@ -18,6 +18,7 @@ const Gallery = lazy(() => import('@/pages/gallery'));
 const Donations = lazy(() => import('@/pages/donations'));
 const Volunteers = lazy(() => import('@/pages/volunteers'));
 const Competitions = lazy(() => import('@/pages/competitions'));
+const CompetitionDetail = lazy(() => import('@/pages/competition-detail'));
 const Services = lazy(() => import('@/pages/services'));
 const Emergency = lazy(() => import('@/pages/emergency'));
 const Marketplace = lazy(() => import('@/pages/marketplace'));
@@ -38,6 +39,7 @@ const AdminAddDonation = lazy(() => import('@/pages/admin/add-donation'));
 const AdminOutsiderDonations = lazy(() => import('@/pages/admin/outsider-donations'));
 const AdminTshirtRegistrations = lazy(() => import('@/pages/admin/tshirt-registrations'));
 const AdminManagement = lazy(() => import('@/pages/admin/admin-management'));
+const AdminCompetitions = lazy(() => import('@/pages/admin/competitions'));
 const AdminLogin = lazy(() => import('@/pages/admin-login'));
 const NotFound = lazy(() => import('@/pages/not-found'));
 
@@ -72,12 +74,12 @@ function AppRoutes() {
       <Suspense fallback={<div className="min-h-[100dvh] bg-[var(--page-bg)]" />}>
       <Switch>
         <Route path="/admin-login" component={AdminLogin} />
-        
+
         <Route path="/">
           <Shell><Home /></Shell>
         </Route>
         <Route path="/countdown"><Shell><Countdown /></Shell></Route>
-        
+
         <Route path="/about"><Shell><About /></Shell></Route>
         <Route path="/events"><Shell><Events /></Shell></Route>
         <Route path="/events/:id"><Shell><EventDetail /></Shell></Route>
@@ -87,13 +89,14 @@ function AppRoutes() {
         <Route path="/donations"><Shell><Donations /></Shell></Route>
         <Route path="/volunteers"><Shell><Volunteers /></Shell></Route>
         <Route path="/competitions"><Shell><Competitions /></Shell></Route>
+        <Route path="/competitions/:id"><Shell><CompetitionDetail /></Shell></Route>
         <Route path="/services"><Shell><Services /></Shell></Route>
         <Route path="/emergency"><Shell><Emergency /></Shell></Route>
         <Route path="/marketplace"><Shell><Marketplace /></Shell></Route>
         <Route path="/lost-found"><Shell><LostFound /></Shell></Route>
         <Route path="/live"><Shell><Live /></Shell></Route>
         <Route path="/contact"><Shell><Contact /></Shell></Route>
-        
+
         <Route path="/admin">
           <AdminShell><Admin /></AdminShell>
         </Route>
@@ -138,6 +141,9 @@ function AppRoutes() {
         </Route>
         <Route path="/admin/admin-management">
           <AdminShell><AdminManagement /></AdminShell>
+        </Route>
+        <Route path="/admin/competitions">
+          <AdminShell><AdminCompetitions /></AdminShell>
         </Route>
 
         <Route>

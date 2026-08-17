@@ -14,13 +14,11 @@ jobs:
     environment: backup
 
     steps:
-
       # =========================================
       # 1. Checkout Repository
       # =========================================
       - name: Checkout repository
         uses: actions/checkout@v4
-
 
       # =========================================
       # 2. Install PostgreSQL 18 Client
@@ -55,10 +53,7 @@ jobs:
 
           echo "PostgreSQL 18 installation completed."
 
-          echo "Checking PostgreSQL 18 pg_dump directly..."
-
           /usr/lib/postgresql/18/bin/pg_dump --version
-
 
       # =========================================
       # 3. Create Backup Directory
@@ -66,7 +61,6 @@ jobs:
       - name: Create backup directory
         run: |
           mkdir -p backups
-
 
       # =========================================
       # 4. Create PostgreSQL Backup
@@ -85,14 +79,12 @@ jobs:
           fi
 
           TIMESTAMP=$(date -u +"%Y-%m-%d_%H-%M-%S")
-
           BACKUP_FILE="backups/backup_${TIMESTAMP}.sql.gz"
 
           echo "========================================="
           echo "Creating PostgreSQL backup..."
           echo "========================================="
 
-          echo "Using PostgreSQL 18 pg_dump:"
           /usr/lib/postgresql/18/bin/pg_dump --version
 
           echo "Starting database dump..."
@@ -112,14 +104,12 @@ jobs:
           echo "BACKUP_FILE=$BACKUP_FILE" >> "$GITHUB_ENV"
           echo "TIMESTAMP=$TIMESTAMP" >> "$GITHUB_ENV"
 
-
       # =========================================
       # 5. Install Google Drive Client
       # =========================================
       - name: Install Google Drive client
         run: |
           npm install googleapis@latest
-
 
       # =========================================
       # 6. Check Google Drive Secrets
@@ -165,7 +155,6 @@ jobs:
           fi
 
           echo "All required Google Drive secrets are available."
-
 
       # =========================================
       # 7. Upload Daily Backup
@@ -255,7 +244,6 @@ jobs:
           EOF
 
           node upload-backup.mjs
-
 
       # =========================================
       # 8. Upload Sunday Weekly Backup
@@ -366,7 +354,6 @@ jobs:
 
           node upload-weekly.mjs
 
-
       # =========================================
       # 9. Cleanup
       # =========================================
@@ -376,7 +363,6 @@ jobs:
           rm -rf backups
           rm -f upload-backup.mjs
           rm -f upload-weekly.mjs
-
 
       # =========================================
       # 10. Backup Completed
