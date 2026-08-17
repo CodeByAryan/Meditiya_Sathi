@@ -1,3 +1,4 @@
+```yaml
 name: Meditiya Sathi Database Backup
 
 on:
@@ -5,7 +6,6 @@ on:
     # 11:00 PM IST = 17:30 UTC
     - cron: "30 17 * * *"
 
-  # Allows manual "Run workflow" button
   workflow_dispatch:
 
 permissions:
@@ -16,22 +16,23 @@ jobs:
     name: Database Backup
     runs-on: ubuntu-latest
 
-    environment: backup
-
     steps:
+
       # =========================================
       # 1. Checkout Repository
       # =========================================
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
+
 
       # =========================================
       # 2. Setup Node.js 24
       # =========================================
-      - name: Setup Node.js 24
-        uses: actions/setup-node@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
+
 
       # =========================================
       # 3. Install PostgreSQL 18 Client
@@ -41,9 +42,7 @@ jobs:
         run: |
           set -e
 
-          echo "========================================="
           echo "Installing PostgreSQL 18 client..."
-          echo "========================================="
 
           sudo apt-get update
 
@@ -55,13 +54,9 @@ jobs:
 
           sudo install -d /usr/share/postgresql-common/pgdg
 
-          curl \
-            --fail \
-            --silent \
-            --show-error \
-            --location \
+          curl --fail \
             https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+            | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc > /dev/null
 
           echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
             | sudo tee /etc/apt/sources.list.d/pgdg.list
@@ -70,20 +65,18 @@ jobs:
 
           sudo apt-get install -y postgresql-client-18
 
-          echo "========================================="
-          echo "PostgreSQL client installed"
-          echo "========================================="
+          echo "PostgreSQL client installed."
 
           /usr/lib/postgresql/18/bin/pg_dump --version
+
 
       # =========================================
       # 4. Create Backup Directory
       # =========================================
       - name: Create backup directory
-        shell: bash
         run: |
-          set -e
           mkdir -p backups
+
 
       # =========================================
       # 5. Create PostgreSQL Backup
@@ -96,26 +89,18 @@ jobs:
           set -e
           set -o pipefail
 
-          echo "========================================="
-          echo "Checking DATABASE_URL..."
-          echo "========================================="
-
           if [ -z "$DATABASE_URL" ]; then
-            echo "ERROR: DATABASE_URL secret is missing."
+            echo "ERROR: DATABASE_URL GitHub secret is missing."
             exit 1
           fi
 
           TIMESTAMP=$(date -u +"%Y-%m-%d_%H-%M-%S")
+
           BACKUP_FILE="backups/backup_${TIMESTAMP}.sql.gz"
 
           echo "========================================="
-          echo "Creating PostgreSQL backup..."
+          echo "Creating PostgreSQL backup"
           echo "========================================="
-
-          echo "PostgreSQL version:"
-          /usr/lib/postgresql/18/bin/pg_dump --version
-
-          echo "Starting database dump..."
 
           /usr/lib/postgresql/18/bin/pg_dump \
             "$DATABASE_URL" \
@@ -124,37 +109,33 @@ jobs:
             --format=plain \
             | gzip -9 > "$BACKUP_FILE"
 
-          echo "========================================="
-          echo "Backup created successfully!"
-          echo "========================================="
+          if [ ! -s "$BACKUP_FILE" ]; then
+            echo "ERROR: Backup file is empty."
+            exit 1
+          fi
+
+          echo "Backup created successfully."
 
           ls -lh "$BACKUP_FILE"
 
           echo "BACKUP_FILE=$BACKUP_FILE" >> "$GITHUB_ENV"
           echo "TIMESTAMP=$TIMESTAMP" >> "$GITHUB_ENV"
 
+
       # =========================================
       # 6. Install Google Drive Client
       # =========================================
       - name: Install Google Drive client
-        shell: bash
         run: |
-          set -e
+          npm install googleapis@latest
 
-          echo "Installing Google APIs client..."
-
-          npm install googleapis@latest --no-save
-
-          echo "Google APIs client installed successfully."
 
       # =========================================
-      # 7. Check Google Drive Secrets
+      # 7. Verify Google Service Account Secret
       # =========================================
-      - name: Check Google Drive secrets
+      - name: Verify Google Drive configuration
         env:
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           GDRIVE_DAILY_FOLDER_ID: ${{ secrets.GDRIVE_DAILY_FOLDER_ID }}
           GDRIVE_WEEKLY_FOLDER_ID: ${{ secrets.GDRIVE_WEEKLY_FOLDER_ID }}
         shell: bash
@@ -162,21 +143,11 @@ jobs:
           set -e
 
           echo "========================================="
-          echo "Checking Google Drive configuration..."
+          echo "Checking Google Drive configuration"
           echo "========================================="
 
-          if [ -z "$GOOGLE_CLIENT_ID" ]; then
-            echo "ERROR: GOOGLE_CLIENT_ID is missing."
-            exit 1
-          fi
-
-          if [ -z "$GOOGLE_CLIENT_SECRET" ]; then
-            echo "ERROR: GOOGLE_CLIENT_SECRET is missing."
-            exit 1
-          fi
-
-          if [ -z "$GOOGLE_REFRESH_TOKEN" ]; then
-            echo "ERROR: GOOGLE_REFRESH_TOKEN is missing."
+          if [ -z "$GOOGLE_SERVICE_ACCOUNT_JSON" ]; then
+            echo "ERROR: GOOGLE_SERVICE_ACCOUNT_JSON is missing."
             exit 1
           fi
 
@@ -187,19 +158,18 @@ jobs:
 
           if [ -z "$GDRIVE_WEEKLY_FOLDER_ID" ]; then
             echo "WARNING: GDRIVE_WEEKLY_FOLDER_ID is missing."
-            echo "Sunday weekly backup will be skipped."
+            echo "Weekly backup will be skipped."
           fi
 
-          echo "Google Drive configuration check completed."
+          echo "Google Drive configuration exists."
+
 
       # =========================================
       # 8. Upload Daily Backup
       # =========================================
       - name: Upload daily backup to Google Drive
         env:
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           GDRIVE_DAILY_FOLDER_ID: ${{ secrets.GDRIVE_DAILY_FOLDER_ID }}
           BACKUP_FILE: ${{ env.BACKUP_FILE }}
           TIMESTAMP: ${{ env.TIMESTAMP }}
@@ -211,77 +181,122 @@ jobs:
           import fs from "fs";
           import { google } from "googleapis";
 
-          const clientId = process.env.GOOGLE_CLIENT_ID;
-          const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-          const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
-          const folderId = process.env.GDRIVE_DAILY_FOLDER_ID;
-          const backupFile = process.env.BACKUP_FILE;
-          const timestamp = process.env.TIMESTAMP;
+          const serviceAccountJson =
+            process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
 
-          if (!clientId) {
-            throw new Error("GOOGLE_CLIENT_ID is missing.");
-          }
+          const folderId =
+            process.env.GDRIVE_DAILY_FOLDER_ID;
 
-          if (!clientSecret) {
-            throw new Error("GOOGLE_CLIENT_SECRET is missing.");
-          }
+          const backupFile =
+            process.env.BACKUP_FILE;
 
-          if (!refreshToken) {
-            throw new Error("GOOGLE_REFRESH_TOKEN is missing.");
+          const timestamp =
+            process.env.TIMESTAMP;
+
+          if (!serviceAccountJson) {
+            throw new Error(
+              "GOOGLE_SERVICE_ACCOUNT_JSON is missing."
+            );
           }
 
           if (!folderId) {
-            throw new Error("GDRIVE_DAILY_FOLDER_ID is missing.");
+            throw new Error(
+              "GDRIVE_DAILY_FOLDER_ID is missing."
+            );
           }
 
           if (!backupFile) {
-            throw new Error("BACKUP_FILE is missing.");
+            throw new Error(
+              "BACKUP_FILE is missing."
+            );
           }
 
           if (!fs.existsSync(backupFile)) {
-            throw new Error(`Backup file does not exist: ${backupFile}`);
+            throw new Error(
+              `Backup file does not exist: ${backupFile}`
+            );
           }
 
-          const auth = new google.auth.OAuth2(
-            clientId,
-            clientSecret
+          let credentials;
+
+          try {
+            credentials = JSON.parse(serviceAccountJson);
+          } catch {
+            throw new Error(
+              "GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON."
+            );
+          }
+
+          if (
+            !credentials.client_email ||
+            !credentials.private_key
+          ) {
+            throw new Error(
+              "Service account JSON is missing client_email or private_key."
+            );
+          }
+
+          const auth =
+            new google.auth.GoogleAuth({
+              credentials,
+              scopes: [
+                "https://www.googleapis.com/auth/drive"
+              ]
+            });
+
+          const drive =
+            google.drive({
+              version: "v3",
+              auth
+            });
+
+          const fileName =
+            `backup_${timestamp}.sql.gz`;
+
+          console.log(
+            `Uploading ${fileName}...`
           );
 
-          auth.setCredentials({
-            refresh_token: refreshToken
-          });
+          const response =
+            await drive.files.create({
+              requestBody: {
+                name: fileName,
+                parents: [folderId]
+              },
+              media: {
+                mimeType: "application/gzip",
+                body: fs.createReadStream(backupFile)
+              },
+              fields: "id,name,size"
+            });
 
-          const drive = google.drive({
-            version: "v3",
-            auth
-          });
+          console.log(
+            "========================================="
+          );
 
-          const fileName = `backup_${timestamp}.sql.gz`;
+          console.log(
+            "Daily backup uploaded successfully."
+          );
 
-          console.log("=========================================");
-          console.log(`Uploading ${fileName}...`);
-          console.log("=========================================");
+          console.log(
+            "========================================="
+          );
 
-          const response = await drive.files.create({
-            requestBody: {
-              name: fileName,
-              parents: [folderId]
-            },
-            media: {
-              mimeType: "application/gzip",
-              body: fs.createReadStream(backupFile)
-            },
-            fields: "id,name"
-          });
+          console.log(
+            `File: ${response.data.name}`
+          );
 
-          console.log("=========================================");
-          console.log("Daily backup uploaded successfully.");
-          console.log("=========================================");
-          console.log(`File: ${response.data.name}`);
-          console.log(`File ID: ${response.data.id}`);
+          console.log(
+            `File ID: ${response.data.id}`
+          );
+
+          console.log(
+            `Size: ${response.data.size ?? "unknown"} bytes`
+          );
           EOF
 
           node upload-backup.mjs
+
 
       # =========================================
       # 9. Upload Sunday Weekly Backup
@@ -289,9 +304,7 @@ jobs:
       - name: Upload Sunday weekly backup
         if: success()
         env:
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           GDRIVE_WEEKLY_FOLDER_ID: ${{ secrets.GDRIVE_WEEKLY_FOLDER_ID }}
           BACKUP_FILE: ${{ env.BACKUP_FILE }}
           TIMESTAMP: ${{ env.TIMESTAMP }}
@@ -313,112 +326,151 @@ jobs:
             exit 0
           fi
 
-          echo "========================================="
-          echo "Today is Sunday."
-          echo "Creating weekly Google Drive backup..."
-          echo "========================================="
-
           cat > upload-weekly.mjs <<'EOF'
           import fs from "fs";
           import { google } from "googleapis";
 
-          const clientId = process.env.GOOGLE_CLIENT_ID;
-          const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-          const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
-          const folderId = process.env.GDRIVE_WEEKLY_FOLDER_ID;
-          const backupFile = process.env.BACKUP_FILE;
-          const timestamp = process.env.TIMESTAMP;
+          const serviceAccountJson =
+            process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
 
-          if (!clientId) {
-            throw new Error("GOOGLE_CLIENT_ID is missing.");
-          }
+          const folderId =
+            process.env.GDRIVE_WEEKLY_FOLDER_ID;
 
-          if (!clientSecret) {
-            throw new Error("GOOGLE_CLIENT_SECRET is missing.");
-          }
+          const backupFile =
+            process.env.BACKUP_FILE;
 
-          if (!refreshToken) {
-            throw new Error("GOOGLE_REFRESH_TOKEN is missing.");
+          const timestamp =
+            process.env.TIMESTAMP;
+
+          if (!serviceAccountJson) {
+            throw new Error(
+              "GOOGLE_SERVICE_ACCOUNT_JSON is missing."
+            );
           }
 
           if (!folderId) {
-            throw new Error("GDRIVE_WEEKLY_FOLDER_ID is missing.");
+            throw new Error(
+              "GDRIVE_WEEKLY_FOLDER_ID is missing."
+            );
           }
 
           if (!backupFile) {
-            throw new Error("BACKUP_FILE is missing.");
+            throw new Error(
+              `Backup file does not exist: ${backupFile}`
+            );
           }
 
           if (!fs.existsSync(backupFile)) {
-            throw new Error(`Backup file does not exist: ${backupFile}`);
+            throw new Error(
+              `Backup file does not exist: ${backupFile}`
+            );
           }
 
-          const auth = new google.auth.OAuth2(
-            clientId,
-            clientSecret
+          let credentials;
+
+          try {
+            credentials = JSON.parse(serviceAccountJson);
+          } catch {
+            throw new Error(
+              "GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON."
+            );
+          }
+
+          if (
+            !credentials.client_email ||
+            !credentials.private_key
+          ) {
+            throw new Error(
+              "Service account JSON is missing client_email or private_key."
+            );
+          }
+
+          const auth =
+            new google.auth.GoogleAuth({
+              credentials,
+              scopes: [
+                "https://www.googleapis.com/auth/drive"
+              ]
+            });
+
+          const drive =
+            google.drive({
+              version: "v3",
+              auth
+            });
+
+          const date =
+            timestamp.split("_")[0];
+
+          const fileName =
+            `weekly_backup_${date}.sql.gz`;
+
+          console.log(
+            `Uploading weekly backup: ${fileName}`
           );
 
-          auth.setCredentials({
-            refresh_token: refreshToken
-          });
+          const response =
+            await drive.files.create({
+              requestBody: {
+                name: fileName,
+                parents: [folderId]
+              },
+              media: {
+                mimeType: "application/gzip",
+                body: fs.createReadStream(backupFile)
+              },
+              fields: "id,name,size"
+            });
 
-          const drive = google.drive({
-            version: "v3",
-            auth
-          });
+          console.log(
+            "========================================="
+          );
 
-          const date = timestamp.split("_")[0];
+          console.log(
+            "Weekly backup uploaded successfully."
+          );
 
-          const fileName = `weekly_backup_${date}.sql.gz`;
+          console.log(
+            "========================================="
+          );
 
-          console.log("=========================================");
-          console.log(`Uploading ${fileName}...`);
-          console.log("=========================================");
+          console.log(
+            `File: ${response.data.name}`
+          );
 
-          const response = await drive.files.create({
-            requestBody: {
-              name: fileName,
-              parents: [folderId]
-            },
-            media: {
-              mimeType: "application/gzip",
-              body: fs.createReadStream(backupFile)
-            },
-            fields: "id,name"
-          });
+          console.log(
+            `File ID: ${response.data.id}`
+          );
 
-          console.log("=========================================");
-          console.log("Weekly backup uploaded successfully.");
-          console.log("=========================================");
-          console.log(`File: ${response.data.name}`);
-          console.log(`File ID: ${response.data.id}`);
+          console.log(
+            `Size: ${response.data.size ?? "unknown"} bytes`
+          );
           EOF
 
           node upload-weekly.mjs
+
 
       # =========================================
       # 10. Cleanup
       # =========================================
       - name: Cleanup
         if: always()
-        shell: bash
         run: |
           rm -rf backups
           rm -f upload-backup.mjs
           rm -f upload-weekly.mjs
 
-          echo "Cleanup completed."
 
       # =========================================
       # 11. Backup Completed
       # =========================================
       - name: Backup completed
         if: success()
-        shell: bash
         run: |
           echo "========================================="
           echo "Meditiya Sathi database backup completed"
           echo "========================================="
-          echo "Backup: $BACKUP_FILE"
+          echo "Backup created: $BACKUP_FILE"
           echo "Time: $(date -u)"
           echo "========================================="
+```
