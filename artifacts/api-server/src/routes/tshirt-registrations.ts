@@ -702,14 +702,24 @@ const rows = await db.execute(
       return;
     }
 
-    const collectionId = row.collection_id;
+    let collectionId = row.collection_id;
     if (!collectionId) {
-      res.status(404).json({ error: "No collection ID assigned to this registration" });
-      return;
+      const year = row.festival_year || new Date().getFullYear();
+      collectionId = `TSH-${year}-${String(row.id).padStart(4, "0")}`;
+      try {
+        await db.execute(
+          sql`UPDATE tshirt_registrations SET collection_id = ${collectionId} WHERE id = ${row.id}`
+        );
+      } catch { /* ignore */ }
     }
 
-    // Encode a secure collection URL (no sensitive data exposed in the QR)
-    const baseUrl = process.env.WEB_APP_URL?.replace(/\/+$/, "") || `${req.protocol}://${req.get("host")}`;
+    // Encode a secure frontend collection URL (no sensitive data exposed in the QR)
+    const baseUrl =
+      process.env.WEB_APP_URL?.replace(/\/+$/, "") ||
+      process.env.FRONTEND_URL?.replace(/\/+$/, "") ||
+      (req.headers.origin ? String(req.headers.origin).replace(/\/+$/, "") : null) ||
+      (req.headers.referer ? new URL(String(req.headers.referer)).origin : null) ||
+      (process.env.NODE_ENV === "production" ? "https://meditiya-sathi.vercel.app" : "http://localhost:5173");
     const payload = `${baseUrl}/tshirt-collection-cash/${collectionId}`;
 
     const dataUrl = await QRCode.toDataURL(payload, { width: 512, margin: 2, errorCorrectionLevel: "H" });

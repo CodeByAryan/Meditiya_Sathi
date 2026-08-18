@@ -38,6 +38,7 @@ const AdminFestivalDetail = lazy(() => import('@/pages/admin/festival-detail'));
 const AdminAddDonation = lazy(() => import('@/pages/admin/add-donation'));
 const AdminOutsiderDonations = lazy(() => import('@/pages/admin/outsider-donations'));
 const AdminTshirtRegistrations = lazy(() => import('@/pages/admin/tshirt-registrations'));
+const TshirtCollectionCash = lazy(() => import('@/pages/tshirt-collection-cash'));
 const AdminManagement = lazy(() => import('@/pages/admin/admin-management'));
 const AdminCompetitions = lazy(() => import('@/pages/admin/competitions'));
 const AdminLogin = lazy(() => import('@/pages/admin-login'));
@@ -57,7 +58,8 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 function ProtectedAdmin({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAdminAuth();
   if (isAuthenticated) return <>{children}</>;
-  return <Redirect to="/admin-login" />;
+  const currentPath = window.location.pathname + window.location.search;
+  return <Redirect to={`/admin-login?redirect=${encodeURIComponent(currentPath)}`} />;
 }
 
 function AdminShell({ children }: { children: React.ReactNode }) {
@@ -138,6 +140,18 @@ function AppRoutes() {
         </Route>
         <Route path="/admin/tshirt-registrations">
           <AdminShell><AdminTshirtRegistrations /></AdminShell>
+        </Route>
+        <Route path="/tshirt-collection-cash/:tshirtId">
+          <AdminShell><TshirtCollectionCash /></AdminShell>
+        </Route>
+        <Route path="/tshirt-collection-cash">
+          <AdminShell><TshirtCollectionCash /></AdminShell>
+        </Route>
+        <Route path="/admin/tshirt-collection/:tshirtId">
+          <AdminShell><TshirtCollectionCash /></AdminShell>
+        </Route>
+        <Route path="/admin/tshirt-collection">
+          <AdminShell><TshirtCollectionCash /></AdminShell>
         </Route>
         <Route path="/admin/admin-management">
           <AdminShell><AdminManagement /></AdminShell>

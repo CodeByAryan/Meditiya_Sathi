@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { motion } from "framer-motion";
 import {
   Shield,
@@ -17,6 +17,16 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 export default function AdminLogin() {
   const { login, isAuthenticated, isLoading, error } = useAdminAuth();
   const [, setLocation] = useLocation();
+  const urlSearch = useSearch();
+
+  const redirectUrl = (() => {
+    try {
+      const qp = new URLSearchParams(urlSearch || window.location.search);
+      const r = qp.get("redirect");
+      if (r && r.startsWith("/")) return r;
+    } catch {}
+    return "/admin";
+  })();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -24,9 +34,9 @@ export default function AdminLogin() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      setLocation("/admin");
+      setLocation(redirectUrl);
     }
-  }, [isAuthenticated, setLocation]);
+  }, [isAuthenticated, setLocation, redirectUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +44,7 @@ export default function AdminLogin() {
     const success = await login(username, password);
 
     if (success) {
-      setLocation("/admin");
+      setLocation(redirectUrl);
     }
   };
 

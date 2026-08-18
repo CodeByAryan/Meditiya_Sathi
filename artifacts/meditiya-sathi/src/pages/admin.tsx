@@ -18,6 +18,7 @@ import {
   ClipboardList,
   HeartHandshake,
   Shirt,
+  QrCode,
   ChevronRight,
   Sparkles,
   Search,
@@ -194,6 +195,12 @@ export default function Admin() {
             icon: Shirt,
             href: '/admin/tshirt-registrations',
           },
+          {
+            name: 'T-Shirt Cash Scanner',
+            description: 'Scan QR & collect cash',
+            icon: QrCode,
+            href: '/tshirt-collection-cash',
+          },
         ]
       : []),
 
@@ -204,6 +211,12 @@ export default function Admin() {
             description: 'Manage assigned registrations',
             icon: Shirt,
             href: '/admin/tshirt-registrations',
+          },
+          {
+            name: 'T-Shirt Cash Scanner',
+            description: 'Scan QR & collect cash',
+            icon: QrCode,
+            href: '/tshirt-collection-cash',
           },
           {
             name: 'Collection Tasks',

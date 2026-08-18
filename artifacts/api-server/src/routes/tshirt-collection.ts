@@ -12,6 +12,8 @@ function mapCollectionRow(row: any) {
   const numericSize = row.t_shirt_size_numeric != null ? parseInt(String(row.t_shirt_size_numeric), 10) : null;
   const qty = row.quantity != null ? parseInt(String(row.quantity), 10) : 1;
   const chest = row.chest_size != null ? parseFloat(String(row.chest_size)) : null;
+  const price = row.tshirt_price != null ? parseInt(String(row.tshirt_price), 10) : 250;
+  const total = row.total_amount != null ? parseInt(String(row.total_amount), 10) : (price * qty);
 
   return {
     id: row.id,
@@ -33,6 +35,8 @@ function mapCollectionRow(row: any) {
     tShirtSize: row.t_shirt_size,
     tShirtSizeNumeric: numericSize,
     quantity: qty,
+    tshirtPrice: price,
+    totalAmount: total,
     chestSize: chest,
     paidToAdminId: row.paid_to_admin_id,
     paidToName: row.paid_to_name,
@@ -155,16 +159,16 @@ router.get("/admin/tshirt-collection/search", requireRole("Super Admin", "Admin"
 // ── GET /api/admin/tshirt-collection/:collectionId ─────────────────────────
 // Lookup a single registration by its collection ID (for verification screen)
 
-router.get("/admin/tshirt-collection/:collectionId", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+const handleGetCollectionById = async (req: any, res: any): Promise<void> => {
   try {
-const { collectionId } = req.params;
+    const { collectionId } = req.params;
     const collectionIdStr = Array.isArray(collectionId) ? collectionId[0] : collectionId;
     if (!collectionIdStr || collectionIdStr.trim().length === 0) {
       res.status(400).json({ error: "Collection ID is required" });
       return;
     }
 
-    const safeId = collectionIdStr.replace(/'/g, "''");
+    const safeId = collectionIdStr.trim().replace(/'/g, "''");
 
     const rows = await db.execute(
       sql`SELECT t.*, f.name as festival_name, f.year as festival_year,
@@ -173,13 +177,14 @@ const { collectionId } = req.params;
           LEFT JOIN festivals f ON t.festival_id = f.id
           LEFT JOIN buildings b ON t.building_id = b.id
           LEFT JOIN wings w ON t.wing_id = w.id
-          WHERE t.collection_id = ${safeId}
+          WHERE LOWER(t.collection_id) = LOWER(${safeId})
+             OR CAST(t.id AS TEXT) = ${safeId}
           LIMIT 1`
     );
 
     const row = (rows.rows || [])[0];
     if (!row) {
-      res.status(404).json({ error: "Invalid Collection QR", code: "INVALID_QR" });
+      res.status(404).json({ error: "Invalid Collection QR / T-Shirt ID", code: "INVALID_QR" });
       return;
     }
 
@@ -188,14 +193,17 @@ const { collectionId } = req.params;
     console.error("Error fetching collection by ID:", err);
     res.status(500).json({ error: err?.message || "Failed to fetch registration" });
   }
-});
+};
+
+router.get("/admin/tshirt-collection/:collectionId", requireRole("Super Admin", "Admin", "Volunteer"), handleGetCollectionById);
+router.get("/admin/tshirt-collection-cash/:collectionId", requireRole("Super Admin", "Admin", "Volunteer"), handleGetCollectionById);
 
 // ── POST /api/admin/tshirt-collection/:collectionId/collect ────────────────
 // SAFE DISTRIBUTION: atomic conditional update prevents double collection
 
-router.post("/admin/tshirt-collection/:collectionId/collect", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+const handleCollectByCollectionId = async (req: any, res: any): Promise<void> => {
   try {
-const { collectionId } = req.params;
+    const { collectionId } = req.params;
     const collectionIdStr = Array.isArray(collectionId) ? collectionId[0] : collectionId;
     const admin = (req as any).admin;
     const body = req.body || {};
@@ -205,8 +213,10 @@ const { collectionId } = req.params;
       return;
     }
 
-    const safeId = collectionIdStr.replace(/'/g, "''");
+    const safeId = collectionIdStr.trim().replace(/'/g, "''");
     const notes = body.collectionNotes?.trim() || null;
+    const markPaymentPaid = body.markPaymentPaid === true || body.collectPayment === true;
+    const paymentModeOverride = body.paymentMode === "cash" || body.paymentMode === "upi" || body.paymentMode === "online" ? body.paymentMode : (markPaymentPaid ? "cash" : null);
 
     // Atomic conditional update: only update if collection_status = 'pending'
     const result = await db.execute(
@@ -216,40 +226,40 @@ const { collectionId } = req.params;
               collected_by_admin_id = ${admin?.id || null},
               collected_by_name = ${admin?.fullName || admin?.username || null},
               collection_notes = ${notes},
+              ${paymentModeOverride ? sql`payment_mode = ${paymentModeOverride}, pending_reason = NULL,` : sql``}
               updated_at = NOW()
-          WHERE collection_id = ${safeId}
+          WHERE (LOWER(collection_id) = LOWER(${safeId}) OR CAST(id AS TEXT) = ${safeId})
             AND collection_status = 'pending'
           RETURNING id, collection_id, collection_status, collected_at,
                     collected_by_admin_id, collected_by_name, collection_notes,
-                    name, quantity, t_shirt_size`
+                    payment_mode, pending_reason,
+                    name, quantity, t_shirt_size, tshirt_price, total_amount`
     );
 
-const updated = (result.rows || [])[0] as any;
+    const updated = (result.rows || [])[0] as any;
     if (!updated) {
       // Check if it was already collected
-      const [existing] = await db
-        .select({
-          id: tshirtRegistrationsTable.id,
-          collectionStatus: tshirtRegistrationsTable.collectionStatus,
-          collectedAt: tshirtRegistrationsTable.collectedAt,
-          collectedByName: tshirtRegistrationsTable.collectedByName,
-          name: tshirtRegistrationsTable.name,
-          quantity: tshirtRegistrationsTable.quantity,
-        })
-        .from(tshirtRegistrationsTable)
-        .where(eq(tshirtRegistrationsTable.collectionId, safeId))
-        .limit(1);
+      const rows = await db.execute(
+        sql`SELECT id, collection_id, collection_status, collected_at, collected_by_name,
+                   name, quantity, t_shirt_size, payment_mode
+            FROM tshirt_registrations
+            WHERE LOWER(collection_id) = LOWER(${safeId}) OR CAST(id AS TEXT) = ${safeId}
+            LIMIT 1`
+      );
+      const existing = (rows.rows || [])[0] as any;
 
-      if (existing && existing.collectionStatus === "collected") {
+      if (existing && existing.collection_status === "collected") {
         res.status(409).json({
           error: "This T-Shirt has already been collected.",
           code: "ALREADY_COLLECTED",
           registration: {
             id: existing.id,
+            collectionId: existing.collection_id,
             name: existing.name,
             quantity: existing.quantity != null ? parseInt(String(existing.quantity), 10) : 1,
-            collectedAt: existing.collectedAt?.toISOString?.() || existing.collectedAt || null,
-            collectedByName: existing.collectedByName,
+            collectedAt: existing.collected_at?.toISOString?.() || existing.collected_at || null,
+            collectedByName: existing.collected_by_name,
+            paymentMode: existing.payment_mode,
           },
         });
         return;
@@ -273,13 +283,18 @@ const updated = (result.rows || [])[0] as any;
         name: updated.name,
         quantity: updated.quantity != null ? parseInt(String(updated.quantity), 10) : 1,
         tShirtSize: updated.t_shirt_size,
+        paymentMode: updated.payment_mode,
+        pendingReason: updated.pending_reason,
       },
     });
   } catch (err: any) {
     console.error("Error collecting tshirt:", err);
     res.status(500).json({ error: err?.message || "Failed to process collection" });
   }
-});
+};
+
+router.post("/admin/tshirt-collection/:collectionId/collect", requireRole("Super Admin", "Admin", "Volunteer"), handleCollectByCollectionId);
+router.post("/admin/tshirt-collection-cash/:collectionId/collect", requireRole("Super Admin", "Admin", "Volunteer"), handleCollectByCollectionId);
 
 // ── GET /api/admin/tshirt-collection/history ───────────────────────────────
 // Collection history with filters + search

@@ -4,7 +4,7 @@ import {
   ArrowLeft, Shirt, Search, Plus, X, CheckCircle, Clock, User, Phone,
   Save, ChevronDown, AlertTriangle, Eye, Edit3, Trash2, RefreshCw,
   ChevronLeft, ChevronRight, ListFilter, Building2, Download, Ruler,
-  CreditCard, Banknote, Wallet, QrCode, Printer, IndianRupee,
+  CreditCard, Banknote, Wallet, QrCode, Printer, IndianRupee, ExternalLink, Camera,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -1025,9 +1025,7 @@ const clearForm = () => {
                           <td className="px-3 py-3 text-sm text-muted-foreground whitespace-nowrap">{formatDate(r.createdAt)}</td>
                           <td className="px-3 py-3">
                             <div className="flex items-center justify-end gap-0.5">
-                              {r.collectionId && (
-                                <button onClick={() => setQrReg(r)} className="p-1.5 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-950/30 transition-colors text-indigo-600" title="View QR"><QrCode className="w-3.5 h-3.5" /></button>
-                              )}
+                              <button onClick={() => setQrReg(r)} className="p-1.5 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-950/30 transition-colors text-indigo-600" title="View QR & Collection Link"><QrCode className="w-3.5 h-3.5" /></button>
                               <button onClick={() => setViewReg(r)} className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-primary" title="View"><Eye className="w-3.5 h-3.5" /></button>
                               <button onClick={() => setEditReg(r)} className="p-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-950/30 transition-colors text-amber-600" title="Edit"><Edit3 className="w-3.5 h-3.5" /></button>
                               {!isVolunteer && (
@@ -1377,6 +1375,16 @@ function QrCodeModal({ registration, onClose }: {
         </div>
         <div className="flex gap-3 p-4 border-t border-border bg-muted/20">
           <button onClick={onClose} className="flex-1 py-2.5 border border-border rounded-xl text-sm font-semibold hover:bg-muted/50 transition-all">Close</button>
+          {qrData?.payload && (
+            <a
+              href={`/tshirt-collection-cash/${registration.collectionId || registration.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-all shadow-sm"
+            >
+              <ExternalLink className="w-4 h-4" /> Open Collection Page
+            </a>
+          )}
           <button onClick={handlePrint} disabled={!qrData} className="flex items-center justify-center gap-2 px-4 py-2.5 border border-border rounded-xl text-sm font-semibold hover:bg-muted/50 transition-all disabled:opacity-50">
             <Printer className="w-4 h-4" /> Print
           </button>
