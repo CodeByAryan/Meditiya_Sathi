@@ -3,6 +3,8 @@ import { db, tshirtRegistrationsTable, festivalsTable, adminsTable } from "@work
 import { eq, sql } from "drizzle-orm";
 import QRCode from "qrcode";
 import { requireRole, canAccessDonation } from "../middlewares/requireRole";
+import { generateTshirtPdf } from "../lib/tshirt-pdf";
+import { isCloudinaryConfigured, uploadBufferToCloudinary } from "../lib/cloudinary";
 
 const router: IRouter = Router();
 
@@ -771,5 +773,198 @@ router.delete("/admin/tshirt-registrations/:id", requireRole("Super Admin", "Adm
     res.status(500).json({ error: err?.message || "Failed to delete registration" });
   }
 });
+
+// ── POST /api/admin/tshirt-registrations/:id/pdf ───────────────────────────
+// Generate and store personalized T-shirt PDF (with embedded QR code)
+
+router.post("/admin/tshirt-registrations/:id/pdf", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid registration ID" });
+      return;
+    }
+
+    const rows = await db.execute(
+      sql`SELECT t.*, f.name as festival_name, f.year as festival_year,
+          b.building_name, w.wing_name,
+          r.flat_no as flat_number
+          FROM tshirt_registrations t
+          LEFT JOIN festivals f ON t.festival_id = f.id
+          LEFT JOIN buildings b ON t.building_id = b.id
+          LEFT JOIN wings w ON t.wing_id = w.id
+          LEFT JOIN residents r ON r.mobile = t.mobile_number
+          WHERE t.id = ${id}
+          LIMIT 1`
+    );
+
+    const row = (rows.rows || [])[0] as any;
+    if (!row) {
+      res.status(404).json({ error: "Registration not found" });
+      return;
+    }
+
+    let collectionId = row.collection_id;
+    if (!collectionId) {
+      const year = row.festival_year || new Date().getFullYear();
+      collectionId = `TSH-${year}-${String(row.id).padStart(4, "0")}`;
+      try {
+        await db.execute(
+          sql`UPDATE tshirt_registrations SET collection_id = ${collectionId} WHERE id = ${row.id}`
+        );
+      } catch { /* ignore */ }
+    }
+
+    const baseUrl =
+      process.env.WEB_APP_URL?.replace(/\/+$/, "") ||
+      process.env.FRONTEND_URL?.replace(/\/+$/, "") ||
+      (req.headers.origin ? String(req.headers.origin).replace(/\/+$/, "") : null) ||
+      (req.headers.referer ? new URL(String(req.headers.referer)).origin : null) ||
+      (process.env.NODE_ENV === "production" ? "https://meditiya-sathi.vercel.app" : "http://localhost:5173");
+    const qrPayload = `${baseUrl}/tshirt-collection-cash/${collectionId}`;
+
+    const pdfBuffer = await generateTshirtPdf({
+      id: row.id,
+      collectionId,
+      name: row.name,
+      mobileNumber: row.mobile_number,
+      buildingName: row.building_name,
+      wingName: row.wing_name,
+      flatNumber: row.flat_number || null,
+      tShirtSize: row.t_shirt_size,
+      tShirtSizeNumeric: row.t_shirt_size_numeric != null ? parseInt(String(row.t_shirt_size_numeric), 10) : null,
+      quantity: row.quantity != null ? parseInt(String(row.quantity), 10) : 1,
+      tshirtPrice: row.tshirt_price != null ? parseInt(String(row.tshirt_price), 10) : 250,
+      totalAmount: row.total_amount != null ? parseInt(String(row.total_amount), 10) : 0,
+      festivalName: row.festival_name,
+      festivalYear: row.festival_year,
+      createdAt: row.created_at,
+      qrPayload,
+    });
+
+    // Optional Cloudinary backup upload
+    let cloudinaryUrl: string | null = null;
+    if (isCloudinaryConfigured) {
+      try {
+        const uploadRes = await uploadBufferToCloudinary(pdfBuffer, "meditiya-sathi/tshirts", {
+          resource_type: "raw",
+          public_id: `Meditiya-Sathi-Tshirt-${collectionId}.pdf`,
+          format: "pdf",
+        });
+        cloudinaryUrl = uploadRes.secure_url;
+      } catch (uploadErr: any) {
+        console.warn("Cloudinary upload fallback:", uploadErr?.message);
+      }
+    }
+
+    // Direct public PDF serving URL (guaranteed 100% accessible to recipients in browser without Cloudinary ACL blocks)
+    const publicPdfUrl = `${baseUrl}/api/tshirt-pdf/${encodeURIComponent(collectionId)}.pdf`;
+
+    res.json({
+      success: true,
+      pdfUrl: publicPdfUrl,
+      downloadUrl: publicPdfUrl,
+      cloudinaryUrl,
+      tshirtId: collectionId,
+      filename: `Meditiya-Sathi-Tshirt-${collectionId}.pdf`,
+      registration: {
+        id: row.id,
+        name: row.name,
+        mobileNumber: row.mobile_number,
+        tShirtSize: row.t_shirt_size,
+        quantity: row.quantity != null ? parseInt(String(row.quantity), 10) : 1,
+        buildingName: row.building_name,
+        wingName: row.wing_name,
+        flatNumber: row.flat_number || null,
+      },
+    });
+  } catch (err: any) {
+    console.error("Error generating tshirt PDF:", err);
+    res.status(500).json({ error: err?.message || "Failed to generate PDF" });
+  }
+});
+
+// ── Public GET /api/tshirt-pdf/:collectionId ──────────────────────────────
+// Completely public endpoint for residents opening their T-shirt collection PDF pass from WhatsApp
+
+const handleServePublicTshirtPdf = async (req: any, res: any): Promise<void> => {
+  try {
+    const rawParam = (req.params.collectionId || req.params.id || "").trim();
+    if (!rawParam) {
+      res.status(400).setHeader("Content-Type", "text/plain").send("Collection ID is required");
+      return;
+    }
+
+    // Strip .pdf extension if present in param
+    const cleanId = rawParam.replace(/\.pdf$/i, "").trim();
+    const safeId = cleanId.replace(/'/g, "''");
+
+    const rows = await db.execute(
+      sql`SELECT t.*, f.name as festival_name, f.year as festival_year,
+          b.building_name, w.wing_name,
+          r.flat_no as flat_number
+          FROM tshirt_registrations t
+          LEFT JOIN festivals f ON t.festival_id = f.id
+          LEFT JOIN buildings b ON t.building_id = b.id
+          LEFT JOIN wings w ON t.wing_id = w.id
+          LEFT JOIN residents r ON r.mobile = t.mobile_number
+          WHERE LOWER(t.collection_id) = LOWER(${safeId})
+             OR CAST(t.id AS TEXT) = ${safeId}
+          LIMIT 1`
+    );
+
+    const row = (rows.rows || [])[0] as any;
+    if (!row) {
+      res.status(404).setHeader("Content-Type", "text/plain").send("T-Shirt Registration Pass Not Found");
+      return;
+    }
+
+    let collectionId = row.collection_id;
+    if (!collectionId) {
+      const year = row.festival_year || new Date().getFullYear();
+      collectionId = `TSH-${year}-${String(row.id).padStart(4, "0")}`;
+    }
+
+    const baseUrl =
+      process.env.WEB_APP_URL?.replace(/\/+$/, "") ||
+      process.env.FRONTEND_URL?.replace(/\/+$/, "") ||
+      (req.headers.origin ? String(req.headers.origin).replace(/\/+$/, "") : null) ||
+      (req.headers.referer ? new URL(String(req.headers.referer)).origin : null) ||
+      (process.env.NODE_ENV === "production" ? "https://meditiya-sathi.vercel.app" : "http://localhost:5173");
+    const qrPayload = `${baseUrl}/tshirt-distribution/${collectionId}`;
+
+    const pdfBuffer = await generateTshirtPdf({
+      id: row.id,
+      collectionId,
+      name: row.name,
+      mobileNumber: row.mobile_number,
+      buildingName: row.building_name,
+      wingName: row.wing_name,
+      flatNumber: row.flat_number || null,
+      tShirtSize: row.t_shirt_size,
+      tShirtSizeNumeric: row.t_shirt_size_numeric != null ? parseInt(String(row.t_shirt_size_numeric), 10) : null,
+      quantity: row.quantity != null ? parseInt(String(row.quantity), 10) : 1,
+      tshirtPrice: row.tshirt_price != null ? parseInt(String(row.tshirt_price), 10) : 250,
+      totalAmount: row.total_amount != null ? parseInt(String(row.total_amount), 10) : 0,
+      festivalName: row.festival_name,
+      festivalYear: row.festival_year,
+      createdAt: row.created_at,
+      qrPayload,
+    });
+
+    const filename = `Meditiya-Sathi-Tshirt-${collectionId}.pdf`;
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+    res.setHeader("Content-Length", pdfBuffer.length);
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.end(pdfBuffer);
+  } catch (err: any) {
+    console.error("Error serving public tshirt PDF:", err);
+    res.status(500).setHeader("Content-Type", "text/plain").send("Failed to generate PDF pass");
+  }
+};
+
+router.get("/tshirt-pdf/:collectionId", handleServePublicTshirtPdf);
+router.get("/admin/tshirt-registrations/:id/pdf/download", handleServePublicTshirtPdf);
 
 export default router;

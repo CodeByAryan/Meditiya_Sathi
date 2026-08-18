@@ -196,10 +196,10 @@ export default function Admin() {
             href: '/admin/tshirt-registrations',
           },
           {
-            name: 'T-Shirt Cash Scanner',
-            description: 'Scan QR & collect cash',
+            name: 'T-Shirt Distribution',
+            description: 'Scan QR & verify T-shirt handover',
             icon: QrCode,
-            href: '/tshirt-collection-cash',
+            href: '/tshirt-distribution',
           },
         ]
       : []),
@@ -213,10 +213,10 @@ export default function Admin() {
             href: '/admin/tshirt-registrations',
           },
           {
-            name: 'T-Shirt Cash Scanner',
-            description: 'Scan QR & collect cash',
+            name: 'T-Shirt Distribution',
+            description: 'Scan QR & verify T-shirt handover',
             icon: QrCode,
-            href: '/tshirt-collection-cash',
+            href: '/tshirt-distribution',
           },
           {
             name: 'Collection Tasks',

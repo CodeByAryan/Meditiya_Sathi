@@ -141,6 +141,18 @@ function AppRoutes() {
         <Route path="/admin/tshirt-registrations">
           <AdminShell><AdminTshirtRegistrations /></AdminShell>
         </Route>
+        <Route path="/tshirt-distribution/:tshirtId">
+          <AdminShell><TshirtCollectionCash /></AdminShell>
+        </Route>
+        <Route path="/tshirt-distribution">
+          <AdminShell><TshirtCollectionCash /></AdminShell>
+        </Route>
+        <Route path="/admin/tshirt-distribution/:tshirtId">
+          <AdminShell><TshirtCollectionCash /></AdminShell>
+        </Route>
+        <Route path="/admin/tshirt-distribution">
+          <AdminShell><TshirtCollectionCash /></AdminShell>
+        </Route>
         <Route path="/tshirt-collection-cash/:tshirtId">
           <AdminShell><TshirtCollectionCash /></AdminShell>
         </Route>

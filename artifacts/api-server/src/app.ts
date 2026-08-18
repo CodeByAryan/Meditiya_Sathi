@@ -43,23 +43,30 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
+// Forward public PDF requests to API route
+app.get(["/tshirt-pdf/:collectionId"], (req, res) => {
+  const rawId = req.params.collectionId;
+  const collectionId = Array.isArray(rawId) ? rawId[0] : rawId;
+  res.redirect(`/api/tshirt-pdf/${encodeURIComponent(collectionId || "")}`);
+});
+
 // Redirect browser GETs for scanned QR / collection URLs to the frontend web app
-app.get(["/tshirt-collection-cash/:tshirtId", "/tshirt-collection/:tshirtId"], (req, res) => {
+app.get(["/tshirt-distribution/:tshirtId", "/tshirt-collection-cash/:tshirtId", "/tshirt-collection/:tshirtId"], (req, res) => {
   const frontendBaseUrl =
     process.env.WEB_APP_URL?.replace(/\/+$/, "") ||
     process.env.FRONTEND_URL?.replace(/\/+$/, "") ||
     (process.env.NODE_ENV === "production" ? "https://meditiya-sathi.vercel.app" : "http://localhost:5173");
   const rawId = req.params.tshirtId;
   const tshirtId = Array.isArray(rawId) ? rawId[0] : rawId;
-  res.redirect(`${frontendBaseUrl}/tshirt-collection-cash/${encodeURIComponent(tshirtId || "")}`);
+  res.redirect(`${frontendBaseUrl}/tshirt-distribution/${encodeURIComponent(tshirtId || "")}`);
 });
 
-app.get(["/tshirt-collection-cash", "/tshirt-collection"], (req, res) => {
+app.get(["/tshirt-distribution", "/tshirt-collection-cash", "/tshirt-collection"], (req, res) => {
   const frontendBaseUrl =
     process.env.WEB_APP_URL?.replace(/\/+$/, "") ||
     process.env.FRONTEND_URL?.replace(/\/+$/, "") ||
     (process.env.NODE_ENV === "production" ? "https://meditiya-sathi.vercel.app" : "http://localhost:5173");
-  res.redirect(`${frontendBaseUrl}/tshirt-collection-cash`);
+  res.redirect(`${frontendBaseUrl}/tshirt-distribution`);
 });
 
 export default app;

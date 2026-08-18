@@ -5,6 +5,7 @@ import {
   Save, ChevronDown, AlertTriangle, Eye, Edit3, Trash2, RefreshCw,
   ChevronLeft, ChevronRight, ListFilter, Building2, Download, Ruler,
   CreditCard, Banknote, Wallet, QrCode, Printer, IndianRupee, ExternalLink, Camera,
+  FileText, Share2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -272,6 +273,30 @@ function BuildingSearchDropdown({ onSelect, selectedBuilding, onClear }: {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 
+// ── WhatsApp PDF helpers ──────────────────────────────────────────────────
+
+function formatWhatsAppUrl(phone: string, text: string): string {
+  let cleaned = phone.replace(/\D/g, "");
+  if (cleaned.length === 10) {
+    cleaned = `91${cleaned}`;
+  } else if (cleaned.length === 11 && cleaned.startsWith("0")) {
+    cleaned = `91${cleaned.slice(1)}`;
+  } else if (cleaned.length === 12 && cleaned.startsWith("91")) {
+    // already 91
+  }
+  return `https://wa.me/${cleaned}?text=${encodeURIComponent(text)}`;
+}
+
+function buildTshirtWhatsAppMessage(data: {
+  name: string;
+  tshirtId: string;
+  tShirtSize: string;
+  quantity: number;
+  pdfUrl: string;
+}): string {
+  return `Hello ${data.name} 👋\n\nYour Meditiya Sathi T-shirt registration is confirmed.\n\nT-Shirt ID: ${data.tshirtId}\nSize: ${data.tShirtSize}\nQuantity: ${data.quantity}\n\n📄 Your T-shirt collection PDF:\n${data.pdfUrl}\n\nPlease keep this PDF safe and show the QR code inside it when collecting your T-shirt.\n\nImportant:\n• This QR code is linked to your T-shirt registration.\n• Please do not share it with another person.\n• Bring/show this QR code when collecting your T-shirt.\n• Your T-shirt payment is already recorded as PAID.\n\nThank you for participating in Meditiya Sathi! 🙏`;
+}
+
 export default function AdminTshirtRegistrations() {
 // wouter v3's useSearch() returns the query string (e.g. "festivalId=123")
   // while useLocation() returns only the pathname. Use useSearch() so we can
@@ -334,6 +359,46 @@ export default function AdminTshirtRegistrations() {
   const [editReg, setEditReg] = useState<TshirtRegistration | null>(null);
   const [deleteReg, setDeleteReg] = useState<TshirtRegistration | null>(null);
   const [qrReg, setQrReg] = useState<TshirtRegistration | null>(null);
+  const [sendingPdfId, setSendingPdfId] = useState<number | null>(null);
+
+  const handleSendPdfOnWhatsApp = async (registration: TshirtRegistration) => {
+    try {
+      setSendingPdfId(registration.id);
+      toast.info(`Generating collection PDF for ${registration.name}...`);
+
+      const res = await fetch(`${getApiUrl()}/api/admin/tshirt-registrations/${registration.id}/pdf`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Unable to generate the T-shirt PDF. Please try again.");
+      }
+
+      const data = await res.json();
+      const pdfUrl = data.pdfUrl || data.downloadUrl;
+      if (!pdfUrl) {
+        throw new Error("PDF was generated but could not be uploaded. Please try again.");
+      }
+
+      const msg = buildTshirtWhatsAppMessage({
+        name: registration.name,
+        tshirtId: registration.collectionId || `TSH-#${registration.id}`,
+        tShirtSize: registration.tShirtSize,
+        quantity: registration.quantity,
+        pdfUrl,
+      });
+
+      const waUrl = formatWhatsAppUrl(registration.mobileNumber, msg);
+      window.open(waUrl, "_blank");
+      toast.success(`WhatsApp opened for ${registration.name}!`);
+    } catch (err: any) {
+      toast.error(err?.message || "Unable to generate the T-shirt PDF. Please try again.");
+    } finally {
+      setSendingPdfId(null);
+    }
+  };
   const [isDeleting, setIsDeleting] = useState(false);
 
   const adminUser = getAdminUser();
@@ -1025,7 +1090,19 @@ const clearForm = () => {
                           <td className="px-3 py-3 text-sm text-muted-foreground whitespace-nowrap">{formatDate(r.createdAt)}</td>
                           <td className="px-3 py-3">
                             <div className="flex items-center justify-end gap-0.5">
-                              <button onClick={() => setQrReg(r)} className="p-1.5 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-950/30 transition-colors text-indigo-600" title="View QR & Collection Link"><QrCode className="w-3.5 h-3.5" /></button>
+                              <button
+                                  onClick={() => handleSendPdfOnWhatsApp(r)}
+                                  disabled={sendingPdfId === r.id}
+                                  className="p-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-950/30 transition-colors text-emerald-600 disabled:opacity-50"
+                                  title="📄 Send PDF on WhatsApp"
+                                >
+                                  {sendingPdfId === r.id ? (
+                                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <FileText className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                                <button onClick={() => setQrReg(r)} className="p-1.5 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-950/30 transition-colors text-indigo-600" title="View QR & Collection Link"><QrCode className="w-3.5 h-3.5" /></button>
                               <button onClick={() => setViewReg(r)} className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-primary" title="View"><Eye className="w-3.5 h-3.5" /></button>
                               <button onClick={() => setEditReg(r)} className="p-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-950/30 transition-colors text-amber-600" title="Edit"><Edit3 className="w-3.5 h-3.5" /></button>
                               {!isVolunteer && (
@@ -1299,6 +1376,7 @@ function QrCodeModal({ registration, onClose }: {
   const [qrData, setQrData] = useState<{ qrDataUrl: string; payload: string } | null>(null);
   const [isLoadingQr, setIsLoadingQr] = useState(true);
   const [error, setError] = useState('');
+  const [pdfLoadingState, setPdfLoadingState] = useState<null | 'generating' | 'uploading' | 'opening'>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1317,6 +1395,56 @@ function QrCodeModal({ registration, onClose }: {
       .finally(() => { if (!cancelled) setIsLoadingQr(false); });
     return () => { cancelled = true; };
   }, [registration.id]);
+
+  const handleGenerateAndSendPdf = async (openWhatsApp: boolean) => {
+    try {
+      setPdfLoadingState('generating');
+      const res = await fetch(`${getApiUrl()}/api/admin/tshirt-registrations/${registration.id}/pdf`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Unable to generate the T-shirt PDF. Please try again.');
+      }
+
+      setPdfLoadingState('uploading');
+      const data = await res.json();
+      const pdfUrl = data.pdfUrl || data.downloadUrl;
+      if (!pdfUrl) {
+        throw new Error('PDF was generated but could not be uploaded. Please try again.');
+      }
+
+      if (openWhatsApp) {
+        setPdfLoadingState('opening');
+        const msg = buildTshirtWhatsAppMessage({
+          name: registration.name,
+          tshirtId: registration.collectionId || `TSH-#${registration.id}`,
+          tShirtSize: registration.tShirtSize,
+          quantity: registration.quantity,
+          pdfUrl,
+        });
+
+        const waUrl = formatWhatsAppUrl(registration.mobileNumber, msg);
+        window.open(waUrl, '_blank');
+        toast.success('WhatsApp opened with T-shirt collection PDF link!');
+      } else {
+        const a = document.createElement('a');
+        a.href = data.downloadUrl || pdfUrl;
+        a.target = '_blank';
+        a.download = data.filename || `Meditiya-Sathi-Tshirt-${registration.collectionId || registration.id}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        toast.success('PDF download started!');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Unable to generate the T-shirt PDF. Please try again.');
+    } finally {
+      setPdfLoadingState(null);
+    }
+  };
 
   const handleDownload = () => {
     if (!qrData?.qrDataUrl) return;
@@ -1345,52 +1473,102 @@ function QrCodeModal({ registration, onClose }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-md w-full" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-5 border-b border-border">
-          <h2 className="text-lg font-serif font-bold text-foreground flex items-center gap-2"><QrCode className="w-5 h-5 text-indigo-500" /> T-Shirt QR Code</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"><X className="w-5 h-5" /></button>
-        </div>
-        <div className="p-5">
-          <div className="p-3 bg-muted/30 rounded-xl mb-4">
-            <p className="text-xs text-muted-foreground mb-1">Resident</p>
-            <p className="font-semibold text-foreground">{registration.name} • {registration.tShirtSize} × {registration.quantity}</p>
-            <p className="text-xs text-muted-foreground mt-1">{registration.festivalName} {registration.festivalYear || ''}</p>
-          </div>
+      <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-sm w-full p-6 relative animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute right-4 top-4 p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+          <X className="w-5 h-5" />
+        </button>
 
-          <div className="flex flex-col items-center justify-center py-4">
-            {isLoadingQr ? (
-              <div className="w-52 h-52 rounded-xl border border-border bg-muted/20 flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-              </div>
-            ) : error ? (
-              <div className="text-center text-sm text-destructive py-8"><AlertTriangle className="w-8 h-8 mx-auto mb-2 opacity-70" />{error}</div>
-            ) : qrData ? (
-              <>
-                <img src={qrData.qrDataUrl} alt="T-Shirt Collection QR" className="w-52 h-52 rounded-xl border border-border bg-white p-1" />
-                <p className="mt-3 font-mono text-sm font-bold text-foreground">{registration.collectionId}</p>
-                <p className="text-xs text-muted-foreground mt-1 break-all text-center max-w-[300px]">{qrData.payload}</p>
-              </>
-            ) : null}
+        <div className="text-center mb-4">
+          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mx-auto mb-2">
+            <QrCode className="w-5 h-5" />
           </div>
+          <h3 className="font-serif font-bold text-lg text-foreground">T-Shirt Collection Pass</h3>
+          <p className="text-xs text-muted-foreground">{registration.name} • {registration.tShirtSize} × {registration.quantity}</p>
         </div>
-        <div className="flex gap-3 p-4 border-t border-border bg-muted/20">
-          <button onClick={onClose} className="flex-1 py-2.5 border border-border rounded-xl text-sm font-semibold hover:bg-muted/50 transition-all">Close</button>
-          {qrData?.payload && (
+
+        <div className="flex flex-col items-center justify-center p-4 bg-muted/40 rounded-xl border border-border mb-4 min-h-[220px]">
+          {isLoadingQr ? (
+            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+              <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+              <span className="text-xs">Generating QR...</span>
+            </div>
+          ) : error ? (
+            <div className="text-center text-sm text-destructive py-4"><AlertTriangle className="w-6 h-6 mx-auto mb-2 opacity-70" />{error}</div>
+          ) : qrData ? (
+            <>
+              <img src={qrData.qrDataUrl} alt="T-Shirt Collection QR" className="w-48 h-48 rounded-xl border border-border bg-white p-2 shadow-sm" />
+              <p className="mt-3 font-mono text-sm font-bold text-primary tracking-wider">{registration.collectionId}</p>
+              <span className="mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25">
+                ✓ Payment: PAID
+              </span>
+            </>
+          ) : null}
+        </div>
+
+        <div className="space-y-2.5">
+          {/* Main Action: Send PDF on WhatsApp */}
+          <button
+            type="button"
+            onClick={() => handleGenerateAndSendPdf(true)}
+            disabled={Boolean(pdfLoadingState)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+          >
+            {pdfLoadingState ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>
+                  {pdfLoadingState === 'generating'
+                    ? 'Generating PDF...'
+                    : pdfLoadingState === 'uploading'
+                    ? 'Uploading PDF...'
+                    : 'Opening WhatsApp...'}
+                </span>
+              </>
+            ) : (
+              <>
+                <FileText className="w-4 h-4" />
+                <span>📄 Send PDF on WhatsApp</span>
+              </>
+            )}
+          </button>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => handleGenerateAndSendPdf(false)}
+              disabled={Boolean(pdfLoadingState)}
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 border border-border bg-background hover:bg-muted/50 rounded-xl text-xs font-semibold text-foreground transition-all disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5 text-primary" />
+              <span>Download PDF</span>
+            </button>
             <a
-              href={`/tshirt-collection-cash/${registration.collectionId || registration.id}`}
+              href={`/tshirt-distribution/${registration.collectionId || registration.id}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-all shadow-sm"
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 border border-border bg-background hover:bg-muted/50 rounded-xl text-xs font-semibold text-foreground transition-all text-center"
             >
-              <ExternalLink className="w-4 h-4" /> Open Collection Page
+              <ExternalLink className="w-3.5 h-3.5 text-primary" />
+              <span>Open Scanner</span>
             </a>
-          )}
-          <button onClick={handlePrint} disabled={!qrData} className="flex items-center justify-center gap-2 px-4 py-2.5 border border-border rounded-xl text-sm font-semibold hover:bg-muted/50 transition-all disabled:opacity-50">
-            <Printer className="w-4 h-4" /> Print
-          </button>
-          <button onClick={handleDownload} disabled={!qrData} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-50">
-            <Download className="w-4 h-4" /> Download
-          </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/50">
+            <button
+              onClick={handlePrint}
+              disabled={!qrData}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 border border-border/70 rounded-xl text-xs font-medium hover:bg-muted/40 transition-all text-muted-foreground hover:text-foreground disabled:opacity-50"
+            >
+              <Printer className="w-3.5 h-3.5" /> Print QR
+            </button>
+            <button
+              onClick={handleDownload}
+              disabled={!qrData}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 border border-border/70 rounded-xl text-xs font-medium hover:bg-muted/40 transition-all text-muted-foreground hover:text-foreground disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5" /> Download QR
+            </button>
+          </div>
         </div>
       </div>
     </div>
