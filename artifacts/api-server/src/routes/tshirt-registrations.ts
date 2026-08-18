@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import { requireRole, canAccessDonation } from "../middlewares/requireRole";
 import { generateTshirtPdf } from "../lib/tshirt-pdf";
 import { isCloudinaryConfigured, uploadBufferToCloudinary } from "../lib/cloudinary";
+import { getTshirtScannerUrl, getPublicAppBaseUrl } from "../lib/tshirt-url";
 
 const router: IRouter = Router();
 
@@ -736,7 +737,7 @@ const rows = await db.execute(
           WHERE t.id = ${id}
           LIMIT 1`
     );
-    const row = (rows.rows || [])[0];
+    const row = (rows.rows || [])[0] as any;
     if (!row) {
       res.status(404).json({ error: "Registration not found" });
       return;
@@ -753,9 +754,8 @@ const rows = await db.execute(
       } catch { /* ignore */ }
     }
 
-    // Encode a secure frontend collection URL (no sensitive data exposed in the QR)
-    const baseUrl = getPublicAppUrl(req);
-    const payload = `${baseUrl}/tshirt-collection-cash/${collectionId}`;
+    // Encode canonical scanner URL (identical across website, PDF QR, and WhatsApp)
+    const payload = getTshirtScannerUrl(collectionId);
 
     const dataUrl = await QRCode.toDataURL(payload, { width: 512, margin: 2, errorCorrectionLevel: "H" });
     const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
@@ -848,8 +848,9 @@ router.post("/admin/tshirt-registrations/:id/pdf", requireRole("Super Admin", "A
       } catch { /* ignore */ }
     }
 
-    const baseUrl = getPublicAppUrl(req);
-    const qrPayload = `${baseUrl}/tshirt-collection-cash/${collectionId}`;
+    // Canonical scanner URL encoded into the QR inside the PDF
+    const qrPayload = getTshirtScannerUrl(collectionId);
+    const baseUrl = getPublicAppBaseUrl();
 
     const pdfBuffer = await generateTshirtPdf({
       id: row.id,
@@ -953,8 +954,8 @@ const handleServePublicTshirtPdf = async (req: any, res: any): Promise<void> => 
       collectionId = `TSH-${year}-${String(row.id).padStart(4, "0")}`;
     }
 
-    const baseUrl = getPublicAppUrl(req);
-    const qrPayload = `${baseUrl}/tshirt-collection-cash/${collectionId}`;
+    // Canonical scanner URL encoded into the QR inside the PDF
+    const qrPayload = getTshirtScannerUrl(collectionId);
 
     const pdfBuffer = await generateTshirtPdf({
       id: row.id,
