@@ -275,6 +275,42 @@ function BuildingSearchDropdown({ onSelect, selectedBuilding, onClear }: {
 
 // ── WhatsApp PDF helpers ──────────────────────────────────────────────────
 
+function getPublicAppUrl(): string {
+  const envUrl =
+    (import.meta as any).env?.VITE_PUBLIC_APP_URL ||
+    (import.meta as any).env?.PUBLIC_APP_URL ||
+    (import.meta as any).env?.VITE_FRONTEND_URL ||
+    (import.meta as any).env?.VITE_WEB_APP_URL;
+
+  if (envUrl && !envUrl.includes("localhost") && !envUrl.includes("127.0.0.1")) {
+    return envUrl.replace(/\/+$/, "");
+  }
+
+  if (typeof window !== "undefined" && window.location.origin) {
+    const origin = window.location.origin.replace(/\/+$/, "");
+    if (!origin.includes("localhost") && !origin.includes("127.0.0.1") && !origin.includes(":8080")) {
+      return origin;
+    }
+  }
+
+  return "https://meditiya-sathi.vercel.app";
+}
+
+function normalizePublicUrl(rawUrl: string): string {
+  if (!rawUrl) return "";
+  const publicBase = getPublicAppUrl();
+  if (rawUrl.startsWith("/")) {
+    return `${publicBase}${rawUrl}`;
+  }
+  if (rawUrl.includes("localhost:") || rawUrl.includes("127.0.0.1:")) {
+    try {
+      const parsed = new URL(rawUrl);
+      return `${publicBase}${parsed.pathname}${parsed.search}`;
+    } catch {}
+  }
+  return rawUrl;
+}
+
 function formatWhatsAppUrl(phone: string, text: string): string {
   let cleaned = phone.replace(/\D/g, "");
   if (cleaned.length === 10) {
@@ -294,7 +330,8 @@ function buildTshirtWhatsAppMessage(data: {
   quantity: number;
   pdfUrl: string;
 }): string {
-  return `Hello ${data.name} 👋\n\nYour Meditiya Sathi T-shirt registration is confirmed.\n\nT-Shirt ID: ${data.tshirtId}\nSize: ${data.tShirtSize}\nQuantity: ${data.quantity}\n\n📄 Your T-shirt collection PDF:\n${data.pdfUrl}\n\nPlease keep this PDF safe and show the QR code inside it when collecting your T-shirt.\n\nImportant:\n• This QR code is linked to your T-shirt registration.\n• Please do not share it with another person.\n• Bring/show this QR code when collecting your T-shirt.\n• Your T-shirt payment is already recorded as PAID.\n\nThank you for participating in Meditiya Sathi! 🙏`;
+  const publicPdf = normalizePublicUrl(data.pdfUrl);
+  return `Hello ${data.name} 👋\n\nYour Meditiya Sathi T-shirt registration is confirmed.\n\nT-Shirt ID: ${data.tshirtId}\nSize: ${data.tShirtSize}\nQuantity: ${data.quantity}\n\n📄 Your T-shirt collection PDF:\n${publicPdf}\n\nPlease keep this PDF safe and show the QR code inside it when collecting your T-shirt.\n\nImportant:\n• This QR code is linked to your T-shirt registration.\n• Please do not share it with another person.\n• Bring/show this QR code when collecting your T-shirt.\n• Your T-shirt payment is already recorded as PAID.\n\nThank you for participating in Meditiya Sathi! 🙏`;
 }
 
 export default function AdminTshirtRegistrations() {

@@ -679,6 +679,44 @@ if (body.chestSize !== undefined) {
   }
 });
 
+// ── Public Application Base URL Helper ────────────────────────────────────
+
+function getPublicAppUrl(req?: any): string {
+  // 1. Check explicit environment variables
+  const envUrl =
+    process.env.PUBLIC_APP_URL ||
+    process.env.VITE_PUBLIC_APP_URL ||
+    process.env.WEB_APP_URL ||
+    process.env.FRONTEND_URL;
+
+  if (envUrl && envUrl.trim().length > 0) {
+    const trimmed = envUrl.trim().replace(/\/+$/, "");
+    if (!trimmed.includes("localhost") && !trimmed.includes("127.0.0.1")) {
+      return trimmed;
+    }
+  }
+
+  // 2. Check if request came from a deployed non-localhost origin or referer
+  if (req?.headers) {
+    const origin = req.headers.origin ? String(req.headers.origin).trim().replace(/\/+$/, "") : null;
+    if (origin && !origin.includes("localhost") && !origin.includes("127.0.0.1") && !origin.includes(":8080")) {
+      return origin;
+    }
+    const referer = req.headers.referer ? String(req.headers.referer).trim() : null;
+    if (referer) {
+      try {
+        const refOrigin = new URL(referer).origin.replace(/\/+$/, "");
+        if (!refOrigin.includes("localhost") && !refOrigin.includes("127.0.0.1") && !refOrigin.includes(":8080")) {
+          return refOrigin;
+        }
+      } catch {}
+    }
+  }
+
+  // 3. Fallback to production deployed domain (never localhost for public QR/PDF)
+  return "https://meditiya-sathi.vercel.app";
+}
+
 // ── GET /api/admin/tshirt-registrations/:id/qr ─────────────────────────────
 // Generate a QR code image (PNG) encoding the registration's collection ID.
 
@@ -716,12 +754,7 @@ const rows = await db.execute(
     }
 
     // Encode a secure frontend collection URL (no sensitive data exposed in the QR)
-    const baseUrl =
-      process.env.WEB_APP_URL?.replace(/\/+$/, "") ||
-      process.env.FRONTEND_URL?.replace(/\/+$/, "") ||
-      (req.headers.origin ? String(req.headers.origin).replace(/\/+$/, "") : null) ||
-      (req.headers.referer ? new URL(String(req.headers.referer)).origin : null) ||
-      (process.env.NODE_ENV === "production" ? "https://meditiya-sathi.vercel.app" : "http://localhost:5173");
+    const baseUrl = getPublicAppUrl(req);
     const payload = `${baseUrl}/tshirt-collection-cash/${collectionId}`;
 
     const dataUrl = await QRCode.toDataURL(payload, { width: 512, margin: 2, errorCorrectionLevel: "H" });
@@ -815,12 +848,7 @@ router.post("/admin/tshirt-registrations/:id/pdf", requireRole("Super Admin", "A
       } catch { /* ignore */ }
     }
 
-    const baseUrl =
-      process.env.WEB_APP_URL?.replace(/\/+$/, "") ||
-      process.env.FRONTEND_URL?.replace(/\/+$/, "") ||
-      (req.headers.origin ? String(req.headers.origin).replace(/\/+$/, "") : null) ||
-      (req.headers.referer ? new URL(String(req.headers.referer)).origin : null) ||
-      (process.env.NODE_ENV === "production" ? "https://meditiya-sathi.vercel.app" : "http://localhost:5173");
+    const baseUrl = getPublicAppUrl(req);
     const qrPayload = `${baseUrl}/tshirt-collection-cash/${collectionId}`;
 
     const pdfBuffer = await generateTshirtPdf({
@@ -925,13 +953,8 @@ const handleServePublicTshirtPdf = async (req: any, res: any): Promise<void> => 
       collectionId = `TSH-${year}-${String(row.id).padStart(4, "0")}`;
     }
 
-    const baseUrl =
-      process.env.WEB_APP_URL?.replace(/\/+$/, "") ||
-      process.env.FRONTEND_URL?.replace(/\/+$/, "") ||
-      (req.headers.origin ? String(req.headers.origin).replace(/\/+$/, "") : null) ||
-      (req.headers.referer ? new URL(String(req.headers.referer)).origin : null) ||
-      (process.env.NODE_ENV === "production" ? "https://meditiya-sathi.vercel.app" : "http://localhost:5173");
-    const qrPayload = `${baseUrl}/tshirt-distribution/${collectionId}`;
+    const baseUrl = getPublicAppUrl(req);
+    const qrPayload = `${baseUrl}/tshirt-collection-cash/${collectionId}`;
 
     const pdfBuffer = await generateTshirtPdf({
       id: row.id,
