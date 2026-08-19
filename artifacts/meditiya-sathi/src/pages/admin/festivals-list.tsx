@@ -17,6 +17,7 @@ import {
   Clock,
   IndianRupee,
   Users,
+  Wallet,
   Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -845,6 +846,14 @@ export default function AdminFestivalsList() {
                               title="Open Festival"
                             >
                               <Eye className="w-4 h-4" />
+                            </Link>
+
+                            <Link
+                              href={`/admin/festivals/${f.id}/expenses`}
+                              className="w-9 h-9 rounded-lg border-transparent flex items-center justify-center text-zinc-500 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 hover:border-[#D4AF37]/20 transition-all"
+                              title="Expenses"
+                            >
+                              <Wallet className="w-4 h-4" />
                             </Link>
 
                             <Link

@@ -1344,6 +1344,7 @@ const fetchStats = useCallback(async () => {
               <span className="text-white/60 font-mono text-lg font-semibold">{festival.year}</span>
             </div>
             <p className="text-white/70 flex items-center gap-2 mt-1"><CalendarDays className="w-4 h-4 text-amber-300" />{festival.startDate ? formatDate(festival.startDate) : 'N/A'} – {festival.endDate ? formatDate(festival.endDate) : 'N/A'}</p>
+            <Link href={`/admin/festivals/${festival.id}/expenses`} className="inline-flex mt-3 items-center gap-2 rounded-xl bg-amber-300 px-4 py-2 text-sm font-bold text-black"><Wallet className="w-4 h-4" /> View Expenses</Link>
           </div>
           {/* <Link href={`/admin/festivals/${festival.id}/edit`} className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2 text-sm font-semibold text-black shadow-[0_0_35px_rgba(255,255,255,0.12)]">
             <Edit3 className="w-4 h-4" /> Edit

@@ -10,7 +10,8 @@
   "scripts": {
     "push": "node ./scripts/push-db.mjs",
     "push-force": "node ./scripts/push-db.mjs",
-    "migrate:events-management": "node ./scripts/migrate-events-management.mjs"
+    "migrate:events-management": "node ./scripts/migrate-events-management.mjs",
+    "migrate:festival-expenses": "node ./scripts/migrate-festival-expenses.mjs"
   },
 
 

@@ -24,7 +24,8 @@ import {
   Search,
   Activity,
   ArrowLeft,
-} from 'lucide-react';
+  Wallet,
+ } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAdminAuth } from '@/lib/AdminAuthContext';
@@ -153,6 +154,12 @@ export default function Admin() {
             description: 'Manage festivals and collections',
             icon: MapPin,
             href: '/admin/festivals',
+          },
+          {
+            name: 'Festival Expenses',
+            description: 'Track money out and festival balances',
+            icon: Wallet,
+            href: '/admin/festival-expenses',
           },
         ]
       : []),

@@ -35,6 +35,7 @@ const AdminGalleryCrud = lazy(() => import('@/pages/admin/gallery-crud'));
 const AdminFestivalsList = lazy(() => import('@/pages/admin/festivals-list'));
 const AdminFestivalCreate = lazy(() => import('@/pages/admin/festival-create'));
 const AdminFestivalDetail = lazy(() => import('@/pages/admin/festival-detail'));
+const AdminFestivalExpenses = lazy(() => import('@/pages/admin/festival-expenses'));
 const AdminAddDonation = lazy(() => import('@/pages/admin/add-donation'));
 const AdminOutsiderDonations = lazy(() => import('@/pages/admin/outsider-donations'));
 const AdminTshirtRegistrations = lazy(() => import('@/pages/admin/tshirt-registrations'));
@@ -125,6 +126,9 @@ function AppRoutes() {
         </Route>
         <Route path="/admin/festivals/create">
           <AdminShell><AdminFestivalCreate /></AdminShell>
+        </Route>
+        <Route path="/admin/festivals/:festivalId/expenses">
+          <AdminShell><AdminFestivalExpenses /></AdminShell>
         </Route>
         <Route path="/admin/festivals/:id/edit">
           <AdminShell><AdminFestivalCreate /></AdminShell>
