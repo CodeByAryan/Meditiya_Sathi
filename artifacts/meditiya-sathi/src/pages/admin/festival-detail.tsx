@@ -135,7 +135,7 @@ const collectionMethodConfig: Record<string, { label: string; icon: any; color: 
 
 // ── WhatsApp Receipt Generator ───────────────────────────────────────────────
 
-function buildWhatsAppReceipt(donation: Donation, festivalName: string): string {
+function buildWhatsAppReceipt(donation: Donation, festivalName: string, pdfUrl?: string): string {
   const msg = [
     '🏡 *Meditiya Sathi*',
     '',
@@ -151,6 +151,7 @@ function buildWhatsAppReceipt(donation: Donation, festivalName: string): string 
     `Date: ${formatDate(donation.paymentDate)}`,
     `Collected By: ${donation.collectedByAdminName}`,
     `Receipt No: ${donation.receiptNumber || '—'}`,
+    ...(pdfUrl ? ['', `Your Vargani receipt: ${pdfUrl}`] : []),
     '',
     'Thank you for supporting our community. 🙏',
   ].join('\n');
@@ -738,10 +739,24 @@ function DeleteDonationDialog({ donation, onConfirm, onCancel, isLoading }: {
 // ── View Donation Modal ──────────────────────────────────────────────────────
 
 function ViewDonationModal({ donation, festivalName, onClose }: { donation: Donation; festivalName: string; onClose: () => void }) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const generateVargani = async (sendOnWhatsApp = false) => {
+    setIsGenerating(true);
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donation.id}/vargani-pdf`, { method: 'POST', headers: authHeaders() });
+      const data = await res.json(); if (!res.ok) throw new Error(data.error || 'Failed to generate receipt');
+      setPdfUrl(data.pdfUrl);
+      if (sendOnWhatsApp) openWhatsApp(donation.residentMobile, buildWhatsAppReceipt(donation, festivalName, data.pdfUrl));
+      else window.open(data.pdfUrl, '_blank');
+      toast.success('Vargani receipt generated');
+    } catch (err: any) { toast.error(err?.message || 'Failed to generate receipt'); } finally { setIsGenerating(false); }
+  };
+
   const PayIcon = paymentMethodIcons[donation.paymentMethod || ''] || Banknote;
   const handleWhatsApp = () => {
-    const msg = buildWhatsAppReceipt(donation, festivalName);
-    openWhatsApp(donation.residentMobile, msg);
+    if (!pdfUrl) { void generateVargani(true); return; }
+    openWhatsApp(donation.residentMobile, buildWhatsAppReceipt(donation, festivalName, pdfUrl));
   };
 
   return (
@@ -792,14 +807,19 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
           </div>
 
           {isPaid(donation) && donation.receiptNumber && (
+            <>
+            <button type="button" onClick={() => { void generateVargani(); }} disabled={isGenerating} className="w-full py-2.5 mb-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+              <Receipt className="w-4 h-4" /> {isGenerating ? 'Generating Receipt...' : 'Generate Vargani Slip'}
+            </button>
             <button
               type="button"
               onClick={handleWhatsApp}
               className="w-full py-2.5 bg-amber-500 text-white rounded-xl text-sm font-semibold hover:bg-amber-600 transition-all flex items-center justify-center gap-2"
             >
               <MessageSquare className="w-4 h-4" />
-              Send WhatsApp Receipt
+              Send PDF on WhatsApp
             </button>
+            </>
           )}
         </div>
         <div className="flex justify-end p-4 border-t border-border bg-muted/20">

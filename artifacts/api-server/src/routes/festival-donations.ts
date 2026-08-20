@@ -2,6 +2,8 @@ import { Router, type IRouter } from "express";
 import { db, festivalDonationsTable, festivalsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { requireRole, canAccessFestival, canAccessDonation } from "../middlewares/requireRole";
+import { generateVarganiPdf } from "../lib/vargani-pdf";
+import { getPublicAppBaseUrl } from "../lib/tshirt-url";
 
 const router: IRouter = Router();
 
@@ -31,6 +33,50 @@ async function generateReceiptNumber(festivalId: number): Promise<string> {
     return `TMP-${festivalId}-${ts}`;
   }
 }
+
+// ── Vargani receipt generation and public serving ───────────────────────────
+async function loadVarganiDonation(id: number) {
+  const result = await db.execute(sql`SELECT fd.*, f.name as festival_name, f.year as festival_year,
+    r.full_name as resident_name, r.mobile as resident_mobile, r.flat_no,
+    b.building_name, w.wing_name FROM festival_donations fd
+    LEFT JOIN festivals f ON fd.festival_id = f.id LEFT JOIN residents r ON fd.resident_id = r.id
+    LEFT JOIN buildings b ON r.building_id = b.id LEFT JOIN wings w ON r.wing_id = w.id
+    WHERE fd.id = ${id} LIMIT 1`);
+  return (result.rows || [])[0] as any;
+}
+
+router.all("/admin/festival-donations/:id/vargani-pdf", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id as string, 10); if (!Number.isInteger(id) || id <= 0) { res.status(400).json({ error: "Invalid donation ID" }); return; }
+    const row = await loadVarganiDonation(id); if (!row) { res.status(404).json({ error: "Donation not found" }); return; }
+    const admin = (req as any).admin;
+    if (!(await canAccessFestival(admin.role, admin.id, Number(row.festival_id)))) { res.status(403).json({ error: "Forbidden" }); return; }
+    if (!row.festival_name) { res.status(422).json({ error: "Festival information is missing" }); return; }
+    if (row.payment_method === "pending" || row.amount == null || !Number.isFinite(Number(row.amount))) { res.status(422).json({ error: "A paid donation with a valid amount is required" }); return; }
+    if (!row.receipt_number) { res.status(422).json({ error: "Receipt number is missing" }); return; }
+    const pdf = await generateVarganiPdf({ receiptNumber: row.receipt_number, donationDate: row.payment_date, name: row.resident_name, mobile: row.resident_mobile, building: row.building_name, wing: row.wing_name, flat: row.flat_no, amount: Number(row.amount), paymentMethod: row.payment_method, festivalName: row.festival_name, festivalYear: Number(row.festival_year), collectedBy: admin.fullName || admin.username });
+    const url = `${getPublicAppBaseUrl()}/api/vargani-pdf/${encodeURIComponent(row.receipt_number)}.pdf`;
+    res.json({ success: true, pdfUrl: url, downloadUrl: url, filename: `Vargani-${row.receipt_number}.pdf` });
+  } catch (err: any) {
+    console.error("Vargani PDF generation failed:", err?.stack || err);
+    res.status(500).json({ error: "Failed to generate Vargani receipt PDF" });
+  }
+});
+
+router.get("/vargani-pdf/:receiptNumber", async (req, res): Promise<void> => {
+  try {
+    const receipt = String(req.params.receiptNumber || "").replace(/\.pdf$/i, "").trim();
+    if (!receipt) { res.status(400).send("Receipt number is required"); return; }
+    const result = await db.execute(sql`SELECT fd.*, f.name as festival_name, f.year as festival_year, r.full_name as resident_name, r.mobile as resident_mobile, r.flat_no, b.building_name, w.wing_name FROM festival_donations fd LEFT JOIN festivals f ON fd.festival_id=f.id LEFT JOIN residents r ON fd.resident_id=r.id LEFT JOIN buildings b ON r.building_id=b.id LEFT JOIN wings w ON r.wing_id=w.id WHERE fd.receipt_number=${receipt} LIMIT 1`);
+    const row = (result.rows || [])[0] as any; if (!row) { res.status(404).send("Vargani receipt not found"); return; }
+    if (row.payment_method === "pending" || row.amount == null || !row.payment_date || !row.festival_name) { res.status(422).send("Receipt data is incomplete"); return; }
+    const pdf = await generateVarganiPdf({ receiptNumber: row.receipt_number, donationDate: row.payment_date, name: row.resident_name, mobile: row.resident_mobile, building: row.building_name, wing: row.wing_name, flat: row.flat_no, amount: Number(row.amount), paymentMethod: row.payment_method, festivalName: row.festival_name, festivalYear: Number(row.festival_year), collectedBy: row.collected_by_admin_name });
+    res.setHeader("Content-Type", "application/pdf"); res.setHeader("Content-Disposition", `inline; filename="Vargani-${row.receipt_number}.pdf"`); res.setHeader("Content-Length", pdf.length); res.setHeader("Cache-Control", "public, max-age=86400"); res.end(pdf);
+  } catch (err: any) {
+    console.error("Vargani PDF generation failed:", err?.stack || err);
+    res.status(500).send("Failed to generate Vargani receipt PDF");
+  }
+});
 
 // ── GET /api/admin/festivals/:festivalId/donations ─────────────────────────
 // List donations for a festival with resident details, filters, sorting

@@ -11,16 +11,12 @@ export default function CTA() {
         <p className="text-foreground/70 max-w-2xl mx-auto mb-8">Stay connected with Meditiya Nagar, participate in celebrations, and never miss what's happening around you.</p>
 
         <div className="flex items-center justify-center gap-4">
-          <Link href="/festivals">
-            <Button variant="default" size="lg" asChild>
-              <a className="inline-flex items-center gap-2">Explore Festivals <ArrowRight className="w-4 h-4" /></a>
-            </Button>
-          </Link>
-          <Link href="/events">
-            <Button variant="outline" size="lg" asChild>
-              <a>View Events</a>
-            </Button>
-          </Link>
+          <Button variant="default" size="lg" asChild>
+            <Link href="/festivals" className="inline-flex items-center gap-2">Explore Festivals <ArrowRight className="w-4 h-4" /></Link>
+          </Button>
+          <Button variant="outline" size="lg" asChild>
+            <Link href="/events">View Events</Link>
+          </Button>
         </div>
       </div>
     </section>
