@@ -9,6 +9,7 @@ export const competitionsTable = pgTable("competitions", {
   name: text("name").notNull(),
   category: text("category").notNull(),
   description: text("description").notNull(),
+  rules: text("rules"),
   date: timestamp("date", { withTimezone: true }).notNull(),
   ageGroup: text("age_group"),
   venue: text("venue"),

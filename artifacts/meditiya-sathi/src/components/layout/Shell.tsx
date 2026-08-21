@@ -1571,9 +1571,9 @@ export default function Shell({
                   </div>
 
                   <span className="leading-6 text-muted-foreground dark:text-white/45">
-                    Meditiya Nagar, Sector 4,
+                    Omkareshwar Mandir, Medtiya Nagar, Opp. Seven Square School, Deepak Hospital Lane,
                     <br />
-                    Mumbai, Maharashtra 401107
+                    Mira Road,Mumbai, Maharashtra 401107
                   </span>
 
                 </div>

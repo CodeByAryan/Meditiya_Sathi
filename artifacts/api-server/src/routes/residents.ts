@@ -15,6 +15,55 @@ function isPositiveInteger(val: unknown): val is number {
   return typeof val === "number" && Number.isInteger(val) && val > 0;
 }
 
+// ── GET /api/buildings ──────────────────────────────────────────────────────
+// Public: Fetch all active buildings
+
+router.get("/buildings", async (_req, res): Promise<void> => {
+  try {
+    const buildings = await db
+      .select()
+      .from(buildingsTable)
+      .where(eq(buildingsTable.status, "active"))
+      .orderBy(buildingsTable.buildingName);
+
+    res.json(buildings.map(b => ({
+      ...b,
+      createdAt: b.createdAt.toISOString(),
+    })));
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || "Failed to fetch buildings" });
+  }
+});
+
+// ── GET /api/buildings/:buildingId/wings ────────────────────────────────────
+// Public: Fetch active wings for a specific building
+
+router.get("/buildings/:buildingId/wings", async (req, res): Promise<void> => {
+  try {
+    const buildingId = parseInt(req.params.buildingId as string, 10);
+    if (isNaN(buildingId)) {
+      res.status(400).json({ error: "Invalid building ID" });
+      return;
+    }
+
+    const wings = await db
+      .select()
+      .from(wingsTable)
+      .where(and(
+        eq(wingsTable.buildingId, buildingId),
+        eq(wingsTable.status, "active"),
+      ))
+      .orderBy(wingsTable.wingName);
+
+    res.json(wings.map(w => ({
+      ...w,
+      createdAt: w.createdAt.toISOString(),
+    })));
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || "Failed to fetch wings" });
+  }
+});
+
 // ── GET /api/admin/buildings ────────────────────────────────────────────────
 // Fetch all active buildings
 
