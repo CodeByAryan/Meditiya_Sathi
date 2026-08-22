@@ -8,10 +8,14 @@
 
 export interface VolunteerInput {
   name: string;
-  phone: string;
+  phone?: string | null;
+  mobileNumber?: string | null;
+  photo?: string | null;
+  position?: string | null;
+  displayPosition?: number;
   /** @nullable */
   email?: string | null;
-  role: string;
+  role?: string | null;
   /** @nullable */
   flatNumber?: string | null;
   /** @nullable */

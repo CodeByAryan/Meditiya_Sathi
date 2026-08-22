@@ -263,7 +263,7 @@ export default function Admin() {
             name: 'Volunteers',
             description: 'Manage society volunteers',
             icon: Users,
-            href: '/admin/admin-management',
+            href: '/admin/volunteers',
           },
         ]
       : []),

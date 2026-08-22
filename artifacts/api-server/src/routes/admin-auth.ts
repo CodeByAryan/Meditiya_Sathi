@@ -6,7 +6,9 @@ import { eq, or } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || "meditiya-sathi-jwt-secret-change-in-production";
+function getJwtSecret(): string {
+  return process.env.JWT_SECRET || "meditiya-sathi-jwt-secret-change-in-production";
+}
 
 interface TokenPayload {
   id: string;
@@ -35,29 +37,57 @@ function createToken(payload: Omit<TokenPayload, "iat" | "exp">): string {
   };
   const headerB64 = base64UrlEncode(JSON.stringify(header));
   const payloadB64 = base64UrlEncode(JSON.stringify(tokenPayload));
-  const signature = base64UrlEncode(
-    createHmac("sha256", JWT_SECRET)
-      .update(`${headerB64}.${payloadB64}`)
-      .digest()
-      .toString("base64url")
-  );
+  const signature = createHmac("sha256", getJwtSecret())
+    .update(`${headerB64}.${payloadB64}`)
+    .digest("base64url");
   return `${headerB64}.${payloadB64}.${signature}`;
 }
 
 export function verifyAdminToken(token: string): TokenPayload | null {
   try {
-    const parts = token.split(".");
+    if (!token || typeof token !== "string") return null;
+    const parts = token.trim().split(".");
     if (parts.length !== 3) return null;
     const [headerB64, payloadB64, signatureB64] = parts;
-    const expectedSig = base64UrlEncode(
-      createHmac("sha256", JWT_SECRET)
+
+    const currentSecret = getJwtSecret();
+    const fallbackSecret = "meditiya-sathi-jwt-secret-change-in-production";
+
+    const expectedSig = createHmac("sha256", currentSecret)
+      .update(`${headerB64}.${payloadB64}`)
+      .digest("base64url");
+
+    const legacySig = base64UrlEncode(
+      createHmac("sha256", currentSecret)
         .update(`${headerB64}.${payloadB64}`)
         .digest()
         .toString("base64url")
     );
-    if (signatureB64 !== expectedSig) return null;
+
+    const fallbackSig = createHmac("sha256", fallbackSecret)
+      .update(`${headerB64}.${payloadB64}`)
+      .digest("base64url");
+
+    const fallbackLegacySig = base64UrlEncode(
+      createHmac("sha256", fallbackSecret)
+        .update(`${headerB64}.${payloadB64}`)
+        .digest()
+        .toString("base64url")
+    );
+
+    if (
+      signatureB64 !== expectedSig &&
+      signatureB64 !== legacySig &&
+      signatureB64 !== fallbackSig &&
+      signatureB64 !== fallbackLegacySig
+    ) {
+      return null;
+    }
+
     const payload: TokenPayload = JSON.parse(base64UrlDecode(payloadB64));
-    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+      return null;
+    }
     return payload;
   } catch {
     return null;

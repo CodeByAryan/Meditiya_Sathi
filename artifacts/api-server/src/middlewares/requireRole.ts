@@ -10,7 +10,7 @@ import { verifyAdminToken } from "../routes/admin-auth";
 export const PERMISSIONS = {
   // ── Admin Management ───────────────────────────────────
   "manage:admins": ["Super Admin"],
-  "manage:volunteers": ["Super Admin", "Admin"],
+  "manage:volunteers": ["Super Admin"],
   "view:admin-management": ["Super Admin"],
   "view:team-management": ["Super Admin", "Admin"],
 
@@ -78,17 +78,39 @@ async function loadAdminFromRequest(req: any, res: any): Promise<boolean> {
   }
 
   try {
-    const [admin] = await db
-      .select({
-        id: adminsTable.id,
-        fullName: adminsTable.fullName,
-        username: adminsTable.username,
-        role: adminsTable.role,
-        isActive: adminsTable.isActive,
-      })
-      .from(adminsTable)
-      .where(eq(adminsTable.id, payload.id))
-      .limit(1);
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isUuid = payload.id && uuidRegex.test(payload.id);
+
+    let admin: any = null;
+    if (isUuid) {
+      const [row] = await db
+        .select({
+          id: adminsTable.id,
+          fullName: adminsTable.fullName,
+          username: adminsTable.username,
+          role: adminsTable.role,
+          isActive: adminsTable.isActive,
+        })
+        .from(adminsTable)
+        .where(eq(adminsTable.id, payload.id))
+        .limit(1);
+      admin = row;
+    }
+
+    if (!admin && payload.username) {
+      const [row] = await db
+        .select({
+          id: adminsTable.id,
+          fullName: adminsTable.fullName,
+          username: adminsTable.username,
+          role: adminsTable.role,
+          isActive: adminsTable.isActive,
+        })
+        .from(adminsTable)
+        .where(eq(adminsTable.username, payload.username))
+        .limit(1);
+      admin = row;
+    }
 
     if (!admin || !admin.isActive) {
       res.status(403).json({ error: "Account not found or disabled" });

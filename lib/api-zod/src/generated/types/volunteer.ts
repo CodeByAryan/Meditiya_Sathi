@@ -10,12 +10,17 @@ import type { VolunteerStatus } from './volunteerStatus';
 export interface Volunteer {
   id: number;
   name: string;
-  phone: string;
+  phone?: string | null;
+  mobileNumber?: string | null;
   /** @nullable */
   email?: string | null;
-  role: string;
+  role?: string | null;
+  position?: string | null;
+  photo?: string | null;
+  photoUrl?: string | null;
   /** @nullable */
   flatNumber?: string | null;
+  displayPosition?: number;
   status: VolunteerStatus;
   /** @nullable */
   festivalId?: number | null;

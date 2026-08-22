@@ -19,11 +19,11 @@ const upload = multer({
   },
 });
 
-function uploadToCloudinary(buffer: Buffer) {
+function uploadToCloudinary(buffer: Buffer, folder = "meditiya-sathi/events") {
   return new Promise<{ secure_url: string; public_id: string }>((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
-        folder: "meditiya-sathi/events",
+        folder,
         resource_type: "image",
         format: "webp",
         transformation: [
@@ -42,6 +42,54 @@ function uploadToCloudinary(buffer: Buffer) {
     stream.end(buffer);
   });
 }
+
+router.post("/admin/uploads/volunteer-photo", requireRole("Super Admin", "Admin"), (req, res) => {
+  upload.single("image")(req, res, async (error) => {
+    if (error instanceof multer.MulterError) {
+      if (error.code === "LIMIT_FILE_SIZE") {
+        res.status(400).json({ error: "Image size must be less than 5 MB." });
+        return;
+      }
+      res.status(400).json({ error: error.message || "Invalid file upload." });
+      return;
+    }
+    if (error) {
+      res.status(400).json({ error: "Please upload a JPG, PNG, or WEBP image." });
+      return;
+    }
+    if (!req.file) {
+      res.status(400).json({ error: "Please upload a JPG, PNG, or WEBP image." });
+      return;
+    }
+
+    if (!isCloudinaryConfigured) {
+      // Safe base64 data URL fallback for local development without Cloudinary credentials
+      const base64Data = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+      res.status(201).json({
+        secureUrl: base64Data,
+        publicId: `local-volunteer-${Date.now()}`,
+        secure_url: base64Data,
+        public_id: `local-volunteer-${Date.now()}`,
+      });
+      return;
+    }
+
+    try {
+      const image = await uploadToCloudinary(req.file.buffer, "meditiya-sathi/volunteers");
+      res.status(201).json({
+        secureUrl: image.secure_url,
+        publicId: image.public_id,
+        secure_url: image.secure_url,
+        public_id: image.public_id,
+      });
+    } catch (uploadError: any) {
+      const errorMsg = uploadError?.message || String(uploadError);
+      res.status(502).json({
+        error: errorMsg || "Unable to upload the volunteer photo. Please try again.",
+      });
+    }
+  });
+});
 
 router.post("/admin/uploads/event-image", requireRole("Super Admin", "Admin"), (req, res) => {
   upload.single("image")(req, res, async (error) => {

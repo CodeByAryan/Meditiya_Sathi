@@ -275,12 +275,17 @@ export const VolunteerStatus = {
 export interface Volunteer {
   id: number;
   name: string;
-  phone: string;
+  phone?: string | null;
+  mobileNumber?: string | null;
   /** @nullable */
   email?: string | null;
-  role: string;
+  role?: string | null;
+  position?: string | null;
+  photo?: string | null;
+  photoUrl?: string | null;
   /** @nullable */
   flatNumber?: string | null;
+  displayPosition?: number;
   status: VolunteerStatus;
   /** @nullable */
   festivalId?: number | null;
@@ -291,10 +296,14 @@ export interface Volunteer {
 
 export interface VolunteerInput {
   name: string;
-  phone: string;
+  phone?: string | null;
+  mobileNumber?: string | null;
+  photo?: string | null;
+  position?: string | null;
+  displayPosition?: number;
   /** @nullable */
   email?: string | null;
-  role: string;
+  role?: string | null;
   /** @nullable */
   flatNumber?: string | null;
   /** @nullable */

@@ -3,9 +3,8 @@ import { motion } from 'framer-motion';
 import Hero from './Hero';
 import Stats from './Stats';
 import UpcomingTeaser from './UpcomingTeaser';
-import FestivalShowcase from './FestivalShowcase';
-import EventsSection from './EventsSection';
 import FeaturesBento from './FeaturesBento';
+import VolunteersSection from './VolunteersSection';
 import CTA from './CTA';
 import { pageFade } from './motionVariants';
 
@@ -16,8 +15,7 @@ export default function HomePage() {
       <Stats />
       <UpcomingTeaser />
       <FeaturesBento />
-      <FestivalShowcase />
-      <EventsSection />
+      <VolunteersSection />
       <CTA />
     </motion.div>
   );

@@ -224,6 +224,13 @@ export default function Shell({
             description: 'Manage admin accounts',
             superAdminOnly: true,
           },
+          {
+            name: 'Volunteers',
+            href: '/admin/volunteers',
+            icon: Users,
+            description: 'Manage volunteers',
+            superAdminOnly: true,
+          },
         ]
       : []),
 

@@ -1,6 +1,5 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { loadEnvFile } from "node:process";
 import { fileURLToPath } from "node:url";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
@@ -16,11 +15,31 @@ const possiblePaths = [
 for (const envPath of possiblePaths) {
   if (existsSync(envPath)) {
     try {
-      loadEnvFile(envPath);
+      const content = readFileSync(envPath, "utf8");
+      const lines = content.split(/\r?\n/);
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+        const eqIdx = trimmed.indexOf("=");
+        if (eqIdx > 0) {
+          const key = trimmed.slice(0, eqIdx).trim();
+          let val = trimmed.slice(eqIdx + 1).trim();
+          if (
+            (val.startsWith('"') && val.endsWith('"')) ||
+            (val.startsWith("'") && val.endsWith("'"))
+          ) {
+            val = val.slice(1, -1);
+          }
+          if (!(key in process.env)) {
+            process.env[key] = val;
+          }
+        }
+      }
       break;
     } catch {
       // Continue checking remaining paths if loading fails
     }
   }
 }
+
 

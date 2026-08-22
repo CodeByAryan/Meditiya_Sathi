@@ -26,17 +26,39 @@ export function requireAdminToken(): RequestHandler {
 
     // Verify admin still exists and is active in DB
     try {
-      const [admin] = await db
-        .select({
-          id: adminsTable.id,
-          fullName: adminsTable.fullName,
-          username: adminsTable.username,
-          role: adminsTable.role,
-          isActive: adminsTable.isActive,
-        })
-        .from(adminsTable)
-        .where(eq(adminsTable.id, payload.id))
-        .limit(1);
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isUuid = payload.id && uuidRegex.test(payload.id);
+
+      let admin: any = null;
+      if (isUuid) {
+        const [row] = await db
+          .select({
+            id: adminsTable.id,
+            fullName: adminsTable.fullName,
+            username: adminsTable.username,
+            role: adminsTable.role,
+            isActive: adminsTable.isActive,
+          })
+          .from(adminsTable)
+          .where(eq(adminsTable.id, payload.id))
+          .limit(1);
+        admin = row;
+      }
+
+      if (!admin && payload.username) {
+        const [row] = await db
+          .select({
+            id: adminsTable.id,
+            fullName: adminsTable.fullName,
+            username: adminsTable.username,
+            role: adminsTable.role,
+            isActive: adminsTable.isActive,
+          })
+          .from(adminsTable)
+          .where(eq(adminsTable.username, payload.username))
+          .limit(1);
+        admin = row;
+      }
 
       if (!admin || !admin.isActive) {
         res.status(403).json({ error: "Account not found or disabled" });

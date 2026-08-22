@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { getApiUrl } from "@/lib/utils";
 
 export interface AdminUser {
   id: string;
@@ -91,7 +92,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
   // Permission helpers based on role
   const canManageAdmins = isSuperAdmin;
-  const canManageVolunteers = isSuperAdmin || isAdmin;
+  const canManageVolunteers = isSuperAdmin;
   const canManageBuildings = isSuperAdmin || isAdmin;
   const canManageResidents = isSuperAdmin || isAdmin;
   const canManageFestivals = isSuperAdmin || isAdmin;
@@ -108,8 +109,7 @@ const canDeleteFestivals = isSuperAdmin; // Only Super Admin can delete festival
     setError(null);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || "https://meditiya-sathi.onrender.com";
-      const res = await fetch(`${apiUrl}/api/admin/login`, {
+      const res = await fetch(`${getApiUrl()}/api/admin/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
