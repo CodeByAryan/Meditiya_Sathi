@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { useAdminAuth } from "@/lib/AdminAuthContext";
 import { getApiUrl } from "@/lib/utils";
+import { compressVolunteerPhoto } from "@/lib/image-compress";
 import {
   Card,
   CardContent,
@@ -99,6 +100,7 @@ export default function AdminVolunteersCrud() {
 
   const [file, setFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
   const [formData, setFormData] = useState<VolunteerFormData>(emptyForm(1));
 
   const getLatestHeaders = useCallback((): Record<string, string> => {
@@ -162,18 +164,23 @@ export default function AdminVolunteersCrud() {
     setOpenForm(true);
   };
 
-  const handlePhotoSelect = (selected?: File) => {
+  const handlePhotoSelect = async (selected?: File) => {
     if (!selected) return;
-    if (!/image\/(jpeg|png|webp)/.test(selected.type)) {
+    if (!selected.type.startsWith("image/")) {
       toast.error("Please upload a JPG, PNG, or WEBP image.");
       return;
     }
-    if (selected.size > 5 * 1024 * 1024) {
-      toast.error("Image size must be less than 5 MB.");
-      return;
+
+    try {
+      setIsCompressing(true);
+      const compressed = await compressVolunteerPhoto(selected);
+      setFile(compressed.file);
+      setPhotoPreview(compressed.previewUrl);
+    } catch (err: any) {
+      toast.error(err.message || "Unable to process this image. Please choose another photo.");
+    } finally {
+      setIsCompressing(false);
     }
-    setFile(selected);
-    setPhotoPreview(URL.createObjectURL(selected));
   };
 
   // Upload photo mutation
@@ -779,10 +786,12 @@ export default function AdminVolunteersCrud() {
                   </Button>
                   <Button
                     type="submit"
-                    disabled={saveMutation.isPending || uploadPhotoMutation.isPending}
+                    disabled={isCompressing || saveMutation.isPending || uploadPhotoMutation.isPending}
                     className="rounded-full bg-gradient-to-r from-amber-200 via-orange-300 to-amber-400 px-6 font-semibold text-black shadow-[0_0_25px_rgba(251,191,36,0.15)] hover:brightness-110"
                   >
-                    {saveMutation.isPending || uploadPhotoMutation.isPending
+                    {isCompressing
+                      ? "Optimizing Image..."
+                      : saveMutation.isPending || uploadPhotoMutation.isPending
                       ? "Saving..."
                       : editingVolunteer
                       ? "Update Volunteer"
