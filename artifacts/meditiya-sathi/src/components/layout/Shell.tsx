@@ -137,9 +137,9 @@ export default function Shell({
       icon: ImageIcon,
     },
     {
-      name: 'Donations',
-      href: '/donations',
-      icon: Heart,
+      name: 'Leaderboard',
+      href: '/donation-showcase',
+      icon: Trophy,
     },
     {
       name: 'Services',
@@ -1512,12 +1512,16 @@ export default function Shell({
                 Upcoming Events
               </FooterLink>
 
-              <FooterLink href="/notices">
-                Notice Board
+              <FooterLink href="/festivals">
+                Festivals
               </FooterLink>
 
-              <FooterLink href="/donations">
-                Support & Donate
+              <FooterLink href="/donation-showcase">
+                Leaderboard
+              </FooterLink>
+
+              <FooterLink href="/notices">
+                Notice Board
               </FooterLink>
 
             </FooterColumn>

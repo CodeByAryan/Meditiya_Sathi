@@ -3,7 +3,7 @@ import { Link } from 'wouter';
 import {
   Users,
   CalendarDays,
-  Heart,
+  Trophy,
   ShoppingBag,
   Star,
   ArrowUpRight,
@@ -36,10 +36,10 @@ const features = [
     number: '03',
   },
   {
-    title: 'Donate',
-    desc: 'Support community causes',
-    href: '/donations',
-    icon: Heart,
+    title: 'Leaderboard',
+    desc: 'Top festival contributors',
+    href: '/donation-showcase',
+    icon: Trophy,
     size: 'small',
     number: '04',
   },

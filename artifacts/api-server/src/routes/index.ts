@@ -26,6 +26,7 @@ import outsiderDonationsRouter from "./outsider-donations";
 import tshirtRegistrationsRouter from "./tshirt-registrations";
 import tshirtCollectionRouter from "./tshirt-collection";
 import uploadsRouter from "./uploads";
+import donationShowcaseRouter from "./donation-showcase";
 
 
 const router: IRouter = Router();
@@ -57,6 +58,7 @@ router.use(outsiderDonationsRouter);
 router.use(tshirtRegistrationsRouter);
 router.use(tshirtCollectionRouter);
 router.use(uploadsRouter);
+router.use(donationShowcaseRouter);
 
 
 export default router;

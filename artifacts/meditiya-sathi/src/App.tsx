@@ -15,7 +15,7 @@ const EventDetail = lazy(() => import('@/pages/event-detail'));
 const Festivals = lazy(() => import('@/pages/festivals'));
 const Notices = lazy(() => import('@/pages/notices'));
 const Gallery = lazy(() => import('@/pages/gallery'));
-const Donations = lazy(() => import('@/pages/donations'));
+const DonationShowcase = lazy(() => import('@/pages/donation-showcase'));
 const Volunteers = lazy(() => import('@/pages/volunteers'));
 const Competitions = lazy(() => import('@/pages/competitions'));
 const CompetitionDetail = lazy(() => import('@/pages/competition-detail'));
@@ -90,7 +90,10 @@ function AppRoutes() {
         <Route path="/festivals"><Shell><Festivals /></Shell></Route>
         <Route path="/notices"><Shell><Notices /></Shell></Route>
         <Route path="/gallery"><Shell><Gallery /></Shell></Route>
-        <Route path="/donations"><Shell><Donations /></Shell></Route>
+        <Route path="/donations"><Redirect to="/donation-showcase" /></Route>
+        <Route path="/leaderboard"><Redirect to="/donation-showcase" /></Route>
+        <Route path="/festival-leaderboard"><Redirect to="/donation-showcase" /></Route>
+        <Route path="/donation-showcase"><Shell><DonationShowcase /></Shell></Route>
         <Route path="/volunteers"><Shell><Volunteers /></Shell></Route>
         <Route path="/competitions"><Shell><Competitions /></Shell></Route>
         <Route path="/competitions/:id"><Shell><CompetitionDetail /></Shell></Route>
