@@ -147,7 +147,7 @@ router.post("/admin/uploads/event-image", requireRole("Super Admin", "Admin"), (
       ) {
         res.status(502).json({
           error:
-            "Cloudinary authentication failed. Check CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET.",
+            "Image upload service authentication failed. Please check server configuration.",
         });
         return;
       }

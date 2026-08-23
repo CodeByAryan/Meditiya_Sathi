@@ -4,6 +4,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { requireRole, canAccessFestival, canAccessDonation } from "../middlewares/requireRole";
 import { generateVarganiPdf } from "../lib/vargani-pdf";
 import { getPublicAppBaseUrl } from "../lib/tshirt-url";
+import { pdfRateLimiter } from "../middlewares/rateLimiter";
 
 const router: IRouter = Router();
 
@@ -63,9 +64,9 @@ router.all("/admin/festival-donations/:id/vargani-pdf", requireRole("Super Admin
   }
 });
 
-router.get("/vargani-pdf/:receiptNumber", async (req, res): Promise<void> => {
+router.get("/vargani-pdf/:receiptNumber", pdfRateLimiter, async (req, res): Promise<void> => {
   try {
-    const receipt = String(req.params.receiptNumber || "").replace(/\.pdf$/i, "").trim();
+    const receipt = String(req.params.receiptNumber || "").replace(/\.pdf$/i, "").trim().slice(0, 100);
     if (!receipt) { res.status(400).send("Receipt number is required"); return; }
     const result = await db.execute(sql`SELECT fd.*, f.name as festival_name, f.year as festival_year, r.full_name as resident_name, r.mobile as resident_mobile, r.flat_no, b.building_name, w.wing_name FROM festival_donations fd LEFT JOIN festivals f ON fd.festival_id=f.id LEFT JOIN residents r ON fd.resident_id=r.id LEFT JOIN buildings b ON r.building_id=b.id LEFT JOIN wings w ON r.wing_id=w.id WHERE fd.receipt_number=${receipt} LIMIT 1`);
     const row = (result.rows || [])[0] as any; if (!row) { res.status(404).send("Vargani receipt not found"); return; }
@@ -116,69 +117,74 @@ router.get("/admin/festivals/:festivalId/donations", requireRole("Super Admin", 
     const donationStatus = req.query.donationStatus as string | undefined;
     const pendingReasonFilter = req.query.pendingReason as string | undefined;
 
-    // Build WHERE conditions
-    let whereClause = `WHERE fd.festival_id = ${festivalId}`;
+    // Build parameterized WHERE conditions
+    const conditions: ReturnType<typeof sql>[] = [sql`fd.festival_id = ${festivalId}`];
 
     if (paymentMethodFilter && ["pending", "cash", "upi", "bank_transfer", "cheque"].includes(paymentMethodFilter)) {
-      whereClause += ` AND fd.payment_method = '${paymentMethodFilter.replace(/'/g, "''")}'`;
+      conditions.push(sql`fd.payment_method = ${paymentMethodFilter}`);
     }
 
     // Donation Status filter (paid = any non-pending method, pending = 'pending')
     if (donationStatus === "paid") {
-      whereClause += ` AND fd.payment_method != 'pending'`;
+      conditions.push(sql`fd.payment_method != 'pending'`);
     } else if (donationStatus === "pending") {
-      whereClause += ` AND fd.payment_method = 'pending'`;
+      conditions.push(sql`fd.payment_method = 'pending'`);
     }
 
     // Pending Reason filter
     if (pendingReasonFilter) {
-      const safeReason = pendingReasonFilter.replace(/'/g, "''");
-      whereClause += ` AND fd.pending_reason = '${safeReason}'`;
+      conditions.push(sql`fd.pending_reason = ${pendingReasonFilter.slice(0, 100)}`);
     }
 
     if (search) {
-      const safeSearch = search.replace(/'/g, "''");
-      whereClause += ` AND (LOWER(r.full_name) LIKE LOWER('%${safeSearch}%')
-        OR r.mobile LIKE '%${safeSearch}%'
-        OR LOWER(r.flat_no) LIKE LOWER('%${safeSearch}%')
-        OR LOWER(b.building_name) LIKE LOWER('%${safeSearch}%')
-        OR LOWER(COALESCE(w.wing_name, '')) LIKE LOWER('%${safeSearch}%')
-        OR LOWER(COALESCE(fd.receipt_number, '')) LIKE LOWER('%${safeSearch}%')
-        OR LOWER(COALESCE(fd.notes, '')) LIKE LOWER('%${safeSearch}%')
-        OR LOWER(fd.collected_by_admin_name) LIKE LOWER('%${safeSearch}%'))`;
+      const safeSearch = `%${search.slice(0, 100)}%`;
+      conditions.push(sql`(
+        LOWER(r.full_name) LIKE LOWER(${safeSearch})
+        OR r.mobile LIKE ${safeSearch}
+        OR LOWER(r.flat_no) LIKE LOWER(${safeSearch})
+        OR LOWER(b.building_name) LIKE LOWER(${safeSearch})
+        OR LOWER(COALESCE(w.wing_name, '')) LIKE LOWER(${safeSearch})
+        OR LOWER(COALESCE(fd.receipt_number, '')) LIKE LOWER(${safeSearch})
+        OR LOWER(COALESCE(fd.notes, '')) LIKE LOWER(${safeSearch})
+        OR LOWER(COALESCE(fd.collected_by_admin_name, '')) LIKE LOWER(${safeSearch})
+      )`);
     }
 
     if (buildingIdParam) {
       const bid = parseInt(buildingIdParam, 10);
-      if (!isNaN(bid)) whereClause += ` AND r.building_id = ${bid}`;
+      if (!isNaN(bid)) conditions.push(sql`r.building_id = ${bid}`);
     }
 
     if (wingIdParam) {
       const wid = parseInt(wingIdParam, 10);
-      if (!isNaN(wid)) whereClause += ` AND r.wing_id = ${wid}`;
+      if (!isNaN(wid)) conditions.push(sql`r.wing_id = ${wid}`);
     }
 
     if (flatNo) {
-      const safeFlat = flatNo.replace(/'/g, "''");
-      whereClause += ` AND LOWER(r.flat_no) = LOWER('${safeFlat}')`;
+      conditions.push(sql`LOWER(r.flat_no) = LOWER(${flatNo.slice(0, 30)})`);
     }
 
     if (adminId) {
-      const safeAdmin = adminId.replace(/'/g, "''");
-      whereClause += ` AND fd.collected_by_admin_id = '${safeAdmin}'`;
+      conditions.push(sql`fd.collected_by_admin_id = ${adminId.slice(0, 60)}`);
     }
 
-    if (dateFrom) whereClause += ` AND fd.payment_date >= '${dateFrom.replace(/'/g, "''")}'`;
-    if (dateTo) whereClause += ` AND fd.payment_date <= '${dateTo.replace(/'/g, "''")}'`;
+    if (dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(dateFrom)) {
+      conditions.push(sql`fd.payment_date >= ${dateFrom}`);
+    }
+    if (dateTo && /^\d{4}-\d{2}-\d{2}$/.test(dateTo)) {
+      conditions.push(sql`fd.payment_date <= ${dateTo}`);
+    }
 
     if (amountMin) {
       const amt = parseFloat(amountMin);
-      if (!isNaN(amt)) whereClause += ` AND fd.amount >= ${amt}`;
+      if (!isNaN(amt)) conditions.push(sql`fd.amount >= ${amt}`);
     }
     if (amountMax) {
       const amt = parseFloat(amountMax);
-      if (!isNaN(amt)) whereClause += ` AND fd.amount <= ${amt}`;
+      if (!isNaN(amt)) conditions.push(sql`fd.amount <= ${amt}`);
     }
+
+    const whereSql = sql.join(conditions, sql` AND `);
 
     // Count total
     const countResult = await db.execute(
@@ -186,23 +192,40 @@ router.get("/admin/festivals/:festivalId/donations", requireRole("Super Admin", 
           LEFT JOIN residents r ON fd.resident_id = r.id
           LEFT JOIN buildings b ON r.building_id = b.id
           LEFT JOIN wings w ON r.wing_id = w.id
-          ${sql.raw(whereClause)}`
+          WHERE ${whereSql}`
     );
     const total = (countResult.rows?.[0] as any)?.count ?? 0;
 
-    // Determine sort
-    const sortMap: Record<string, string> = {
-      amount: `fd.amount ${sortOrder === "asc" ? "ASC" : "DESC"}`,
-      paymentDate: `fd.payment_date ${sortOrder === "asc" ? "ASC" : "DESC"}`,
-      residentName: `r.full_name ${sortOrder === "asc" ? "ASC" : "DESC"}`,
-      building: `b.building_name ${sortOrder === "asc" ? "ASC" : "DESC"}`,
-      wing: `w.wing_name ${sortOrder === "asc" ? "ASC" : "DESC"}`,
-      flatNo: `r.flat_no ${sortOrder === "asc" ? "ASC" : "DESC"}`,
-      paymentMethod: `fd.payment_method ${sortOrder === "asc" ? "ASC" : "DESC"}`,
-      receiptNumber: `fd.receipt_number ${sortOrder === "asc" ? "ASC" : "DESC"}`,
-      createdAt: `fd.created_at ${sortOrder === "asc" ? "ASC" : "DESC"}`,
-    };
-    const orderClause = sortMap[sortBy] || "fd.created_at DESC";
+    // Determine parameterized sort
+    let orderSql: ReturnType<typeof sql>;
+    switch (sortBy) {
+      case "amount":
+        orderSql = sortOrder === "asc" ? sql`fd.amount ASC` : sql`fd.amount DESC`;
+        break;
+      case "paymentDate":
+        orderSql = sortOrder === "asc" ? sql`fd.payment_date ASC` : sql`fd.payment_date DESC`;
+        break;
+      case "residentName":
+        orderSql = sortOrder === "asc" ? sql`r.full_name ASC` : sql`r.full_name DESC`;
+        break;
+      case "building":
+        orderSql = sortOrder === "asc" ? sql`b.building_name ASC` : sql`b.building_name DESC`;
+        break;
+      case "wing":
+        orderSql = sortOrder === "asc" ? sql`w.wing_name ASC` : sql`w.wing_name DESC`;
+        break;
+      case "flatNo":
+        orderSql = sortOrder === "asc" ? sql`r.flat_no ASC` : sql`r.flat_no DESC`;
+        break;
+      case "paymentMethod":
+        orderSql = sortOrder === "asc" ? sql`fd.payment_method ASC` : sql`fd.payment_method DESC`;
+        break;
+      case "receiptNumber":
+        orderSql = sortOrder === "asc" ? sql`fd.receipt_number ASC` : sql`fd.receipt_number DESC`;
+        break;
+      default:
+        orderSql = sortOrder === "asc" ? sql`fd.created_at ASC` : sql`fd.created_at DESC`;
+    }
 
     // Fetch donations with resident details
     const rows = await db.execute(
@@ -213,8 +236,8 @@ router.get("/admin/festivals/:festivalId/donations", requireRole("Super Admin", 
           LEFT JOIN residents r ON fd.resident_id = r.id
           LEFT JOIN buildings b ON r.building_id = b.id
           LEFT JOIN wings w ON r.wing_id = w.id
-          ${sql.raw(whereClause)}
-          ORDER BY ${sql.raw(orderClause)}
+          WHERE ${whereSql}
+          ORDER BY ${orderSql}
           LIMIT ${limit} OFFSET ${offset}`
     );
 

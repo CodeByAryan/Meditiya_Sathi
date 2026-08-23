@@ -73,7 +73,7 @@ async function loadAdminFromRequest(req: any, res: any): Promise<boolean> {
   const payload = verifyAdminToken(token);
 
   if (!payload) {
-    res.status(403).json({ error: "Forbidden - invalid or expired token" });
+    res.status(401).json({ error: "Unauthorized - invalid or expired token" });
     return false;
   }
 
@@ -113,7 +113,7 @@ async function loadAdminFromRequest(req: any, res: any): Promise<boolean> {
     }
 
     if (!admin || !admin.isActive) {
-      res.status(403).json({ error: "Account not found or disabled" });
+      res.status(401).json({ error: "Account not found or disabled" });
       return false;
     }
 

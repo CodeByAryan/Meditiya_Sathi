@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, marketplaceItemsTable } from "@workspace/db";
 import { eq, desc, ilike, and } from "drizzle-orm";
+import { publicFormRateLimiter } from "../middlewares/rateLimiter";
 import {
   CreateMarketplaceItemBody,
   DeleteMarketplaceItemParams,
@@ -29,7 +30,7 @@ router.get("/marketplace", async (req, res): Promise<void> => {
   res.json(items.map(i => ({ ...i, price: i.price ? parseFloat(String(i.price)) : null })));
 });
 
-router.post("/marketplace", async (req, res): Promise<void> => {
+router.post("/marketplace", publicFormRateLimiter, async (req, res): Promise<void> => {
   const parsed = CreateMarketplaceItemBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 

@@ -1491,16 +1491,31 @@ function QrCodeModal({ registration, onClose }: {
     a.click();
   };
 
+  const escapeHtml = (str: unknown): string => {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  };
+
   const handlePrint = () => {
     const win = window.open('', '_blank');
     if (!win) return;
+    const safeTitle = escapeHtml(registration.collectionId || 'T-Shirt');
+    const safeFestival = escapeHtml(`${registration.festivalName || ''} ${registration.festivalYear || ''}`.trim());
+    const safeDetails = escapeHtml(`${registration.name || ''} • ${registration.tShirtSize || ''} × ${registration.quantity || 1}`);
+    const safeCollectionId = escapeHtml(registration.collectionId || '');
+    const qrSrc = qrData?.qrDataUrl && qrData.qrDataUrl.startsWith('data:image/') ? qrData.qrDataUrl : '';
+
     win.document.write(
-      `<html><head><title>${registration.collectionId || 'T-Shirt'} QR</title></head>` +
+      `<!DOCTYPE html><html><head><title>${safeTitle} QR</title></head>` +
       `<body style="display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif;padding:24px;">` +
-      `<h2 style="margin:0 0 4px;">${registration.festivalName} ${registration.festivalYear || ''}</h2>` +
-      `<p style="margin:0 0 16px;color:#555;">${registration.name} • ${registration.tShirtSize} × ${registration.quantity}</p>` +
-      `<img src="${qrData?.qrDataUrl}" style="width:320px;height:320px;" />` +
-      `<p style="margin:16px 0 0;font-weight:bold;font-size:18px;">${registration.collectionId}</p>` +
+      `<h2 style="margin:0 0 4px;">${safeFestival}</h2>` +
+      `<p style="margin:0 0 16px;color:#555;">${safeDetails}</p>` +
+      (qrSrc ? `<img src="${qrSrc}" style="width:320px;height:320px;" alt="QR Code" />` : '') +
+      `<p style="margin:16px 0 0;font-weight:bold;font-size:18px;">${safeCollectionId}</p>` +
       `</body></html>`
     );
     win.document.close();

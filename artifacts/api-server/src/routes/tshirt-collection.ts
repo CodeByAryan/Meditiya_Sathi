@@ -65,8 +65,6 @@ router.get("/admin/tshirt-collection/summary", requireRole("Super Admin", "Admin
       return;
     }
 
-    const festivalWhere = `t.festival_id = ${festivalId}`;
-
     // Overall stats
     const statsResult = await db.execute(
       sql`SELECT
@@ -75,7 +73,7 @@ router.get("/admin/tshirt-collection/summary", requireRole("Super Admin", "Admin
           COALESCE(SUM(t.quantity) FILTER (WHERE t.collection_status = 'collected'), 0)::int as collectedShirts,
           COALESCE(SUM(t.quantity) FILTER (WHERE t.collection_status = 'pending'), 0)::int as pendingShirts
           FROM tshirt_registrations t
-          WHERE ${sql.raw(festivalWhere)}`
+          WHERE t.festival_id = ${festivalId}`
     );
     const stats = (statsResult.rows?.[0] as any) || {};
 
@@ -87,7 +85,7 @@ router.get("/admin/tshirt-collection/summary", requireRole("Super Admin", "Admin
           COALESCE(SUM(t.quantity) FILTER (WHERE t.collection_status = 'collected'), 0)::int as collected,
           COALESCE(SUM(t.quantity) FILTER (WHERE t.collection_status = 'pending'), 0)::int as pending
           FROM tshirt_registrations t
-          WHERE ${sql.raw(festivalWhere)}
+          WHERE t.festival_id = ${festivalId}
           GROUP BY t.t_shirt_size
           ORDER BY t.t_shirt_size`
     );
@@ -134,12 +132,7 @@ router.get("/admin/tshirt-collection/search", requireRole("Super Admin", "Admin"
       return;
     }
 
-    const safeQ = q.replace(/'/g, "''");
-    const whereClause = `t.festival_id = ${festivalId} AND (
-      LOWER(t.collection_id) LIKE LOWER('%${safeQ}%')
-      OR t.mobile_number LIKE '%${safeQ}%'
-      OR LOWER(t.name) LIKE LOWER('%${safeQ}%')
-    )`;
+    const safeQ = `%${q.slice(0, 100)}%`;
 
     const rows = await db.execute(
       sql`SELECT t.*, f.name as festival_name, f.year as festival_year,
@@ -148,7 +141,11 @@ router.get("/admin/tshirt-collection/search", requireRole("Super Admin", "Admin"
           LEFT JOIN festivals f ON t.festival_id = f.id
           LEFT JOIN buildings b ON t.building_id = b.id
           LEFT JOIN wings w ON t.wing_id = w.id
-          WHERE ${sql.raw(whereClause)}
+          WHERE t.festival_id = ${festivalId} AND (
+            LOWER(t.collection_id) LIKE LOWER(${safeQ})
+            OR t.mobile_number LIKE ${safeQ}
+            OR LOWER(t.name) LIKE LOWER(${safeQ})
+          )
           ORDER BY t.created_at DESC
           LIMIT 20`
     );
@@ -330,26 +327,28 @@ router.get("/admin/tshirt-collection/history", requireRole("Super Admin", "Admin
     const dateTo = req.query.dateTo as string | undefined;
     const search = (req.query.search as string)?.trim() || "";
 
-    let whereClause = "WHERE 1=1";
-    if (festivalId) whereClause += ` AND t.festival_id = ${festivalId}`;
-    if (buildingId) whereClause += ` AND t.building_id = ${parseInt(buildingId, 10)}`;
-    if (wingId) whereClause += ` AND t.wing_id = ${parseInt(wingId, 10)}`;
-    if (size) whereClause += ` AND t.t_shirt_size = '${size.replace(/'/g, "''")}'`;
-    if (status) whereClause += ` AND t.collection_status = '${status.replace(/'/g, "''")}'`;
-    if (dateFrom) whereClause += ` AND t.collected_at >= '${dateFrom.replace(/'/g, "''")}'`;
-    if (dateTo) whereClause += ` AND t.collected_at <= '${dateTo.replace(/'/g, "''")}'::date + interval '1 day'`;
+    const conditions: ReturnType<typeof sql>[] = [sql`1=1`];
+    if (festivalId) conditions.push(sql`t.festival_id = ${festivalId}`);
+    if (buildingId && !isNaN(parseInt(buildingId, 10))) conditions.push(sql`t.building_id = ${parseInt(buildingId, 10)}`);
+    if (wingId && !isNaN(parseInt(wingId, 10))) conditions.push(sql`t.wing_id = ${parseInt(wingId, 10)}`);
+    if (size) conditions.push(sql`t.t_shirt_size = ${size}`);
+    if (status) conditions.push(sql`t.collection_status = ${status}`);
+    if (dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(dateFrom)) conditions.push(sql`t.collected_at >= ${dateFrom}`);
+    if (dateTo && /^\d{4}-\d{2}-\d{2}$/.test(dateTo)) conditions.push(sql`t.collected_at <= ${dateTo}::date + interval '1 day'`);
     if (search) {
-      const safeSearch = search.replace(/'/g, "''");
-      whereClause += ` AND (
-        LOWER(t.collection_id) LIKE LOWER('%${safeSearch}%')
-        OR LOWER(t.name) LIKE LOWER('%${safeSearch}%')
-        OR t.mobile_number LIKE '%${safeSearch}%'
-      )`;
+      const safeSearch = `%${search.slice(0, 100)}%`;
+      conditions.push(sql`(
+        LOWER(t.collection_id) LIKE LOWER(${safeSearch})
+        OR LOWER(t.name) LIKE LOWER(${safeSearch})
+        OR t.mobile_number LIKE ${safeSearch}
+      )`);
     }
+
+    const whereSql = sql.join(conditions, sql` AND `);
 
     const countResult = await db.execute(
       sql`SELECT COUNT(*)::int as count FROM tshirt_registrations t
-          ${sql.raw(whereClause)}`
+          WHERE ${whereSql}`
     );
     const total = (countResult.rows?.[0] as any)?.count ?? 0;
 
@@ -360,7 +359,7 @@ router.get("/admin/tshirt-collection/history", requireRole("Super Admin", "Admin
           LEFT JOIN festivals f ON t.festival_id = f.id
           LEFT JOIN buildings b ON t.building_id = b.id
           LEFT JOIN wings w ON t.wing_id = w.id
-          ${sql.raw(whereClause)}
+          WHERE ${whereSql}
           ORDER BY t.collected_at DESC NULLS LAST, t.created_at DESC
           LIMIT ${limit} OFFSET ${offset}`
     );

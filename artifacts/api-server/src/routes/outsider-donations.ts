@@ -174,37 +174,45 @@ router.get("/admin/outsider-donations", requireRole("Super Admin", "Admin", "Vol
     const dateFrom = req.query.dateFrom as string | undefined;
     const dateTo = req.query.dateTo as string | undefined;
 
-    let whereClause = "WHERE 1=1";
+    const conditions: ReturnType<typeof sql>[] = [sql`1=1`];
 
     if (festivalId && isPositiveInteger(parseInt(festivalId, 10))) {
-      whereClause += ` AND od.festival_id = ${parseInt(festivalId, 10)}`;
+      conditions.push(sql`od.festival_id = ${parseInt(festivalId, 10)}`);
     }
 
     if (statusFilter === "paid" || statusFilter === "pending") {
-      whereClause += ` AND od.payment_status = '${statusFilter}'`;
+      conditions.push(sql`od.payment_status = ${statusFilter}`);
     }
 
     if (paymentMethodFilter && VALID_METHODS.includes(paymentMethodFilter)) {
-      whereClause += ` AND od.payment_method = '${paymentMethodFilter.replace(/'/g, "''")}'`;
+      conditions.push(sql`od.payment_method = ${paymentMethodFilter}`);
     }
 
-    if (dateFrom) whereClause += ` AND od.payment_date >= '${dateFrom.replace(/'/g, "''")}'`;
-    if (dateTo) whereClause += ` AND od.payment_date <= '${dateTo.replace(/'/g, "''")}'`;
+    if (dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(dateFrom)) {
+      conditions.push(sql`od.payment_date >= ${dateFrom}`);
+    }
+    if (dateTo && /^\d{4}-\d{2}-\d{2}$/.test(dateTo)) {
+      conditions.push(sql`od.payment_date <= ${dateTo}`);
+    }
 
     if (search) {
-      const safeSearch = search.replace(/'/g, "''");
-      whereClause += ` AND (LOWER(od.full_name) LIKE LOWER('%${safeSearch}%')
-        OR od.mobile LIKE '%${safeSearch}%'
-        OR LOWER(COALESCE(od.email, '')) LIKE LOWER('%${safeSearch}%')
-        OR LOWER(COALESCE(od.pending_reason, '')) LIKE LOWER('%${safeSearch}%')
-        OR LOWER(COALESCE(od.receipt_number, '')) LIKE LOWER('%${safeSearch}%')
-        OR LOWER(od.collected_by_admin_name) LIKE LOWER('%${safeSearch}%'))`;
+      const safeSearch = `%${search.slice(0, 100)}%`;
+      conditions.push(sql`(
+        LOWER(od.full_name) LIKE LOWER(${safeSearch})
+        OR od.mobile LIKE ${safeSearch}
+        OR LOWER(COALESCE(od.email, '')) LIKE LOWER(${safeSearch})
+        OR LOWER(COALESCE(od.pending_reason, '')) LIKE LOWER(${safeSearch})
+        OR LOWER(COALESCE(od.receipt_number, '')) LIKE LOWER(${safeSearch})
+        OR LOWER(od.collected_by_admin_name) LIKE LOWER(${safeSearch})
+      )`);
     }
+
+    const whereSql = sql.join(conditions, sql` AND `);
 
     const countResult = await db.execute(
       sql`SELECT COUNT(*)::int as count FROM outsider_donations od
           LEFT JOIN festivals f ON od.festival_id = f.id
-          ${sql.raw(whereClause)}`
+          WHERE ${whereSql}`
     );
     const total = (countResult.rows?.[0] as any)?.count ?? 0;
 
@@ -212,7 +220,7 @@ router.get("/admin/outsider-donations", requireRole("Super Admin", "Admin", "Vol
       sql`SELECT od.*, f.name as festival_name, f.year as festival_year
           FROM outsider_donations od
           LEFT JOIN festivals f ON od.festival_id = f.id
-          ${sql.raw(whereClause)}
+          WHERE ${whereSql}
           ORDER BY od.created_at DESC
           LIMIT ${limit} OFFSET ${offset}`
     );

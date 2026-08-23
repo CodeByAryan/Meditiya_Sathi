@@ -6,6 +6,7 @@ import { and, desc, eq, gte, ne, sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import { requireRole } from "../middlewares/requireRole";
 import { cloudinary, isCloudinaryConfigured } from "../lib/cloudinary";
+import { votingRateLimiter, publicFormRateLimiter } from "../middlewares/rateLimiter";
 
 const router: IRouter = Router();
 const secret = process.env.VOTER_HASH_SECRET || "meditiya-sathi-voter-secret-key-2025";
@@ -215,7 +216,7 @@ router.post("/competitions/:id/verify-resident", async (req, res) => {
 
   res.json({ verified: true, resident: { fullName: r.fullName, buildingName: r.buildingName, wingName: r.wingName } });
 });
-router.post("/competitions/:id/register", (req, res) =>
+router.post("/competitions/:id/register", publicFormRateLimiter, (req, res) =>
   upload.array("images", 5)(req, res, async (error) => {
     const competitionId = id(req.params.id);
     const data = residentSchema.safeParse({ ...req.body, wingId: req.body.wingId || null });
@@ -230,8 +231,16 @@ router.post("/competitions/:id/register", (req, res) =>
       return;
     }
 
-    if (error || !data.success || title.length < 2 || description.length < 10 || !files.length) {
-      res.status(400).json({ error: "Please provide valid participant details, entry title, description, and images." });
+    if (
+      error ||
+      !data.success ||
+      title.length < 2 ||
+      title.length > 150 ||
+      description.length < 10 ||
+      description.length > 2000 ||
+      !files.length
+    ) {
+      res.status(400).json({ error: "Please provide valid participant details, entry title (max 150 chars), description (max 2000 chars), and images." });
       return;
     }
 
@@ -278,7 +287,7 @@ router.post("/competitions/:id/register", (req, res) =>
     }
   })
 );
-router.post("/competitions/:id/vote", async (req, res) => {
+router.post("/competitions/:id/vote", votingRateLimiter, async (req, res) => {
   try {
     const competitionId = id(req.params.id);
     const entryId = id(req.body?.entryId);

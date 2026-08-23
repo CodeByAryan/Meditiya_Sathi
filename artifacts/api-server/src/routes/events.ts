@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, eventsTable, eventRegistrationsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/requireRole";
+import { publicFormRateLimiter } from "../middlewares/rateLimiter";
 import { eq, desc, gte, lte, lt, count, and, sql } from "drizzle-orm";
 import {
   CreateEventBody,
@@ -322,7 +323,7 @@ router.get("/events/:id", async (req, res): Promise<void> => {
   res.json({ ...event, registrationCount: reg.count });
 });
 
-router.post("/events/:id/register", async (req, res): Promise<void> => {
+router.post("/events/:id/register", publicFormRateLimiter, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }

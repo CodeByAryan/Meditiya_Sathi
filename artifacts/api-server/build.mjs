@@ -132,7 +132,7 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     await rm(distDir, { recursive: true, force: true });
 
     await esbuild({
-      entryPoints: [path.resolve(artifactDir, "src/index.ts")],
+      entryPoints: [path.resolve(artifactDir, "src/index.ts"), path.resolve(artifactDir, "src/app.ts")],
       platform: "node",
       bundle: true,
       format: "esm",

@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, donationsTable } from "@workspace/db";
 import { desc, sum, count, sql } from "drizzle-orm";
 import { CreateDonationBody, ListDonationsQueryParams, GetTopDonorsQueryParams } from "@workspace/api-zod";
+import { publicFormRateLimiter } from "../middlewares/rateLimiter";
 
 const router: IRouter = Router();
 
@@ -18,7 +19,7 @@ router.get("/donations", async (req, res): Promise<void> => {
   res.json(donations.map(d => ({ ...d, amount: parseFloat(String(d.amount)) })));
 });
 
-router.post("/donations", async (req, res): Promise<void> => {
+router.post("/donations", publicFormRateLimiter, async (req, res): Promise<void> => {
   const parsed = CreateDonationBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 

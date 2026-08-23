@@ -6,6 +6,7 @@ import { requireRole, canAccessDonation } from "../middlewares/requireRole";
 import { generateTshirtPdf } from "../lib/tshirt-pdf";
 import { isCloudinaryConfigured, uploadBufferToCloudinary } from "../lib/cloudinary";
 import { getTshirtScannerUrl, getPublicAppBaseUrl } from "../lib/tshirt-url";
+import { pdfRateLimiter } from "../middlewares/rateLimiter";
 
 const router: IRouter = Router();
 
@@ -105,7 +106,7 @@ router.get("/admin/tshirt-registrations/summary", requireRole("Super Admin", "Ad
       return;
     }
 
-    const where = festivalId ? `WHERE t.festival_id = ${festivalId}` : "";
+    const festivalCondition = festivalId ? sql`WHERE t.festival_id = ${festivalId}` : sql``;
     const result = await db.execute(
       sql`SELECT
           COUNT(*)::int as total,
@@ -114,7 +115,7 @@ router.get("/admin/tshirt-registrations/summary", requireRole("Super Admin", "Ad
           COALESCE(SUM(t.total_amount), 0)::int as amountCollected,
           COALESCE(SUM(t.quantity) FILTER (WHERE t.collection_status = 'collected'), 0)::int as distributedTshirts
           FROM tshirt_registrations t
-          ${sql.raw(where)}`
+          ${festivalCondition}`
     );
     const row = (result.rows?.[0] as any) || {};
 
@@ -140,12 +141,65 @@ router.get("/admin/tshirt-registrations/summary", requireRole("Super Admin", "Ad
   }
 });
 
+function buildListQuery(req: any): { whereSql: ReturnType<typeof sql> } {
+  const search = (req.query.search as string)?.trim() || "";
+  const festivalId = req.query.festival as string | undefined;
+  const buildingId = req.query.building as string | undefined;
+  const wingId = req.query.wing as string | undefined;
+  const size = req.query.size as string | undefined;
+  const paymentMode = req.query.payment_mode as string | undefined;
+  const paidTo = req.query.paid_to as string | undefined;
+  const quantity = req.query.quantity as string | undefined;
+
+  const conditions: ReturnType<typeof sql>[] = [sql`1=1`];
+
+  if (festivalId && isPositiveInteger(parseInt(festivalId, 10))) {
+    conditions.push(sql`t.festival_id = ${parseInt(festivalId, 10)}`);
+  }
+  if (buildingId && isPositiveInteger(parseInt(buildingId, 10))) {
+    conditions.push(sql`t.building_id = ${parseInt(buildingId, 10)}`);
+  }
+  if (wingId && isPositiveInteger(parseInt(wingId, 10))) {
+    conditions.push(sql`t.wing_id = ${parseInt(wingId, 10)}`);
+  }
+  if (size && VALID_SIZES.includes(size)) {
+    conditions.push(sql`t.t_shirt_size = ${size}`);
+  }
+  if (quantity && isPositiveInteger(parseInt(quantity, 10)) && parseInt(quantity, 10) <= MAX_QUANTITY) {
+    conditions.push(sql`t.quantity = ${parseInt(quantity, 10)}`);
+  }
+  if (paymentMode && VALID_PAYMENT_MODES.includes(paymentMode)) {
+    conditions.push(sql`t.payment_mode = ${paymentMode}`);
+  }
+  if (paidTo) {
+    const safePaidTo = paidTo.slice(0, 100);
+    const searchPattern = `%${safePaidTo}%`;
+    conditions.push(sql`(
+      t.paid_to_admin_id = ${safePaidTo}
+      OR LOWER(COALESCE(t.paid_to_name, '')) LIKE LOWER(${searchPattern})
+    )`);
+  }
+  if (search) {
+    const safeSearch = `%${search.slice(0, 100)}%`;
+    conditions.push(sql`(
+      LOWER(t.name) LIKE LOWER(${safeSearch})
+      OR t.mobile_number LIKE ${safeSearch}
+      OR LOWER(b.building_name) LIKE LOWER(${safeSearch})
+      OR LOWER(COALESCE(w.wing_name, '')) LIKE LOWER(${safeSearch})
+      OR LOWER(COALESCE(t.pending_reason, '')) LIKE LOWER(${safeSearch})
+      OR LOWER(COALESCE(t.paid_to_name, '')) LIKE LOWER(${safeSearch})
+    )`);
+  }
+
+  return { whereSql: sql.join(conditions, sql` AND `) };
+}
+
 // ── GET /api/admin/tshirt-registrations/export ─────────────────────────────
 // Export filtered registrations to CSV (respects the same filters as the list)
 
 router.get("/admin/tshirt-registrations/export", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
   try {
-    const { whereClause } = buildListQuery(req);
+    const { whereSql } = buildListQuery(req);
     const rows = await db.execute(
       sql`SELECT t.*, f.name as festival_name, f.year as festival_year,
           b.building_name, w.wing_name
@@ -153,7 +207,7 @@ router.get("/admin/tshirt-registrations/export", requireRole("Super Admin", "Adm
           LEFT JOIN festivals f ON t.festival_id = f.id
           LEFT JOIN buildings b ON t.building_id = b.id
           LEFT JOIN wings w ON t.wing_id = w.id
-          ${sql.raw(whereClause)}
+          WHERE ${whereSql}
           ORDER BY t.created_at DESC`
     );
 
@@ -196,59 +250,7 @@ router.get("/admin/tshirt-registrations/export", requireRole("Super Admin", "Adm
   }
 });
 
-// ── Shared list query builder (used by list + export) ───────────────────────
 
-function buildListQuery(req: any): { whereClause: string } {
-  const search = (req.query.search as string)?.trim() || "";
-  const festivalId = req.query.festival as string | undefined;
-  const buildingId = req.query.building as string | undefined;
-  const wingId = req.query.wing as string | undefined;
-  const size = req.query.size as string | undefined;
-  const paymentMode = req.query.payment_mode as string | undefined;
-  const paidTo = req.query.paid_to as string | undefined;
-  const quantity = req.query.quantity as string | undefined;
-
-  let whereClause = "WHERE 1=1";
-
-  if (festivalId && isPositiveInteger(parseInt(festivalId, 10))) {
-    whereClause += ` AND t.festival_id = ${parseInt(festivalId, 10)}`;
-  }
-  if (buildingId && isPositiveInteger(parseInt(buildingId, 10))) {
-    whereClause += ` AND t.building_id = ${parseInt(buildingId, 10)}`;
-  }
-  if (wingId && isPositiveInteger(parseInt(wingId, 10))) {
-    whereClause += ` AND t.wing_id = ${parseInt(wingId, 10)}`;
-  }
-  if (size && VALID_SIZES.includes(size)) {
-    whereClause += ` AND t.t_shirt_size = '${size.replace(/'/g, "''")}'`;
-  }
-  if (quantity && isPositiveInteger(parseInt(quantity, 10)) && parseInt(quantity, 10) <= MAX_QUANTITY) {
-    whereClause += ` AND t.quantity = ${parseInt(quantity, 10)}`;
-  }
-  if (paymentMode && VALID_PAYMENT_MODES.includes(paymentMode)) {
-    whereClause += ` AND t.payment_mode = '${paymentMode.replace(/'/g, "''")}'`;
-  }
-  if (paidTo) {
-    const safePaidTo = paidTo.replace(/'/g, "''");
-    whereClause += ` AND (
-      t.paid_to_admin_id = '${safePaidTo}'
-      OR LOWER(COALESCE(t.paid_to_name, '')) LIKE LOWER('%${safePaidTo}%')
-    )`;
-  }
-  if (search) {
-    const safeSearch = search.replace(/'/g, "''");
-    whereClause += ` AND (
-      LOWER(t.name) LIKE LOWER('%${safeSearch}%')
-      OR t.mobile_number LIKE '%${safeSearch}%'
-      OR LOWER(b.building_name) LIKE LOWER('%${safeSearch}%')
-      OR LOWER(COALESCE(w.wing_name, '')) LIKE LOWER('%${safeSearch}%')
-      OR LOWER(COALESCE(t.pending_reason, '')) LIKE LOWER('%${safeSearch}%')
-      OR LOWER(COALESCE(t.paid_to_name, '')) LIKE LOWER('%${safeSearch}%')
-    )`;
-  }
-
-  return { whereClause };
-}
 
 // ── GET /api/admin/tshirt-registrations ────────────────────────────────────
 // List registrations with filters + pagination
@@ -259,14 +261,14 @@ router.get("/admin/tshirt-registrations", requireRole("Super Admin", "Admin", "V
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 20));
     const offset = (page - 1) * limit;
 
-    const { whereClause } = buildListQuery(req);
+    const { whereSql } = buildListQuery(req);
 
     const countResult = await db.execute(
       sql`SELECT COUNT(*)::int as count FROM tshirt_registrations t
           LEFT JOIN festivals f ON t.festival_id = f.id
           LEFT JOIN buildings b ON t.building_id = b.id
           LEFT JOIN wings w ON t.wing_id = w.id
-          ${sql.raw(whereClause)}`
+          WHERE ${whereSql}`
     );
     const total = (countResult.rows?.[0] as any)?.count ?? 0;
 
@@ -277,7 +279,7 @@ router.get("/admin/tshirt-registrations", requireRole("Super Admin", "Admin", "V
           LEFT JOIN festivals f ON t.festival_id = f.id
           LEFT JOIN buildings b ON t.building_id = b.id
           LEFT JOIN wings w ON t.wing_id = w.id
-          ${sql.raw(whereClause)}
+          WHERE ${whereSql}
           ORDER BY t.created_at DESC
           LIMIT ${limit} OFFSET ${offset}`
     );
@@ -988,7 +990,7 @@ const handleServePublicTshirtPdf = async (req: any, res: any): Promise<void> => 
   }
 };
 
-router.get("/tshirt-pdf/:collectionId", handleServePublicTshirtPdf);
-router.get("/admin/tshirt-registrations/:id/pdf/download", handleServePublicTshirtPdf);
+router.get("/tshirt-pdf/:collectionId", pdfRateLimiter, handleServePublicTshirtPdf);
+router.get("/admin/tshirt-registrations/:id/pdf/download", requireRole("Super Admin", "Admin", "Volunteer"), handleServePublicTshirtPdf);
 
 export default router;

@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, lostFoundItemsTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import { CreateLostFoundItemBody, ListLostFoundItemsQueryParams } from "@workspace/api-zod";
+import { publicFormRateLimiter } from "../middlewares/rateLimiter";
 
 const router: IRouter = Router();
 
@@ -21,7 +22,7 @@ router.get("/lostfound", async (req, res): Promise<void> => {
   res.json(items);
 });
 
-router.post("/lostfound", async (req, res): Promise<void> => {
+router.post("/lostfound", publicFormRateLimiter, async (req, res): Promise<void> => {
   const parsed = CreateLostFoundItemBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 

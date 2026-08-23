@@ -20,7 +20,7 @@ export function requireAdmin(): RequestHandler {
     const payload = verifyAdminToken(token);
 
     if (!payload) {
-      res.status(403).json({ error: "Forbidden - invalid or expired token" });
+      res.status(401).json({ error: "Unauthorized - invalid or expired token" });
       return;
     }
 
@@ -61,7 +61,7 @@ export function requireAdmin(): RequestHandler {
       }
 
       if (!admin || !admin.isActive) {
-        res.status(403).json({ error: "Account not found or disabled" });
+        res.status(401).json({ error: "Account not found or disabled" });
         return;
       }
 

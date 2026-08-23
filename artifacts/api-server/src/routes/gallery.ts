@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, albumsTable, galleryPhotosTable } from "@workspace/db";
 import { eq, desc, count, and } from "drizzle-orm";
+import { requireRole } from "../middlewares/requireRole";
 import {
   CreateAlbumBody,
   ListAlbumPhotosParams,
@@ -34,7 +35,7 @@ router.get("/gallery/albums", async (req, res): Promise<void> => {
   res.json(withCounts);
 });
 
-router.post("/gallery/albums", async (req, res): Promise<void> => {
+router.post("/gallery/albums", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   const parsed = CreateAlbumBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
@@ -51,7 +52,7 @@ router.get("/gallery/albums/:id/photos", async (req, res): Promise<void> => {
   res.json(photos);
 });
 
-router.post("/gallery/albums/:id/photos", async (req, res): Promise<void> => {
+router.post("/gallery/albums/:id/photos", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }

@@ -3,6 +3,7 @@ import { db, volunteersTable } from "@workspace/db";
 import { eq, desc, asc, sql, and } from "drizzle-orm";
 import { JoinVolunteerBody, ListVolunteersQueryParams } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/requireRole";
+import { publicFormRateLimiter } from "../middlewares/rateLimiter";
 
 const router: IRouter = Router();
 
@@ -64,10 +65,32 @@ router.get("/volunteers", async (req, res): Promise<void> => {
   }
 });
 
-router.post("/volunteers", async (req, res): Promise<void> => {
+router.post("/volunteers", publicFormRateLimiter, async (req, res): Promise<void> => {
   const parsed = JoinVolunteerBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const { name, phone, role, email, flatNumber } = parsed.data;
+  if (name.trim().length === 0 || name.length > 100) {
+    res.status(400).json({ error: "Name must be between 1 and 100 characters." });
+    return;
+  }
+  if (phone.trim().length === 0 || phone.length > 20) {
+    res.status(400).json({ error: "Phone number must be between 1 and 20 characters." });
+    return;
+  }
+  if (role.trim().length === 0 || role.length > 100) {
+    res.status(400).json({ error: "Role/position must be between 1 and 100 characters." });
+    return;
+  }
+  if (email && email.length > 100) {
+    res.status(400).json({ error: "Email must not exceed 100 characters." });
+    return;
+  }
+  if (flatNumber && flatNumber.length > 30) {
+    res.status(400).json({ error: "Flat number must not exceed 30 characters." });
     return;
   }
 
@@ -75,8 +98,10 @@ router.post("/volunteers", async (req, res): Promise<void> => {
     .insert(volunteersTable)
     .values({
       ...parsed.data,
-      position: parsed.data.role,
-      mobileNumber: parsed.data.phone,
+      name: name.trim(),
+      phone: phone.trim(),
+      position: role.trim(),
+      mobileNumber: phone.trim(),
     })
     .returning();
 
@@ -106,20 +131,20 @@ router.post("/admin/volunteers", requireRole("Super Admin"), async (req, res): P
     const mobileNumber = String(req.body.mobileNumber || req.body.phone || "").trim();
     const position = String(req.body.position || req.body.role || "").trim();
 
-    if (!name) {
-      res.status(400).json({ error: "Please enter the volunteer's name." });
+    if (!name || name.length > 100) {
+      res.status(400).json({ error: "Please enter a valid volunteer name (max 100 characters)." });
       return;
     }
     if (!photo) {
       res.status(400).json({ error: "Please upload the volunteer's photo." });
       return;
     }
-    if (!mobileNumber) {
-      res.status(400).json({ error: "Please enter the volunteer's mobile number." });
+    if (!mobileNumber || mobileNumber.length > 20) {
+      res.status(400).json({ error: "Please enter a valid mobile number (max 20 characters)." });
       return;
     }
-    if (!position) {
-      res.status(400).json({ error: "Please enter the volunteer's position." });
+    if (!position || position.length > 100) {
+      res.status(400).json({ error: "Please enter a valid position (max 100 characters)." });
       return;
     }
 
@@ -201,16 +226,16 @@ router.put("/admin/volunteers/:id", requireRole("Super Admin"), async (req, res)
     const mobileNumber = req.body.mobileNumber !== undefined ? String(req.body.mobileNumber).trim() : (existing.mobileNumber || existing.phone || "");
     const position = req.body.position !== undefined ? String(req.body.position).trim() : (existing.position || existing.role || "");
 
-    if (!name) {
-      res.status(400).json({ error: "Please enter the volunteer's name." });
+    if (!name || name.length > 100) {
+      res.status(400).json({ error: "Please enter a valid volunteer name (max 100 characters)." });
       return;
     }
-    if (!mobileNumber) {
-      res.status(400).json({ error: "Please enter the volunteer's mobile number." });
+    if (!mobileNumber || mobileNumber.length > 20) {
+      res.status(400).json({ error: "Please enter a valid mobile number (max 20 characters)." });
       return;
     }
-    if (!position) {
-      res.status(400).json({ error: "Please enter the volunteer's position." });
+    if (!position || position.length > 100) {
+      res.status(400).json({ error: "Please enter a valid position (max 100 characters)." });
       return;
     }
 

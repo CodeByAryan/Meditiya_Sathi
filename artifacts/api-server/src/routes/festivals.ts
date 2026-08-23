@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, festivalsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { CreateFestivalBody, GetFestivalParams } from "@workspace/api-zod";
+import { requireRole } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
 
@@ -10,7 +11,7 @@ router.get("/festivals", async (_req, res): Promise<void> => {
   res.json(festivals);
 });
 
-router.post("/festivals", async (req, res): Promise<void> => {
+router.post("/festivals", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   const parsed = CreateFestivalBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 

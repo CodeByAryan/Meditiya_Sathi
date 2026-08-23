@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, serviceRequestsTable } from "@workspace/db";
 import { requireAdmin } from "../middlewares/requireAdmin";
+import { publicFormRateLimiter } from "../middlewares/rateLimiter";
 import { eq, desc, and, ne } from "drizzle-orm";
 import {
   CreateServiceRequestBody,
@@ -29,7 +30,7 @@ router.get("/services/requests", async (req, res): Promise<void> => {
   res.json(requests);
 });
 
-router.post("/services/requests", async (req, res): Promise<void> => {
+router.post("/services/requests", publicFormRateLimiter, async (req, res): Promise<void> => {
   const parsed = CreateServiceRequestBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
