@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Users, Phone, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Users, ShieldCheck, Heart, Sparkles, Hand } from "lucide-react";
 import { getApiUrl } from "@/lib/utils";
+import { VolunteerCard, type Volunteer } from "@/components/VolunteerCard";
 import {
   Carousel,
   CarouselContent,
@@ -11,17 +11,7 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 
-export interface Volunteer {
-  id: number;
-  name: string;
-  photo?: string | null;
-  photoUrl?: string | null;
-  mobileNumber?: string | null;
-  phone?: string | null;
-  position?: string | null;
-  role?: string | null;
-  displayPosition: number;
-}
+export type { Volunteer };
 
 export default function Volunteers() {
   const { data: volunteers = [], isLoading, isError } = useQuery<Volunteer[]>({
@@ -65,35 +55,37 @@ export default function Volunteers() {
       </div>
 
       {/* Hero Section */}
-      <section className="relative z-10 overflow-hidden pt-28 pb-14 md:pt-36 md:pb-20">
-        <div className="container relative z-10 mx-auto px-4 text-center max-w-4xl">
-          <motion.div
+      <section className="relative z-10 overflow-hidden pt-24 pb-8 md:pt-32 md:pb-14">
+        <div className="container relative z-10 mx-auto px-4 text-center max-w-3xl">
+          <motion.h1
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
+            className="font-serif text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-foreground"
           >
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/[0.08] px-4 py-1.5 backdrop-blur-xl">
-              <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-              <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-amber-300">
-                Community Heroes
-              </span>
-            </div>
-          </motion.div>
-
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.1 }}
-            className="font-serif text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl"
-          >
-            Our Volunteers
+            Our{" "}
+            <span className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 bg-clip-text text-transparent">
+              Volunteers
+            </span>
           </motion.h1>
 
+          {/* Decorative Divider with Community Icon: — 👥 — */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="my-3 flex items-center justify-center gap-3"
+          >
+            <span className="h-px w-10 bg-gradient-to-r from-transparent to-amber-400/60" />
+            <Users className="h-4 w-4 text-amber-400/90" />
+            <span className="h-px w-10 bg-gradient-to-l from-transparent to-amber-400/60" />
+          </motion.div>
+
           <motion.p
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg md:text-xl px-2"
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="mx-auto max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base px-2"
           >
             The people who contribute their time, energy and effort to our community.
           </motion.p>
@@ -103,19 +95,44 @@ export default function Volunteers() {
       {/* Volunteers Content */}
       <section className="relative z-10 mx-auto max-w-7xl px-4 pb-28 sm:px-6 lg:px-8">
         {isLoading ? (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="animate-pulse rounded-3xl border border-white/10 bg-card/60 p-5 backdrop-blur-xl"
-              >
-                <div className="aspect-[4/4.2] w-full rounded-2xl bg-muted/60 mb-4" />
-                <div className="h-4 w-24 rounded bg-muted/60 mb-2" />
-                <div className="h-6 w-40 rounded bg-muted/60 mb-4" />
-                <div className="h-10 w-full rounded-full bg-muted/60" />
+          <>
+            {/* Mobile loading skeleton */}
+            <div className="block sm:hidden">
+              <div className="flex -ml-3.5 overflow-hidden">
+                {[1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="pl-3.5 basis-[68%] xs:basis-[70%] shrink-0 min-w-0"
+                  >
+                    <div className="flex flex-col items-center justify-between min-h-[350px] animate-pulse rounded-3xl border border-white/10 bg-card/60 p-4 backdrop-blur-xl">
+                      <div className="flex flex-col items-center w-full">
+                        <div className="mt-1 mb-4 h-32 w-32 xs:h-36 xs:w-36 rounded-full bg-muted/60" />
+                        <div className="h-4 w-28 rounded bg-muted/60 mb-2" />
+                        <div className="h-5 w-20 rounded-full bg-muted/60" />
+                      </div>
+                      <div className="w-full border-t border-white/[0.08] pt-2.5">
+                        <div className="mx-auto h-3 w-20 rounded bg-muted/40" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+            {/* Desktop loading skeleton */}
+            <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="animate-pulse rounded-3xl border border-white/10 bg-card/60 p-5 backdrop-blur-xl"
+                >
+                  <div className="aspect-[4/4.2] w-full rounded-2xl bg-muted/60 mb-4" />
+                  <div className="h-4 w-24 rounded bg-muted/60 mb-2" />
+                  <div className="h-6 w-40 rounded bg-muted/60 mb-4" />
+                  <div className="h-10 w-full rounded-full bg-muted/60" />
+                </div>
+              ))}
+            </div>
+          </>
         ) : isError ? (
           <div className="rounded-3xl border border-destructive/20 bg-card/60 p-12 text-center text-muted-foreground">
             <p className="text-base text-destructive">Unable to load volunteers. Please try again.</p>
@@ -142,11 +159,11 @@ export default function Volunteers() {
                 }}
                 className="w-full"
               >
-                <CarouselContent className="-ml-3">
+                <CarouselContent className="-ml-3.5">
                   {volunteers.map((vol, idx) => (
                     <CarouselItem
                       key={vol.id}
-                      className="pl-3 basis-[84%] shrink-0"
+                      className="pl-3.5 basis-[72%] xs:basis-[74%] min-w-0 shrink-0"
                     >
                       <VolunteerCard vol={vol} idx={idx} />
                     </CarouselItem>
@@ -156,22 +173,64 @@ export default function Volunteers() {
 
               {/* Mobile pagination dots */}
               {count > 1 && (
-                <div className="mt-6 flex items-center justify-center gap-1.5">
+                <div className="mt-5 flex items-center justify-center gap-1.5">
                   {Array.from({ length: count }).map((_, index) => (
                     <button
                       key={index}
                       type="button"
                       onClick={() => api?.scrollTo(index)}
-                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                      className={`h-2 rounded-full transition-all duration-300 ${
                         current === index
-                          ? "w-6 bg-amber-400"
-                          : "w-1.5 bg-white/25 hover:bg-white/40"
+                          ? "w-2 bg-amber-400"
+                          : "w-2 bg-white/20 hover:bg-white/40"
                       }`}
                       aria-label={`Go to volunteer ${index + 1}`}
                     />
                   ))}
                 </div>
               )}
+
+              {/* Bottom Values Floating Bar */}
+              <div className="mx-auto mt-6 max-w-sm rounded-2xl border border-white/10 bg-[#121316]/80 p-3.5 backdrop-blur-xl shadow-lg">
+                <div className="grid grid-cols-3 gap-2 text-left">
+                  {/* Dedicated */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-amber-400/20 bg-amber-400/10 text-amber-400">
+                      <ShieldCheck className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-white leading-tight">Dedicated</p>
+                      <p className="text-[10px] text-muted-foreground leading-tight truncate">Always Ready</p>
+                    </div>
+                  </div>
+                  {/* Passionate */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-rose-400/20 bg-rose-400/10 text-rose-400">
+                      <Heart className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-white leading-tight">Passionate</p>
+                      <p className="text-[10px] text-muted-foreground leading-tight truncate">For Community</p>
+                    </div>
+                  </div>
+                  {/* Together */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-400">
+                      <Users className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-white leading-tight">Together</p>
+                      <p className="text-[10px] text-muted-foreground leading-tight truncate">We Grow</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Swipe to see more volunteers hint */}
+              <div className="mt-4 flex items-center justify-center gap-1.5 text-xs font-medium text-amber-400/80">
+                <Hand className="h-3.5 w-3.5 animate-pulse text-amber-400" />
+                <span>Swipe to see more volunteers</span>
+              </div>
             </div>
 
             {/* Desktop & Tablet Responsive Grid (>= sm) */}
@@ -184,109 +243,6 @@ export default function Volunteers() {
         )}
       </section>
     </div>
-  );
-}
-
-function VolunteerCard({ vol, idx }: { vol: Volunteer; idx: number }) {
-  const photoSrc = vol.photo || vol.photoUrl;
-  const phoneNum = vol.mobileNumber || vol.phone;
-  const posTitle = vol.position || vol.role || "Volunteer";
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.15 }}
-      transition={{
-        duration: 0.6,
-        delay: (idx % 4) * 0.07,
-        ease: [0.22, 1, 0.36, 1],
-      }}
-      whileHover={{ y: -6 }}
-      className="group relative flex h-full flex-col justify-between overflow-hidden rounded-3xl border border-white/10 bg-card/80 p-4 sm:p-5 shadow-[0_15px_45px_rgba(0,0,0,0.18)] backdrop-blur-2xl transition-all duration-500 hover:border-amber-300/30 hover:bg-card hover:shadow-[0_20px_60px_rgba(245,158,11,0.12)] dark:border-white/[0.08] dark:bg-white/[0.035] dark:hover:border-amber-300/30 dark:hover:bg-white/[0.06]"
-    >
-      {/* Top shimmer line */}
-      <div className="pointer-events-none absolute left-6 right-6 top-0 h-px bg-gradient-to-r from-transparent via-amber-300/40 to-transparent" />
-
-      {/* Top glow */}
-      <div className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-amber-400/[0.05] blur-3xl transition-all duration-500 group-hover:bg-amber-400/[0.12]" />
-
-      <div>
-        {/* Photo Container */}
-        <div className="relative aspect-[4/3.8] sm:aspect-[4/4.2] w-full overflow-hidden rounded-2xl border border-white/10 bg-black/40 shadow-inner">
-          {photoSrc ? (
-            <img
-              src={photoSrc}
-              alt={vol.name}
-              loading="lazy"
-              className="h-full w-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).style.display = "none";
-              }}
-            />
-          ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-amber-500/15 via-white/5 to-transparent text-amber-300">
-              <Users className="h-14 w-14 opacity-40 mb-2" />
-              <span className="font-serif text-xl font-bold">
-                {vol.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase()}
-              </span>
-            </div>
-          )}
-
-          {/* Photo bottom subtle gradient shadow */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent" />
-
-          {/* Floating Position Pill */}
-          <div className="absolute bottom-2.5 left-2.5 right-2.5">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-2.5 py-1 text-[10px] font-semibold text-amber-200 backdrop-blur-md">
-              <Sparkles className="h-2.5 w-2.5 text-amber-300" />
-              {posTitle}
-            </span>
-          </div>
-        </div>
-
-        {/* Volunteer Name */}
-        <div className="mt-3.5 px-1">
-          <h3 className="font-serif text-lg sm:text-xl font-bold tracking-tight text-foreground transition-colors duration-300 group-hover:text-amber-300">
-            {vol.name}
-          </h3>
-        </div>
-      </div>
-
-      {/* Contact Action */}
-      <div className="mt-4 border-t border-white/[0.08] pt-3 px-1">
-        {phoneNum ? (
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-[9px] uppercase tracking-wider text-muted-foreground">
-                Contact
-              </p>
-              <p className="truncate text-xs font-medium text-foreground">
-                {phoneNum}
-              </p>
-            </div>
-            <a
-              href={`tel:${phoneNum}`}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-200 via-orange-300 to-amber-400 px-3.5 py-1.5 text-xs font-bold text-black shadow-[0_3px_12px_rgba(245,158,11,0.2)] transition-all duration-300 hover:scale-105 hover:brightness-110 active:scale-95"
-              aria-label={`Call ${vol.name}`}
-            >
-              <Phone className="h-3 w-3 fill-black" />
-              Call
-            </a>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between text-xs text-muted-foreground py-0.5">
-            <span>Meditiya Volunteer</span>
-            <Badge variant="outline" className="text-[10px]">Active</Badge>
-          </div>
-        )}
-      </div>
-    </motion.div>
   );
 }
 

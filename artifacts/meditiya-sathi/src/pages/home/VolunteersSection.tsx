@@ -3,14 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
 import {
-  Users,
-  Phone,
-  Sparkles,
   ArrowRight,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 import { getApiUrl } from "@/lib/utils";
+import { VolunteerCard, type Volunteer } from "@/components/VolunteerCard";
 import {
   Carousel,
   CarouselContent,
@@ -18,17 +16,7 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 
-export interface Volunteer {
-  id: number;
-  name: string;
-  photo?: string | null;
-  photoUrl?: string | null;
-  mobileNumber?: string | null;
-  phone?: string | null;
-  position?: string | null;
-  role?: string | null;
-  displayPosition: number;
-}
+export type { Volunteer };
 
 export default function VolunteersSection() {
   const { data: volunteers = [], isLoading, isError } = useQuery<Volunteer[]>({
@@ -156,19 +144,44 @@ export default function VolunteersSection() {
             CAROUSEL OF VOLUNTEERS
         ====================================================== */}
         {isLoading ? (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="animate-pulse rounded-3xl border border-white/10 bg-card/60 p-5 backdrop-blur-xl"
-              >
-                <div className="aspect-[4/4.2] w-full rounded-2xl bg-muted/60 mb-4" />
-                <div className="h-4 w-24 rounded bg-muted/60 mb-2" />
-                <div className="h-6 w-36 rounded bg-muted/60 mb-4" />
-                <div className="h-10 w-full rounded-full bg-muted/60" />
+          <>
+            {/* Mobile loading skeleton */}
+            <div className="block sm:hidden">
+              <div className="flex -ml-3.5 overflow-hidden">
+                {[1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="pl-3.5 basis-[72%] xs:basis-[74%] shrink-0 min-w-0"
+                  >
+                    <div className="flex flex-col items-center justify-between min-h-[400px] animate-pulse rounded-3xl border border-white/10 bg-card/60 p-4 backdrop-blur-xl">
+                      <div className="flex flex-col items-center w-full">
+                        <div className="mt-2 mb-4 h-[160px] w-[160px] rounded-full bg-muted/60" />
+                        <div className="h-5 w-32 rounded bg-muted/60 mb-2" />
+                        <div className="h-5 w-24 rounded-full bg-muted/60" />
+                      </div>
+                      <div className="w-full border-t border-white/[0.08] pt-3">
+                        <div className="mx-auto h-4 w-28 rounded bg-muted/40" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+            {/* Desktop loading skeleton */}
+            <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {[1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="animate-pulse rounded-3xl border border-white/10 bg-card/60 p-5 backdrop-blur-xl"
+                >
+                  <div className="aspect-[4/4.2] w-full rounded-2xl bg-muted/60 mb-4" />
+                  <div className="h-4 w-24 rounded bg-muted/60 mb-2" />
+                  <div className="h-6 w-36 rounded bg-muted/60 mb-4" />
+                  <div className="h-10 w-full rounded-full bg-muted/60" />
+                </div>
+              ))}
+            </div>
+          </>
         ) : (
           <div>
             <Carousel
@@ -179,113 +192,15 @@ export default function VolunteersSection() {
               }}
               className="w-full"
             >
-              <CarouselContent className="-ml-3 sm:-ml-4">
-                {volunteers.map((vol, index) => {
-                  const photoSrc = vol.photo || vol.photoUrl;
-                  const phoneNum = vol.mobileNumber || vol.phone;
-                  const posTitle = vol.position || vol.role || "Volunteer";
-
-                  return (
-                    <CarouselItem
-                      key={vol.id}
-                      className="pl-3 sm:pl-4 basis-[84%] sm:basis-1/2 lg:basis-1/3 xl:basis-1/4 shrink-0"
-                    >
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true, amount: 0.2 }}
-                        transition={{
-                          duration: 0.6,
-                          delay: index * 0.05,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
-                        whileHover={{ y: -6 }}
-                        className="group relative flex h-full flex-col justify-between overflow-hidden rounded-3xl border border-border bg-card/85 p-4 sm:p-5 shadow-[0_15px_40px_rgba(0,0,0,0.15)] backdrop-blur-2xl transition-all duration-500 hover:border-amber-300/30 hover:bg-card hover:shadow-[0_20px_60px_rgba(245,158,11,0.10)] dark:border-white/[0.10] dark:bg-white/[0.035] dark:hover:border-amber-300/30 dark:hover:bg-white/[0.06]"
-                      >
-                        {/* Shimmer accent line */}
-                        <div className="pointer-events-none absolute left-6 right-6 top-0 h-px bg-gradient-to-r from-transparent via-amber-300/40 to-transparent" />
-
-                        {/* Top glow */}
-                        <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-amber-400/[0.05] blur-2xl transition-all duration-500 group-hover:bg-amber-400/[0.12]" />
-
-                        <div>
-                          {/* Photo Frame */}
-                          <div className="relative aspect-[4/3.8] sm:aspect-[4/4.2] w-full overflow-hidden rounded-2xl border border-white/10 bg-black/40 shadow-inner">
-                            {photoSrc ? (
-                              <img
-                                src={photoSrc}
-                                alt={vol.name}
-                                loading="lazy"
-                                className="h-full w-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105"
-                                onError={(e) => {
-                                  (e.currentTarget as HTMLImageElement).style.display = "none";
-                                }}
-                              />
-                            ) : (
-                              <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-amber-500/15 via-white/5 to-transparent text-amber-300">
-                                <Users className="h-14 w-14 opacity-40 mb-2" />
-                                <span className="font-serif text-xl font-bold">
-                                  {vol.name
-                                    .split(" ")
-                                    .map((n) => n[0])
-                                    .join("")
-                                    .slice(0, 2)
-                                    .toUpperCase()}
-                                </span>
-                              </div>
-                            )}
-
-                            {/* Gradient overlay on bottom */}
-                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent" />
-
-                            {/* Position Pill */}
-                            <div className="absolute bottom-2.5 left-2.5 right-2.5">
-                              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-2.5 py-1 text-[10px] font-semibold text-amber-200 backdrop-blur-md">
-                                <Sparkles className="h-2.5 w-2.5 text-amber-300" />
-                                {posTitle}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Volunteer Name */}
-                          <div className="mt-3.5 px-1">
-                            <h3 className="font-serif text-lg sm:text-xl font-bold tracking-tight text-foreground transition-colors duration-300 group-hover:text-amber-300">
-                              {vol.name}
-                            </h3>
-                          </div>
-                        </div>
-
-                        {/* Contact Action */}
-                        <div className="mt-4 border-t border-border/60 dark:border-white/[0.07] pt-3 px-1">
-                          {phoneNum ? (
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="min-w-0">
-                                <p className="text-[9px] uppercase tracking-wider text-muted-foreground">
-                                  Contact
-                                </p>
-                                <p className="truncate text-xs font-medium text-foreground">
-                                  {phoneNum}
-                                </p>
-                              </div>
-                              <a
-                                href={`tel:${phoneNum}`}
-                                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-200 via-orange-300 to-amber-400 px-3.5 py-1.5 text-xs font-bold text-black shadow-[0_3px_12px_rgba(245,158,11,0.2)] transition-all duration-300 hover:scale-105 hover:brightness-110 active:scale-95"
-                                aria-label={`Call ${vol.name}`}
-                              >
-                                <Phone className="h-3 w-3 fill-black" />
-                                Call
-                              </a>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-between text-xs text-muted-foreground py-0.5">
-                              <span>Active Volunteer</span>
-                            </div>
-                          )}
-                        </div>
-                      </motion.div>
-                    </CarouselItem>
-                  );
-                })}
+              <CarouselContent className="-ml-3.5 sm:-ml-4">
+                {volunteers.map((vol, index) => (
+                  <CarouselItem
+                    key={vol.id}
+                    className="pl-3.5 sm:pl-4 basis-[72%] xs:basis-[74%] sm:basis-1/2 lg:basis-1/3 xl:basis-1/4 min-w-0 shrink-0"
+                  >
+                    <VolunteerCard vol={vol} idx={index} />
+                  </CarouselItem>
+                ))}
               </CarouselContent>
             </Carousel>
 
@@ -299,10 +214,10 @@ export default function VolunteersSection() {
                       key={index}
                       type="button"
                       onClick={() => api?.scrollTo(index)}
-                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                      className={`h-2 rounded-full transition-all duration-300 ${
                         current === index
-                          ? "w-6 bg-amber-400"
-                          : "w-1.5 bg-white/20 hover:bg-white/40"
+                          ? "w-2 bg-amber-400"
+                          : "w-2 bg-white/20 hover:bg-white/40"
                       }`}
                       aria-label={`Go to slide ${index + 1}`}
                     />
