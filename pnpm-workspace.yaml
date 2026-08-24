@@ -140,3 +140,4 @@ allowBuilds:
   '@clerk/shared': true
   core-js: false
   esbuild: true
+  puppeteer: set this to true or false
