@@ -1,15 +1,15 @@
 /**
- * WhatsApp Service - Send donation notifications via WhatsApp.
+ * WhatsApp Service - Send donation notifications & receipts via WhatsApp.
  *
- * This module provides a clean interface for sending WhatsApp messages.
- * Supports reliable opening on Desktop Web, WhatsApp App, and Mobile browsers.
+ * Supports WhatsApp Business Cloud API (Server-side) and direct WhatsApp App deep link fallback.
  *
  * @module whatsapp-service
  */
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-import { getPublicAppBaseUrl } from "./tshirt-url";
+import { getReceiptPdfUrl, getPublicAppBaseUrl } from "./app-url";
+import { getApiUrl } from "./utils";
 
 export interface WhatsAppDonationData {
   residentName: string;
@@ -67,6 +67,11 @@ export function formatWhatsAppPhone(mobile: string | null | undefined): string {
   if (!mobile) return "";
   let cleaned = String(mobile).replace(/\D/g, "");
 
+  // Handle accidental double 91 prefix (e.g. 91919876543210 -> 919876543210)
+  if (cleaned.startsWith("9191") && cleaned.length === 14) {
+    cleaned = cleaned.slice(2);
+  }
+
   if (cleaned.length === 10) {
     return `91${cleaned}`;
   }
@@ -76,8 +81,8 @@ export function formatWhatsAppPhone(mobile: string | null | undefined): string {
   if (cleaned.length === 12 && cleaned.startsWith("91")) {
     return cleaned;
   }
-  if (cleaned.length > 10 && cleaned.startsWith("91")) {
-    return cleaned;
+  if (cleaned.length > 12 && cleaned.startsWith("91")) {
+    return `91${cleaned.slice(-10)}`;
   }
   if (cleaned.length > 10) {
     return `91${cleaned.slice(-10)}`;
@@ -85,38 +90,75 @@ export function formatWhatsAppPhone(mobile: string | null | undefined): string {
   return cleaned;
 }
 
+/**
+ * Validate normalized Indian phone number
+ */
+export function isValidWhatsAppPhone(phone: string): boolean {
+  return /^91[6-9]\d{9}$/.test(phone) || (phone.length >= 10 && phone.length <= 15);
+}
+
 // ── Message Builders ─────────────────────────────────────────────────────────
 
 /**
- * Build the WhatsApp message text for a given donation and purpose.
+ * Build the standard Marathi/English donation receipt message for WhatsApp sharing.
  */
-export function buildWhatsAppMessage(
-  donation: WhatsAppDonationData,
-  festival: WhatsAppFestivalData,
-  type: WhatsAppMessageType
-): string {
-  if (type === "receipt") {
-    return buildReceiptMessage(donation, festival);
-  }
-  return buildPendingReminderMessage(donation, festival);
-}
-
 export function buildReceiptMessage(
   donation: WhatsAppDonationData,
   festival: WhatsAppFestivalData
 ): string {
-  const festTitle = `${festival.name}${festival.year ? ` ${festival.year}` : ""}`.trim();
+  const festTitle = `${festival.name}${festival.year ? ` ${festival.year}` : ""}`.trim() || "गणेश उत्सव";
   const pdfUrl =
     donation.pdfUrl ||
     (donation.receiptNumber
-      ? `${getPublicAppBaseUrl()}/api/vargani-pdf/${encodeURIComponent(donation.receiptNumber)}.pdf`
+      ? getReceiptPdfUrl(donation.receiptNumber)
+      : null);
+
+  const lines = [
+    "नमस्कार 🙏",
+    "",
+    "मेड़तिया मित्र मंडळ कडून आपल्या देणगीची पावती येथे उपलब्ध आहे.",
+    "",
+    `Receipt No: ${donation.receiptNumber || "—"}`,
+    `Festival: ${festTitle}`,
+    `Donation Amount: ${formatCurrency(donation.amount)}`,
+  ];
+
+  if (donation.residentName) {
+    lines.push(`Donor Name: ${donation.residentName}`);
+  }
+
+  if (pdfUrl) {
+    lines.push("", "पावती:", pdfUrl);
+  }
+
+  lines.push(
+    "",
+    "धन्यवाद 🙏",
+    "मेड़तिया मित्र मंडळ"
+  );
+
+  return lines.join("\n");
+}
+
+/**
+ * Build detailed Marathi WhatsApp receipt message (with flat/building details)
+ */
+export function buildDetailedReceiptMessage(
+  donation: WhatsAppDonationData,
+  festival: WhatsAppFestivalData
+): string {
+  const festTitle = `${festival.name}${festival.year ? ` ${festival.year}` : ""}`.trim() || "गणेश उत्सव";
+  const pdfUrl =
+    donation.pdfUrl ||
+    (donation.receiptNumber
+      ? getReceiptPdfUrl(donation.receiptNumber)
       : null);
 
   const lines = [
     "🚩 *मेड़तिया मित्र मंडळ*",
     "*पावती / Donation Receipt*",
     "",
-    `*उत्सव / Festival:* ${festTitle || "गणेश उत्सव"}`,
+    `*उत्सव / Festival:* ${festTitle}`,
     `*दात्याचे नाव / Name:* ${donation.residentName || "—"}`,
   ];
 
@@ -156,7 +198,7 @@ export function buildReceiptMessage(
   return lines.join("\n");
 }
 
-function buildPendingReminderMessage(
+export function buildPendingReminderMessage(
   donation: WhatsAppDonationData,
   festival: WhatsAppFestivalData
 ): string {
@@ -191,16 +233,17 @@ function buildPendingReminderMessage(
   return lines.join("\n");
 }
 
-// ── Send Function ────────────────────────────────────────────────────────────
+// ── Direct WhatsApp App Deep Link & Fallback ────────────────────────────────
 
 /**
- * Open WhatsApp with reliable cross-browser popup and mobile handling.
+ * Opens the installed WhatsApp application using deep link (whatsapp://send?phone=...&text=...)
+ * with automatic fallback to WhatsApp Web / api.whatsapp.com.
  *
  * @param mobile - Resident's mobile number
  * @param messageText - Plain text message (will be URL-encoded)
  * @returns true if WhatsApp action was initiated, false on error
  */
-export function sendWhatsApp(mobile: string | null | undefined, messageText: string): boolean {
+export function openWhatsAppDeepLink(mobile: string | null | undefined, messageText: string): boolean {
   const phone = formatWhatsAppPhone(mobile);
 
   if (!phone || phone.length < 10) {
@@ -210,12 +253,13 @@ export function sendWhatsApp(mobile: string | null | undefined, messageText: str
 
   try {
     const encodedText = encodeURIComponent(messageText);
-    const waUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${encodedText}`;
+    const deepLink = `whatsapp://send?phone=${phone}&text=${encodedText}`;
+    const webFallback = `https://api.whatsapp.com/send?phone=${phone}&text=${encodedText}`;
 
-    // Reliable navigation method to avoid browser popup blockers after async calls
     if (typeof window !== "undefined") {
+      // Create hidden link and trigger
       const link = document.createElement("a");
-      link.href = waUrl;
+      link.href = webFallback;
       link.target = "_blank";
       link.rel = "noopener noreferrer";
       document.body.appendChild(link);
@@ -229,10 +273,18 @@ export function sendWhatsApp(mobile: string | null | undefined, messageText: str
     }
     return false;
   } catch (error) {
-    console.error("[WhatsApp Service] Failed to open WhatsApp:", error);
+    console.error("[WhatsApp Service] Failed to open WhatsApp deep link:", error);
     return false;
   }
 }
+
+/**
+ * Legacy wrapper: open WhatsApp deep link / web fallback.
+ */
+export function sendWhatsApp(mobile: string | null | undefined, messageText: string): boolean {
+  return openWhatsAppDeepLink(mobile, messageText);
+}
+
 
 /**
  * Convenience function to send a donation receipt via WhatsApp.

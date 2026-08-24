@@ -3,7 +3,13 @@ import { db, outsiderDonationsTable, festivalsTable, festivalDonationsTable } fr
 import { eq, sql } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 import { generateVarganiPdf } from "../lib/vargani-pdf";
-import { getPublicAppBaseUrl } from "../lib/tshirt-url";
+import { getPublicAppBaseUrl, getReceiptPdfUrl, getReceiptShareUrl } from "../lib/app-url";
+import {
+  isWhatsAppCloudApiConfigured,
+  sendWhatsAppDocument,
+  normalizePhoneNumber,
+  buildVarganiCaption,
+} from "../lib/whatsapp-cloud-api";
 
 const router: IRouter = Router();
 
@@ -582,7 +588,7 @@ router.all(["/admin/outsider-donations/:id/vargani-pdf", "/admin/outsider-donati
       return;
     }
 
-    const url = `${getPublicAppBaseUrl()}/api/vargani-pdf/${encodeURIComponent(row.receipt_number)}.pdf`;
+    const url = getReceiptPdfUrl(row.receipt_number);
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
@@ -591,7 +597,7 @@ router.all(["/admin/outsider-donations/:id/vargani-pdf", "/admin/outsider-donati
     res.json({
       success: true,
       pdfUrl: url,
-      downloadUrl: url,
+      downloadUrl: `${url}?download=true`,
       filename: `Vargani-${row.receipt_number}.pdf`,
       donation: {
         id: row.id,
@@ -610,6 +616,116 @@ router.all(["/admin/outsider-donations/:id/vargani-pdf", "/admin/outsider-donati
   } catch (err: any) {
     console.error("Outsider Vargani PDF generation failed:", err?.stack || err);
     res.status(500).json({ error: "Failed to generate Vargani receipt PDF" });
+  }
+});
+
+// ── POST /api/admin/outsider-donations/:id/send-whatsapp ───────────────────
+// Send fresh Vargani PDF document directly to outsider donor via WhatsApp Business Cloud API
+router.post("/admin/outsider-donations/:id/send-whatsapp", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: "Invalid donation ID" });
+      return;
+    }
+
+    const rows = await db.execute(sql`
+      SELECT od.*, f.name as festival_name, f.year as festival_year
+      FROM outsider_donations od
+      LEFT JOIN festivals f ON od.festival_id = f.id
+      WHERE od.id = ${id}
+      LIMIT 1
+    `);
+    const row = (rows.rows || [])[0] as any;
+    if (!row) {
+      res.status(404).json({ error: "Donation not found" });
+      return;
+    }
+
+    if (row.payment_status !== "paid" || row.amount == null || !row.receipt_number) {
+      res.status(422).json({ error: "A paid donation with receipt number is required to send receipt" });
+      return;
+    }
+
+    const rawMobile = row.mobile || req.body?.mobile;
+    const phoneNorm = normalizePhoneNumber(rawMobile);
+    if (!phoneNorm.isValid) {
+      res.status(400).json({
+        error: phoneNorm.error || "Invalid donor mobile number for WhatsApp delivery",
+        recipient: rawMobile,
+      });
+      return;
+    }
+
+    const receiptUrl = getReceiptPdfUrl(row.receipt_number);
+
+    if (!isWhatsAppCloudApiConfigured()) {
+      res.status(400).json({
+        success: false,
+        configured: false,
+        fallbackRequired: true,
+        error: "WhatsApp Cloud API is not configured. Please configure WhatsApp Business API credentials.",
+        receiptUrl,
+        recipient: phoneNorm.normalized,
+      });
+      return;
+    }
+
+    const admin = (req as any).admin;
+    const collectedBy = row.collected_by_admin_name || admin?.fullName || admin?.username || "Authorized Signatory";
+    const pdf = await generateVarganiPdf({
+      receiptNumber: row.receipt_number,
+      donationDate: row.payment_date || row.created_at,
+      name: row.full_name,
+      mobile: row.mobile,
+      building: null,
+      wing: null,
+      flat: null,
+      amount: Number(row.amount),
+      paymentMethod: row.payment_method || "cash",
+      festivalName: row.festival_name,
+      festivalYear: Number(row.festival_year),
+      collectedBy,
+    });
+
+    const caption = buildVarganiCaption({
+      receiptNumber: row.receipt_number,
+      festivalName: row.festival_name,
+      donorName: row.full_name,
+      amount: Number(row.amount),
+      pdfUrl: receiptUrl,
+    });
+
+    const sendResult = await sendWhatsAppDocument({
+      to: phoneNorm.normalized,
+      filename: `Vargani-${row.receipt_number}.pdf`,
+      pdfBuffer: pdf,
+      pdfUrl: receiptUrl,
+      caption,
+    });
+
+    if (!sendResult.success) {
+      res.status(500).json({
+        success: false,
+        configured: true,
+        error: sendResult.error || "Failed to send receipt via WhatsApp Business API",
+        receiptUrl,
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      configured: true,
+      message: "Receipt sent successfully via WhatsApp Business API",
+      messageId: sendResult.messageId,
+      recipient: phoneNorm.normalized,
+      receiptNumber: row.receipt_number,
+      pdfUrl: receiptUrl,
+    });
+  } catch (err: any) {
+    console.error("Outsider WhatsApp delivery error:", err?.stack || err);
+    res.status(500).json({ error: "Failed to process WhatsApp receipt delivery" });
   }
 });
 

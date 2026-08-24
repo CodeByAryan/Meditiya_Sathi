@@ -4,13 +4,13 @@ import {
   ArrowLeft, HeartHandshake, Search, Plus, X, CheckCircle, Clock, User, Phone, Mail,
   MapPin, IndianRupee, Save, ChevronDown, AlertTriangle, MessageSquare, Eye, Edit3,
   Trash2, Users, TrendingUp, Wallet, Banknote, CreditCard, Receipt, RefreshCw,
-  ChevronLeft, ChevronRight, ListFilter, Home,
+  ChevronLeft, ChevronRight, ListFilter, Home, Download, ExternalLink, Send,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, getApiUrl } from '@/lib/utils';
 import { PENDING_REASONS } from '@/lib/pending-reasons';
-import { getPublicAppBaseUrl } from '@/lib/tshirt-url';
-import { sendWhatsApp } from '@/lib/whatsapp-service';
+import { getPublicAppBaseUrl, getReceiptPdfUrl, getReceiptShareUrl } from '@/lib/app-url';
+import { sendWhatsApp, formatWhatsAppPhone, buildReceiptMessage } from '@/lib/whatsapp-service';
 
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -113,43 +113,33 @@ function isPaid(d: OutsiderDonation): boolean {
 
 function buildWhatsAppReceipt(d: OutsiderDonation, pdfUrl?: string): string {
   const defaultPdfUrl = d.receiptNumber
-    ? `${getPublicAppBaseUrl()}/api/vargani-pdf/${encodeURIComponent(d.receiptNumber)}.pdf`
+    ? getReceiptPdfUrl(d.receiptNumber)
     : null;
   const finalPdfUrl = pdfUrl || defaultPdfUrl;
-  const fest = `${d.festivalName} ${d.festivalYear || ''}`.trim() || 'गणेश उत्सव २०२६';
+  const fest = `${d.festivalName} ${d.festivalYear || ''}`.trim() || 'गणेश उत्सव';
 
   const lines = [
-    '🚩 *मेड़तिया मित्र मंडळ*',
-    '*पावती / Donation Receipt*',
+    'नमस्कार 🙏',
     '',
-    `*उत्सव / Festival:* ${fest}`,
-    `*दात्याचे नाव / Donor Name:* ${d.fullName || '—'}`,
-    `*मोबाईल / Mobile:* ${d.mobile || '—'}`,
+    'मेड़तिया मित्र मंडळ कडून आपल्या देणगीची पावती येथे उपलब्ध आहे.',
+    '',
+    `Receipt No: ${d.receiptNumber || '—'}`,
+    `Festival: ${fest}`,
+    `Donation Amount: ₹${d.amount?.toLocaleString('en-IN') || '0'}/-`,
   ];
 
-  if (d.address) {
-    lines.push(`*पत्ता / Address:* ${d.address}`);
-  }
-
-  lines.push(
-    `*देणगी रक्कम / Amount:* ₹${d.amount?.toLocaleString('en-IN') || '0'}/-`,
-    `*पेमेंट पद्धत / Method:* ${(paymentMethodLabels[d.paymentMethod] || d.paymentMethod || 'CASH').toUpperCase()}`,
-    `*दिनांक / Date:* ${formatDate(d.paymentDate)}`,
-    `*पावती क्रमांक / Receipt No:* ${d.receiptNumber || '—'}`
-  );
-
-  if (d.collectedByAdminName) {
-    lines.push(`*प्राप्तकर्ता / Collected By:* ${d.collectedByAdminName}`);
+  if (d.fullName) {
+    lines.push(`Donor Name: ${d.fullName}`);
   }
 
   if (finalPdfUrl) {
-    lines.push('', '📄 *पावती डाउनलोड करा / Download Receipt PDF:*', finalPdfUrl);
+    lines.push('', 'पावती:', finalPdfUrl);
   }
 
   lines.push(
     '',
-    'आपल्या मौल्यवान देणगीबद्दल मनःपूर्वक धन्यवाद ! 🙏',
-    '॥ गणपती बाप्पा मोरया, मंगलमूर्ती मोरया ॥'
+    'धन्यवाद 🙏',
+    'मेड़तिया मित्र मंडळ'
   );
 
   return lines.join('\n');
@@ -228,34 +218,99 @@ const [stats, setStats] = useState<Stats | null>(null);
   const [sendingWhatsAppDonationId, setSendingWhatsAppDonationId] = useState<number | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  const handleGeneratePdf = async (donation: OutsiderDonation) => {
-    setIsGeneratingPdf(true);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isPreviewingPdf, setIsPreviewingPdf] = useState(false);
+  const [isSendingCloudWhatsApp, setIsSendingCloudWhatsApp] = useState(false);
+  const [isOpeningWhatsApp, setIsOpeningWhatsApp] = useState(false);
+  const [downloadingDonationId, setDownloadingDonationId] = useState<number | null>(null);
+
+  const isModalBusy = isDownloadingPdf || isPreviewingPdf || isSendingCloudWhatsApp || isOpeningWhatsApp;
+
+  const handleDownloadPdf = async (donation: OutsiderDonation) => {
+    setIsDownloadingPdf(true);
     try {
-      const res = await fetch(`${getApiUrl()}/api/admin/outsider-donations/${donation.id}/vargani-pdf`, {
+      toast.info('Generating latest receipt PDF...');
+      const res = await fetch(`${getApiUrl()}/api/admin/outsider-donations/${donation.id}/vargani-pdf?download=true`, {
         method: 'POST',
         headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to generate receipt');
-      window.open(data.downloadUrl || data.pdfUrl, '_blank');
-      toast.success('Vargani receipt generated');
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({ error: 'Failed to generate PDF' }));
+        throw new Error(errJson.error || 'Failed to download receipt');
+      }
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `Vargani-${donation.receiptNumber || donation.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+      }, 500);
+      toast.success('Receipt PDF downloaded successfully!');
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to generate receipt');
+      toast.error(err?.message || 'Failed to download receipt PDF');
     } finally {
-      setIsGeneratingPdf(false);
+      setIsDownloadingPdf(false);
     }
   };
 
-  const handleSendWhatsAppReceipt = async (donation: OutsiderDonation) => {
-    setSendingWhatsAppDonationId(donation.id);
+  const handlePreviewPdf = async (donation: OutsiderDonation) => {
+    setIsPreviewingPdf(true);
     try {
-      toast.info(`Generating receipt for ${donation.fullName}...`);
+      toast.info('Opening latest receipt...');
       const res = await fetch(`${getApiUrl()}/api/admin/outsider-donations/${donation.id}/vargani-pdf`, {
         method: 'POST',
         headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to generate receipt');
+      window.open(data.pdfUrl || getReceiptPdfUrl(donation.receiptNumber || String(donation.id)), '_blank');
+      toast.success('Receipt opened in new tab');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to preview receipt');
+    } finally {
+      setIsPreviewingPdf(false);
+    }
+  };
+
+  const handleSendWhatsAppCloudApi = async (donation: OutsiderDonation) => {
+    setIsSendingCloudWhatsApp(true);
+    try {
+      toast.info('Generating fresh receipt & sending via WhatsApp Business API...');
+      const res = await fetch(`${getApiUrl()}/api/admin/outsider-donations/${donation.id}/send-whatsapp`, {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.configured === false || data.fallbackRequired) {
+          toast.error('WhatsApp Business API is not configured. Use "Open WhatsApp" fallback below.', { duration: 5000 });
+        } else {
+          throw new Error(data.error || 'Failed to send via WhatsApp Business API');
+        }
+        return;
+      }
+      toast.success('Receipt PDF document sent successfully via WhatsApp!');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to send WhatsApp document');
+    } finally {
+      setIsSendingCloudWhatsApp(false);
+    }
+  };
+
+  const handleOpenWhatsAppFallback = async (donation: OutsiderDonation) => {
+    setIsOpeningWhatsApp(true);
+    try {
+      toast.info('Fetching latest donation data for WhatsApp...');
+      const res = await fetch(`${getApiUrl()}/api/admin/outsider-donations/${donation.id}/vargani-pdf`, {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch latest donation data');
 
       const freshDonation = data.donation ? {
         ...donation,
@@ -272,9 +327,89 @@ const [stats, setStats] = useState<Stats | null>(null);
       const targetMobile = freshDonation.mobile || donation.mobile;
       const msg = buildWhatsAppReceipt(freshDonation, data.pdfUrl);
       openWhatsApp(targetMobile, msg);
-      toast.success('WhatsApp opened with fresh Vargani receipt!');
+      toast.success('WhatsApp opened with receipt link!');
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to generate receipt');
+      toast.error(err?.message || 'Failed to open WhatsApp');
+    } finally {
+      setIsOpeningWhatsApp(false);
+    }
+  };
+
+  const handleDownloadRowPdf = async (donation: OutsiderDonation) => {
+    setDownloadingDonationId(donation.id);
+    try {
+      toast.info(`Generating receipt for ${donation.fullName}...`);
+      const res = await fetch(`${getApiUrl()}/api/admin/outsider-donations/${donation.id}/vargani-pdf?download=true`, {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({ error: 'Failed to generate PDF' }));
+        throw new Error(errJson.error || 'Failed to download receipt');
+      }
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `Vargani-${donation.receiptNumber || donation.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+      }, 500);
+      toast.success(`Receipt downloaded for ${donation.fullName}!`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to download receipt');
+    } finally {
+      setDownloadingDonationId(null);
+    }
+  };
+
+  const handleSendWhatsAppReceipt = async (donation: OutsiderDonation) => {
+    setSendingWhatsAppDonationId(donation.id);
+    try {
+      toast.info(`Sending receipt to ${donation.fullName}...`);
+      // 1. Try sending via WhatsApp Business Cloud API
+      const cloudRes = await fetch(`${getApiUrl()}/api/admin/outsider-donations/${donation.id}/send-whatsapp`, {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      });
+
+      const cloudData = await cloudRes.json();
+      if (cloudRes.ok && cloudData.success) {
+        toast.success(`Receipt document sent to ${donation.fullName} via WhatsApp Business API!`);
+        return;
+      }
+
+      // 2. If Cloud API not configured or requested fallback, use WhatsApp application deep link
+      if (!cloudRes.ok && (cloudData.configured === false || cloudData.fallbackRequired)) {
+        const res = await fetch(`${getApiUrl()}/api/admin/outsider-donations/${donation.id}/vargani-pdf`, {
+          method: 'POST',
+          headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
+        });
+        const data = await res.json();
+        const freshDonation = data.donation ? {
+          ...donation,
+          fullName: data.donation.fullName || donation.fullName,
+          mobile: data.donation.mobile || donation.mobile,
+          amount: data.donation.amount != null ? data.donation.amount : donation.amount,
+          paymentMethod: data.donation.paymentMethod || donation.paymentMethod,
+          paymentDate: data.donation.paymentDate || donation.paymentDate,
+          receiptNumber: data.donation.receiptNumber || donation.receiptNumber,
+          festivalName: data.donation.festivalName || donation.festivalName,
+          collectedByAdminName: data.donation.collectedByAdminName || donation.collectedByAdminName,
+        } : donation;
+
+        const targetMobile = freshDonation.mobile || donation.mobile;
+        const msg = buildWhatsAppReceipt(freshDonation, data.pdfUrl);
+        openWhatsApp(targetMobile, msg);
+        toast.info('Cloud API not configured. WhatsApp opened with receipt link!');
+      } else {
+        throw new Error(cloudData.error || 'Failed to send WhatsApp message');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to process WhatsApp receipt delivery');
     } finally {
       setSendingWhatsAppDonationId(null);
     }
@@ -769,22 +904,36 @@ const fetchStats = useCallback(async () => {
                           <td className="px-3 py-3 text-sm text-muted-foreground whitespace-nowrap">{isPaid(d) ? formatDate(d.paymentDate) : '—'}</td>
                           <td className="px-3 py-3">
                             <div className="flex items-center justify-end gap-0.5">
-                              <button onClick={() => setViewDonation(d)} className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-primary" title="View"><Eye className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => setViewDonation(d)} className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-primary" title="View Details"><Eye className="w-3.5 h-3.5" /></button>
                               <button onClick={() => setEditDonation(d)} className="p-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-950/30 transition-colors text-amber-600" title="Edit"><Edit3 className="w-3.5 h-3.5" /></button>
                               <button onClick={() => setDeleteDonation(d)} className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-destructive" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
                               {isPaid(d) && d.receiptNumber && (
-                                <button
-                                  onClick={() => handleSendWhatsAppReceipt(d)}
-                                  disabled={sendingWhatsAppDonationId === d.id}
-                                  className="p-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-950/30 transition-colors text-emerald-600 disabled:opacity-50"
-                                  title="Send WhatsApp Receipt"
-                                >
-                                  {sendingWhatsAppDonationId === d.id ? (
-                                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                  ) : (
-                                    <MessageSquare className="w-3.5 h-3.5" />
-                                  )}
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => handleDownloadRowPdf(d)}
+                                    disabled={downloadingDonationId === d.id}
+                                    className="p-1.5 rounded-lg hover:bg-muted transition-colors text-primary disabled:opacity-50"
+                                    title="Download PDF Receipt"
+                                  >
+                                    {downloadingDonationId === d.id ? (
+                                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      <Download className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={() => handleSendWhatsAppReceipt(d)}
+                                    disabled={sendingWhatsAppDonationId === d.id}
+                                    className="p-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-950/30 transition-colors text-emerald-600 disabled:opacity-50"
+                                    title="Send WhatsApp Receipt"
+                                  >
+                                    {sendingWhatsAppDonationId === d.id ? (
+                                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      <MessageSquare className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
+                                </>
                               )}
                             </div>
                           </td>
@@ -854,26 +1003,50 @@ const fetchStats = useCallback(async () => {
                 {viewDonation.notes && (<><span className="text-muted-foreground font-medium">Notes</span><span>{viewDonation.notes}</span></>)}
               </div>
               {isPaid(viewDonation) && viewDonation.receiptNumber && (
-                <>
+                <div className="space-y-2 pt-2 border-t border-border">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadPdf(viewDonation)}
+                      disabled={isModalBusy}
+                      className="py-2.5 px-3 bg-primary text-white rounded-xl text-xs font-semibold hover:bg-primary/90 transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
+                      title="Download receipt PDF"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      {isDownloadingPdf ? 'Downloading...' : 'Download PDF'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePreviewPdf(viewDonation)}
+                      disabled={isModalBusy}
+                      className="py-2.5 px-3 border border-border hover:bg-muted text-foreground rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
+                      title="Preview receipt in new tab"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      {isPreviewingPdf ? 'Opening...' : 'Preview PDF'}
+                    </button>
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => handleGeneratePdf(viewDonation)}
-                    disabled={isGeneratingPdf || sendingWhatsAppDonationId === viewDonation.id}
-                    className="w-full py-2.5 mb-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                    onClick={() => handleSendWhatsAppCloudApi(viewDonation)}
+                    disabled={isModalBusy}
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-60"
                   >
-                    <Receipt className="w-4 h-4" />
-                    {isGeneratingPdf ? 'Generating Receipt...' : 'Generate Vargani Slip'}
+                    <Send className="w-4 h-4" />
+                    {isSendingCloudWhatsApp ? 'Sending to WhatsApp...' : 'Send on WhatsApp (Cloud API)'}
                   </button>
+
                   <button
                     type="button"
-                    onClick={() => handleSendWhatsAppReceipt(viewDonation)}
-                    disabled={isGeneratingPdf || sendingWhatsAppDonationId === viewDonation.id}
-                    className="w-full py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-semibold hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                    onClick={() => handleOpenWhatsAppFallback(viewDonation)}
+                    disabled={isModalBusy}
+                    className="w-full py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-60"
                   >
-                    <MessageSquare className="w-4 h-4" />
-                    {sendingWhatsAppDonationId === viewDonation.id ? 'Opening WhatsApp...' : 'Send WhatsApp Receipt'}
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    {isOpeningWhatsApp ? 'Opening WhatsApp...' : 'Open WhatsApp (Link Fallback)'}
                   </button>
-                </>
+                </div>
               )}
             </div>
             <div className="flex justify-end p-4 border-t border-border bg-muted/20">

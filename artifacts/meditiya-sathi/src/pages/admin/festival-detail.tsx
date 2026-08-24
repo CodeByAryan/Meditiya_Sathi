@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'wouter';
-import { ArrowLeft, MapPin, CalendarDays, IndianRupee, Users, Search, Plus, Eye, Edit3, Trash2, Building2, Home, Phone, User, X, CheckCircle, XCircle, Clock, Filter, RefreshCw, AlertTriangle, Wallet, Banknote, CreditCard, Receipt, ChevronLeft, ChevronRight, Check, Send, ChevronDown, MessageSquare, ListFilter, Save, TrendingUp, Globe, Trophy, ArrowDown, Shirt } from 'lucide-react';
+import { ArrowLeft, MapPin, CalendarDays, IndianRupee, Users, Search, Plus, Eye, Edit3, Trash2, Building2, Home, Phone, User, X, CheckCircle, XCircle, Clock, Filter, RefreshCw, AlertTriangle, Wallet, Banknote, CreditCard, Receipt, ChevronLeft, ChevronRight, Check, Send, ChevronDown, MessageSquare, ListFilter, Save, TrendingUp, Globe, Trophy, ArrowDown, Shirt, Download, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn, getApiUrl } from '@/lib/utils';
 import { PENDING_REASONS } from '@/lib/pending-reasons';
-import { sendWhatsApp } from '@/lib/whatsapp-service';
-import { getPublicAppBaseUrl } from '@/lib/tshirt-url';
+import { sendWhatsApp, formatWhatsAppPhone, buildReceiptMessage } from '@/lib/whatsapp-service';
+import { getPublicAppBaseUrl, getReceiptPdfUrl, getReceiptShareUrl } from '@/lib/app-url';
 
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -139,48 +139,35 @@ const collectionMethodConfig: Record<string, { label: string; icon: any; color: 
 // ── WhatsApp Receipt Generator ───────────────────────────────────────────────
 
 function buildWhatsAppReceipt(donation: Donation, festivalName: string, pdfUrl?: string): string {
-  const fest = festivalName || 'गणेश उत्सव २०२६';
+  const fest = festivalName || 'गणेश उत्सव';
   const finalPdfUrl =
     pdfUrl ||
     (donation.receiptNumber
-      ? `${getPublicAppBaseUrl()}/api/vargani-pdf/${encodeURIComponent(donation.receiptNumber)}.pdf`
+      ? getReceiptPdfUrl(donation.receiptNumber)
       : '');
 
   const lines = [
-    '🚩 *मेड़तिया मित्र मंडळ*',
-    '*पावती / Donation Receipt*',
+    'नमस्कार 🙏',
     '',
-    `*उत्सव / Festival:* ${fest}`,
-    `*दात्याचे नाव / Name:* ${donation.residentName || '—'}`,
+    'मेड़तिया मित्र मंडळ कडून आपल्या देणगीची पावती येथे उपलब्ध आहे.',
+    '',
+    `Receipt No: ${donation.receiptNumber || '—'}`,
+    `Festival: ${fest}`,
+    `Donation Amount: ₹${donation.amount?.toLocaleString('en-IN') || '0'}/-`,
   ];
 
-  if (donation.buildingName || donation.wingName) {
-    const bldg = [donation.buildingName, donation.wingName].filter(Boolean).join(' - ');
-    lines.push(`*इमारत व विंग / Building:* ${bldg}`);
-  }
-  if (donation.flatNo) {
-    lines.push(`*फ्लॅट क्रमांक / Flat No:* ${donation.flatNo}`);
-  }
-
-  lines.push(
-    `*देणगी रक्कम / Amount:* ₹${donation.amount?.toLocaleString('en-IN') || '0'}/-`,
-    `*पेमेंट पद्धत / Method:* ${(paymentMethodLabels[donation.paymentMethod || ''] || donation.paymentMethod || 'CASH').toUpperCase()}`,
-    `*दिनांक / Date:* ${formatDate(donation.paymentDate)}`,
-    `*पावती क्रमांक / Receipt No:* ${donation.receiptNumber || '—'}`
-  );
-
-  if (donation.collectedByAdminName) {
-    lines.push(`*प्राप्तकर्ता / Collected By:* ${donation.collectedByAdminName}`);
+  if (donation.residentName) {
+    lines.push(`Donor Name: ${donation.residentName}`);
   }
 
   if (finalPdfUrl) {
-    lines.push('', '📄 *पावती डाउनलोड करा / Download Receipt PDF:*', finalPdfUrl);
+    lines.push('', 'पावती:', finalPdfUrl);
   }
 
   lines.push(
     '',
-    'आपल्या मौल्यवान देणगीबद्दल मनःपूर्वक धन्यवाद ! 🙏',
-    '॥ गणपती बाप्पा मोरया, मंगलमूर्ती मोरया ॥'
+    'धन्यवाद 🙏',
+    'मेड़तिया मित्र मंडळ'
   );
 
   return lines.join('\n');
@@ -764,36 +751,98 @@ function DeleteDonationDialog({ donation, onConfirm, onCancel, isLoading }: {
 // ── View Donation Modal ──────────────────────────────────────────────────────
 
 function ViewDonationModal({ donation, festivalName, onClose }: { donation: Donation; festivalName: string; onClose: () => void }) {
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [isSendingCloudWhatsApp, setIsSendingCloudWhatsApp] = useState(false);
+  const [isOpeningWhatsApp, setIsOpeningWhatsApp] = useState(false);
 
-  const generateVargani = async () => {
-    setIsGenerating(true);
+  const isBusy = isDownloading || isPreviewing || isSendingCloudWhatsApp || isOpeningWhatsApp;
+
+  const handleDownloadPdf = async () => {
+    setIsDownloading(true);
     try {
-      const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donation.id}/vargani-pdf`, {
+      toast.info('Generating latest receipt PDF...');
+      const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donation.id}/vargani-pdf?download=true`, {
         method: 'POST',
         headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to generate receipt');
-      window.open(data.downloadUrl || data.pdfUrl, '_blank');
-      toast.success('Vargani receipt generated');
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({ error: 'Failed to generate PDF' }));
+        throw new Error(errJson.error || 'Failed to download receipt');
+      }
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `Vargani-${donation.receiptNumber || donation.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+      }, 500);
+      toast.success('Receipt PDF downloaded successfully!');
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to generate receipt');
+      toast.error(err?.message || 'Failed to download receipt PDF');
     } finally {
-      setIsGenerating(false);
+      setIsDownloading(false);
     }
   };
 
-  const handleWhatsApp = async () => {
-    setIsSendingWhatsApp(true);
+  const handlePreviewPdf = async () => {
+    setIsPreviewing(true);
     try {
+      toast.info('Opening latest receipt...');
       const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donation.id}/vargani-pdf`, {
         method: 'POST',
         headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to generate receipt');
+      window.open(data.pdfUrl || getReceiptPdfUrl(donation.receiptNumber || String(donation.id)), '_blank');
+      toast.success('Receipt opened in new tab');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to preview receipt');
+    } finally {
+      setIsPreviewing(false);
+    }
+  };
+
+  const handleSendWhatsAppCloudApi = async () => {
+    setIsSendingCloudWhatsApp(true);
+    try {
+      toast.info('Generating fresh receipt & sending via WhatsApp Business API...');
+      const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donation.id}/send-whatsapp`, {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.configured === false || data.fallbackRequired) {
+          toast.error('WhatsApp Business API is not configured. Use "Open WhatsApp" fallback below.', { duration: 5000 });
+        } else {
+          throw new Error(data.error || 'Failed to send via WhatsApp Business API');
+        }
+        return;
+      }
+      toast.success('Receipt PDF document sent successfully via WhatsApp!');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to send WhatsApp document');
+    } finally {
+      setIsSendingCloudWhatsApp(false);
+    }
+  };
+
+  const handleOpenWhatsAppFallback = async () => {
+    setIsOpeningWhatsApp(true);
+    try {
+      toast.info('Fetching latest donation data for WhatsApp...');
+      const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donation.id}/vargani-pdf`, {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch latest donation data');
 
       const freshDonation = data.donation ? {
         ...donation,
@@ -811,12 +860,13 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
 
       const festival = data.donation?.festivalName || festivalName;
       const targetMobile = freshDonation.residentMobile || donation.residentMobile;
-      openWhatsApp(targetMobile, buildWhatsAppReceipt(freshDonation, festival, data.pdfUrl));
-      toast.success('WhatsApp opened with fresh Vargani receipt!');
+      const msg = buildWhatsAppReceipt(freshDonation, festival, data.pdfUrl);
+      openWhatsApp(targetMobile, msg);
+      toast.success('WhatsApp opened with receipt link!');
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to generate receipt');
+      toast.error(err?.message || 'Failed to open WhatsApp');
     } finally {
-      setIsSendingWhatsApp(false);
+      setIsOpeningWhatsApp(false);
     }
   };
 
@@ -870,20 +920,50 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
           </div>
 
           {isPaid(donation) && donation.receiptNumber && (
-            <>
-            <button type="button" onClick={() => { void generateVargani(); }} disabled={isGenerating || isSendingWhatsApp} className="w-full py-2.5 mb-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
-              <Receipt className="w-4 h-4" /> {isGenerating ? 'Generating Receipt...' : 'Generate Vargani Slip'}
-            </button>
-            <button
-              type="button"
-              onClick={() => { void handleWhatsApp(); }}
-              disabled={isGenerating || isSendingWhatsApp}
-              className="w-full py-2.5 bg-amber-500 text-white rounded-xl text-sm font-semibold hover:bg-amber-600 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
-            >
-              <MessageSquare className="w-4 h-4" />
-              {isSendingWhatsApp ? 'Opening WhatsApp...' : 'Send PDF on WhatsApp'}
-            </button>
-            </>
+            <div className="space-y-2 pt-2 border-t border-white/10">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => { void handleDownloadPdf(); }}
+                  disabled={isBusy}
+                  className="py-2.5 px-3 bg-primary text-white rounded-xl text-xs font-semibold hover:bg-primary/90 transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
+                  title="Download receipt PDF"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  {isDownloading ? 'Downloading...' : 'Download PDF'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { void handlePreviewPdf(); }}
+                  disabled={isBusy}
+                  className="py-2.5 px-3 bg-white/10 text-white rounded-xl text-xs font-semibold hover:bg-white/15 transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
+                  title="Preview receipt in new tab"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  {isPreviewing ? 'Opening...' : 'Preview PDF'}
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => { void handleSendWhatsAppCloudApi(); }}
+                disabled={isBusy}
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                <Send className="w-4 h-4" />
+                {isSendingCloudWhatsApp ? 'Sending to WhatsApp...' : 'Send on WhatsApp (Cloud API)'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { void handleOpenWhatsAppFallback(); }}
+                disabled={isBusy}
+                className="w-full py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                {isOpeningWhatsApp ? 'Opening WhatsApp...' : 'Open WhatsApp (Link Fallback)'}
+              </button>
+            </div>
           )}
         </div>
         <div className="flex justify-end p-4 border-t border-border bg-muted/20">
@@ -1226,39 +1306,87 @@ export default function AdminFestivalDetail() {
   const [deleteDonation, setDeleteDonation] = useState<Donation | null>(null);
   const [isDeletingDonation, setIsDeletingDonation] = useState(false);
   const [sendingWhatsAppDonationId, setSendingWhatsAppDonationId] = useState<number | null>(null);
+  const [downloadingDonationId, setDownloadingDonationId] = useState<number | null>(null);
+
+  const handleDownloadRowPdf = async (d: Donation) => {
+    setDownloadingDonationId(d.id);
+    try {
+      toast.info(`Generating receipt for ${d.residentName}...`);
+      const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${d.id}/vargani-pdf?download=true`, {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({ error: 'Failed to generate PDF' }));
+        throw new Error(errJson.error || 'Failed to download receipt');
+      }
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `Vargani-${d.receiptNumber || d.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+      }, 500);
+      toast.success(`Receipt downloaded for ${d.residentName}!`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to download receipt');
+    } finally {
+      setDownloadingDonationId(null);
+    }
+  };
 
   const handleSendRowWhatsApp = async (d: Donation) => {
     if (!festival) return;
     setSendingWhatsAppDonationId(d.id);
     try {
-      toast.info(`Generating receipt for ${d.residentName}...`);
-      const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${d.id}/vargani-pdf`, {
+      toast.info(`Sending receipt to ${d.residentName}...`);
+      // 1. Try sending via WhatsApp Business Cloud API
+      const cloudRes = await fetch(`${getApiUrl()}/api/admin/festival-donations/${d.id}/send-whatsapp`, {
         method: 'POST',
-        headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to generate receipt');
 
-      const freshDonation = data.donation ? {
-        ...d,
-        residentName: data.donation.residentName || d.residentName,
-        residentMobile: data.donation.residentMobile || d.residentMobile,
-        flatNo: data.donation.flatNo || d.flatNo,
-        buildingName: data.donation.buildingName || d.buildingName,
-        wingName: data.donation.wingName || d.wingName,
-        amount: data.donation.amount != null ? data.donation.amount : d.amount,
-        paymentMethod: data.donation.paymentMethod || d.paymentMethod,
-        paymentDate: data.donation.paymentDate || d.paymentDate,
-        receiptNumber: data.donation.receiptNumber || d.receiptNumber,
-        collectedByAdminName: data.donation.collectedByAdminName || d.collectedByAdminName,
-      } : d;
+      const cloudData = await cloudRes.json();
+      if (cloudRes.ok && cloudData.success) {
+        toast.success(`Receipt document sent to ${d.residentName} via WhatsApp Business API!`);
+        return;
+      }
 
-      const targetFestivalName = data.donation?.festivalName || festival.name;
-      const targetMobile = freshDonation.residentMobile || d.residentMobile;
-      openWhatsApp(targetMobile, buildWhatsAppReceipt(freshDonation, targetFestivalName, data.pdfUrl));
-      toast.success('WhatsApp opened with fresh Vargani receipt!');
+      // 2. If Cloud API not configured or requested fallback, use WhatsApp application deep link
+      if (!cloudRes.ok && (cloudData.configured === false || cloudData.fallbackRequired)) {
+        // Fetch fresh donation data to ensure latest DB record
+        const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${d.id}/vargani-pdf`, {
+          method: 'POST',
+          headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
+        });
+        const data = await res.json();
+        const freshDonation = data.donation ? {
+          ...d,
+          residentName: data.donation.residentName || d.residentName,
+          residentMobile: data.donation.residentMobile || d.residentMobile,
+          flatNo: data.donation.flatNo || d.flatNo,
+          buildingName: data.donation.buildingName || d.buildingName,
+          wingName: data.donation.wingName || d.wingName,
+          amount: data.donation.amount != null ? data.donation.amount : d.amount,
+          paymentMethod: data.donation.paymentMethod || d.paymentMethod,
+          paymentDate: data.donation.paymentDate || d.paymentDate,
+          receiptNumber: data.donation.receiptNumber || d.receiptNumber,
+          collectedByAdminName: data.donation.collectedByAdminName || d.collectedByAdminName,
+        } : d;
+
+        const targetFestivalName = data.donation?.festivalName || festival.name;
+        const targetMobile = freshDonation.residentMobile || d.residentMobile;
+        openWhatsApp(targetMobile, buildWhatsAppReceipt(freshDonation, targetFestivalName, data.pdfUrl));
+        toast.info('Cloud API not configured. WhatsApp opened with receipt link!');
+      } else {
+        throw new Error(cloudData.error || 'Failed to send WhatsApp message');
+      }
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to generate receipt');
+      toast.error(err?.message || 'Failed to process WhatsApp receipt delivery');
     } finally {
       setSendingWhatsAppDonationId(null);
     }
@@ -1771,22 +1899,36 @@ const fetchStats = useCallback(async () => {
                           <td className="px-3 py-3 text-sm text-muted-foreground whitespace-nowrap">{isPaid(d) ? formatDate(d.paymentDate) : '—'}</td>
                           <td className="px-3 py-3">
                             <div className="flex items-center justify-end gap-0.5">
-                              <button onClick={() => setViewDonation(d)} className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-primary" title="View"><Eye className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => setViewDonation(d)} className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-primary" title="View Details"><Eye className="w-3.5 h-3.5" /></button>
                               <button onClick={() => setEditDonation(d)} className="p-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-950/30 transition-colors text-amber-600" title="Edit"><Edit3 className="w-3.5 h-3.5" /></button>
                               <button onClick={() => setDeleteDonation(d)} className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-destructive" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
                               {isPaid(d) && d.receiptNumber && (
-                                <button
-                                  onClick={() => handleSendRowWhatsApp(d)}
-                                  disabled={sendingWhatsAppDonationId === d.id}
-                                  className="p-1.5 rounded-lg hover:bg-white/[0.04] transition-colors text-amber-300 disabled:opacity-50"
-                                  title="Send WhatsApp Receipt"
-                                >
-                                  {sendingWhatsAppDonationId === d.id ? (
-                                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                  ) : (
-                                    <MessageSquare className="w-3.5 h-3.5" />
-                                  )}
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => handleDownloadRowPdf(d)}
+                                    disabled={downloadingDonationId === d.id}
+                                    className="p-1.5 rounded-lg hover:bg-white/[0.04] transition-colors text-primary disabled:opacity-50"
+                                    title="Download PDF Receipt"
+                                  >
+                                    {downloadingDonationId === d.id ? (
+                                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      <Download className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={() => handleSendRowWhatsApp(d)}
+                                    disabled={sendingWhatsAppDonationId === d.id}
+                                    className="p-1.5 rounded-lg hover:bg-white/[0.04] transition-colors text-emerald-400 disabled:opacity-50"
+                                    title="Send WhatsApp Receipt"
+                                  >
+                                    {sendingWhatsAppDonationId === d.id ? (
+                                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      <MessageSquare className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
+                                </>
                               )}
                             </div>
                           </td>

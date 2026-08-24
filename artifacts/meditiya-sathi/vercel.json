@@ -13,6 +13,14 @@
       "destination": "https://meditiya-sathi.onrender.com/api/vargani-slip/:path*"
     },
     {
+      "source": "/api/receipt/:path*",
+      "destination": "https://meditiya-sathi.onrender.com/api/vargani-pdf/:path*"
+    },
+    {
+      "source": "/receipt/:path*",
+      "destination": "https://meditiya-sathi.onrender.com/api/vargani-pdf/:path*"
+    },
+    {
       "source": "/tshirt-pdf/:path*",
       "destination": "https://meditiya-sathi.onrender.com/api/tshirt-pdf/:path*"
     },

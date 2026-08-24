@@ -4,7 +4,12 @@ import fontkit from "@pdf-lib/fontkit";
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { VARGANI_RECEIPT_CONFIG as CONFIG } from "./vargani-receipt-config.js";
+import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+import { VARGANI_RECEIPT_CONFIG as CONFIG } from "./vargani-receipt-config";
+
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const requireUtil = createRequire(import.meta.url);
 
 export interface VarganiPdfData {
   receiptNumber: string;
@@ -70,14 +75,33 @@ function projectAssetPath(fileName: string): string {
     path.resolve(process.cwd(), "artifacts/meditiya-sathi/public", fileName),
     path.resolve(process.cwd(), "../meditiya-sathi/public", fileName),
     path.resolve(process.cwd(), "../../artifacts/meditiya-sathi/public", fileName),
+    path.resolve(currentDir, "../../../artifacts/meditiya-sathi/public", fileName),
+    path.resolve(currentDir, "../../meditiya-sathi/public", fileName),
+    path.resolve(currentDir, "../public", fileName),
     path.resolve(process.cwd(), "public", fileName),
     path.resolve(process.cwd(), "dist", fileName),
     path.resolve(process.cwd(), "artifacts/api-server/dist", fileName),
+    path.resolve(currentDir, fileName),
   ];
   return candidates.find((candidate) => existsSync(candidate)) || candidates[0];
 }
 
 function projectFontPath(fontFileName: string): string {
+  // 1. Try resolving through package.json of the respective font package
+  try {
+    if (fontFileName.includes("serif")) {
+      const pkgPath = requireUtil.resolve("@fontsource/noto-serif-devanagari/package.json");
+      const fontCandidate = path.join(path.dirname(pkgPath), "files", fontFileName);
+      if (existsSync(fontCandidate)) return fontCandidate;
+    } else {
+      const pkgPath = requireUtil.resolve("@fontsource/noto-sans/package.json");
+      const fontCandidate = path.join(path.dirname(pkgPath), "files", fontFileName);
+      if (existsSync(fontCandidate)) return fontCandidate;
+    }
+  } catch {
+    // Continue checking candidate directories
+  }
+
   const candidates = [
     path.resolve(process.cwd(), "artifacts/meditiya-sathi/public", fontFileName),
     path.resolve(process.cwd(), "../meditiya-sathi/public", fontFileName),
@@ -87,6 +111,7 @@ function projectFontPath(fontFileName: string): string {
     path.resolve(process.cwd(), "node_modules/@fontsource/noto-serif-devanagari/files", fontFileName),
     path.resolve(process.cwd(), "artifacts/api-server/node_modules/@fontsource/noto-serif-devanagari/files", fontFileName),
     path.resolve(process.cwd(), "../../node_modules/@fontsource/noto-serif-devanagari/files", fontFileName),
+    path.resolve(currentDir, fontFileName),
   ];
   return candidates.find((candidate) => existsSync(candidate)) || candidates[0];
 }
