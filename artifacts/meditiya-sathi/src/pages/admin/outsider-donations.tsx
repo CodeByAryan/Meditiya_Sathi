@@ -10,6 +10,8 @@ import { toast } from 'sonner';
 import { cn, getApiUrl } from '@/lib/utils';
 import { PENDING_REASONS } from '@/lib/pending-reasons';
 import { getPublicAppBaseUrl } from '@/lib/tshirt-url';
+import { sendWhatsApp } from '@/lib/whatsapp-service';
+
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -110,37 +112,54 @@ function isPaid(d: OutsiderDonation): boolean {
 // ── WhatsApp Receipt Builder ────────────────────────────────────────────────
 
 function buildWhatsAppReceipt(d: OutsiderDonation, pdfUrl?: string): string {
-  const defaultPdfUrl = d.receiptNumber ? `${getPublicAppBaseUrl()}/api/vargani-pdf/${encodeURIComponent(d.receiptNumber)}.pdf` : null;
+  const defaultPdfUrl = d.receiptNumber
+    ? `${getPublicAppBaseUrl()}/api/vargani-pdf/${encodeURIComponent(d.receiptNumber)}.pdf`
+    : null;
   const finalPdfUrl = pdfUrl || defaultPdfUrl;
-  const msg = [
-    '🏡 *Meditiya Sathi*',
+  const fest = `${d.festivalName} ${d.festivalYear || ''}`.trim() || 'गणेश उत्सव २०२६';
+
+  const lines = [
+    '🚩 *मेड़तिया मित्र मंडळ*',
+    '*पावती / Donation Receipt*',
     '',
-    '*🧾 Donation Receipt*',
+    `*उत्सव / Festival:* ${fest}`,
+    `*दात्याचे नाव / Donor Name:* ${d.fullName || '—'}`,
+    `*मोबाईल / Mobile:* ${d.mobile || '—'}`,
+  ];
+
+  if (d.address) {
+    lines.push(`*पत्ता / Address:* ${d.address}`);
+  }
+
+  lines.push(
+    `*देणगी रक्कम / Amount:* ₹${d.amount?.toLocaleString('en-IN') || '0'}/-`,
+    `*पेमेंट पद्धत / Method:* ${(paymentMethodLabels[d.paymentMethod] || d.paymentMethod || 'CASH').toUpperCase()}`,
+    `*दिनांक / Date:* ${formatDate(d.paymentDate)}`,
+    `*पावती क्रमांक / Receipt No:* ${d.receiptNumber || '—'}`
+  );
+
+  if (d.collectedByAdminName) {
+    lines.push(`*प्राप्तकर्ता / Collected By:* ${d.collectedByAdminName}`);
+  }
+
+  if (finalPdfUrl) {
+    lines.push('', '📄 *पावती डाउनलोड करा / Download Receipt PDF:*', finalPdfUrl);
+  }
+
+  lines.push(
     '',
-    `Festival: ${d.festivalName} ${d.festivalYear || ''}`.trim(),
-    `Donor: ${d.fullName}`,
-    `Mobile: ${d.mobile}`,
-    d.address ? `Address: ${d.address}` : null,
-    `Amount Received: ₹${d.amount?.toLocaleString('en-IN') || '0'}`,
-    `Payment Method: ${paymentMethodLabels[d.paymentMethod] || d.paymentMethod || '—'}`,
-    `Date: ${formatDate(d.paymentDate)}`,
-    `Collected By: ${d.collectedByAdminName}`,
-    `Receipt No: ${d.receiptNumber || '—'}`,
-    ...(finalPdfUrl ? ['', `📄 Your Vargani receipt:`, finalPdfUrl] : []),
-    '',
-    'Thank you for supporting our community. 🙏',
-  ].filter(Boolean).join('\n');
-  return encodeURIComponent(msg);
+    'आपल्या मौल्यवान देणगीबद्दल मनःपूर्वक धन्यवाद ! 🙏',
+    '॥ गणपती बाप्पा मोरया, मंगलमूर्ती मोरया ॥'
+  );
+
+  return lines.join('\n');
 }
 
 function openWhatsApp(mobile: string, message: string) {
-  const cleanMobile = mobile.replace(/[^0-9]/g, '');
-  if (cleanMobile.length < 10) {
+  const ok = sendWhatsApp(mobile, message);
+  if (!ok) {
     toast.error('Invalid mobile number for WhatsApp');
-    return;
   }
-  const url = `https://wa.me/91${cleanMobile}?text=${message}`;
-  window.open(url, '_blank');
 }
 
 // ── Stats Card ──────────────────────────────────────────────────────────────

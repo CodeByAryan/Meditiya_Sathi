@@ -2,9 +2,7 @@
  * WhatsApp Service - Send donation notifications via WhatsApp.
  *
  * This module provides a clean interface for sending WhatsApp messages.
- * Currently uses WhatsApp Web (wa.me links) as the transport layer.
- * Designed to be easily swapped with WhatsApp Business API or Twilio
- * without changing the calling UI components.
+ * Supports reliable opening on Desktop Web, WhatsApp App, and Mobile browsers.
  *
  * @module whatsapp-service
  */
@@ -16,31 +14,27 @@ import { getPublicAppBaseUrl } from "./tshirt-url";
 export interface WhatsAppDonationData {
   residentName: string;
   residentMobile: string;
-  flatNo: string;
-  buildingName: string;
-  wingName: string;
+  flatNo?: string | null;
+  buildingName?: string | null;
+  wingName?: string | null;
   amount: number | null;
-  paymentMethod: string;
-  paymentDate: string | null;
-  receiptNumber: string | null;
-  collectedByAdminName: string;
-  pendingReason: string | null;
-  paymentStatus: "paid" | "pending";
+  paymentMethod?: string | null;
+  paymentDate?: string | null;
+  receiptNumber?: string | null;
+  collectedByAdminName?: string | null;
+  pendingReason?: string | null;
+  paymentStatus?: "paid" | "pending";
   pdfUrl?: string | null;
 }
 
 export interface WhatsAppFestivalData {
   name: string;
-  year: number;
+  year?: number | null;
   societyName?: string;
   contactInfo?: string;
 }
 
 export type WhatsAppMessageType = "receipt" | "pending_reminder";
-
-// ── Constants ────────────────────────────────────────────────────────────────
-
-const DEFAULT_SOCIETY_NAME = "Meditiya Sathi";
 
 // ── Helper Functions ─────────────────────────────────────────────────────────
 
@@ -53,12 +47,12 @@ function formatCurrency(amount: number | null): string {
   }).format(amount);
 }
 
-function formatDate(dateStr: string | null): string {
+function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";
   try {
     return new Date(dateStr).toLocaleDateString("en-IN", {
       day: "2-digit",
-      month: "short",
+      month: "2-digit",
       year: "numeric",
     });
   } catch {
@@ -66,138 +60,174 @@ function formatDate(dateStr: string | null): string {
   }
 }
 
-function cleanMobile(mobile: string): string {
-  return mobile.replace(/[^0-9]/g, "");
+/**
+ * Normalizes an Indian phone number to valid international WhatsApp format (91XXXXXXXXXX)
+ */
+export function formatWhatsAppPhone(mobile: string | null | undefined): string {
+  if (!mobile) return "";
+  let cleaned = String(mobile).replace(/\D/g, "");
+
+  if (cleaned.length === 10) {
+    return `91${cleaned}`;
+  }
+  if (cleaned.length === 11 && cleaned.startsWith("0")) {
+    return `91${cleaned.slice(1)}`;
+  }
+  if (cleaned.length === 12 && cleaned.startsWith("91")) {
+    return cleaned;
+  }
+  if (cleaned.length > 10 && cleaned.startsWith("91")) {
+    return cleaned;
+  }
+  if (cleaned.length > 10) {
+    return `91${cleaned.slice(-10)}`;
+  }
+  return cleaned;
 }
 
 // ── Message Builders ─────────────────────────────────────────────────────────
 
 /**
  * Build the WhatsApp message text for a given donation and purpose.
- *
- * @param donation - Donation data
- * @param festival - Festival data
- * @param type - Message type: 'receipt' for paid, 'pending_reminder' for pending
- * @returns The pre-formatted message string (URL-encoded for wa.me links)
  */
 export function buildWhatsAppMessage(
   donation: WhatsAppDonationData,
   festival: WhatsAppFestivalData,
   type: WhatsAppMessageType
 ): string {
-  const societyName = festival.societyName || DEFAULT_SOCIETY_NAME;
-
   if (type === "receipt") {
-    return buildReceiptMessage(donation, festival, societyName);
+    return buildReceiptMessage(donation, festival);
   }
-
-  return buildPendingReminderMessage(donation, festival, societyName);
+  return buildPendingReminderMessage(donation, festival);
 }
 
-function buildReceiptMessage(
+export function buildReceiptMessage(
   donation: WhatsAppDonationData,
-  festival: WhatsAppFestivalData,
-  societyName: string
+  festival: WhatsAppFestivalData
 ): string {
+  const festTitle = `${festival.name}${festival.year ? ` ${festival.year}` : ""}`.trim();
+  const pdfUrl =
+    donation.pdfUrl ||
+    (donation.receiptNumber
+      ? `${getPublicAppBaseUrl()}/api/vargani-pdf/${encodeURIComponent(donation.receiptNumber)}.pdf`
+      : null);
+
   const lines = [
-    `🏡 *${societyName}*`,
+    "🚩 *मेड़तिया मित्र मंडळ*",
+    "*पावती / Donation Receipt*",
     "",
-    "*🧾 Donation Receipt*",
-    "",
-    `*Festival:* ${festival.name} ${festival.year}`,
-    `*Resident:* ${donation.residentName}`,
-    `*Building:* ${donation.buildingName || "—"}`,
-    `*Wing:* ${donation.wingName || "NA"}`,
-    `*Flat:* ${donation.flatNo}`,
-    `*Amount Received:* ${formatCurrency(donation.amount)}`,
-    `*Payment Method:* ${donation.paymentMethod
-      ? donation.paymentMethod.charAt(0).toUpperCase() +
-        donation.paymentMethod.slice(1).replace("_", " ")
-      : "—"}`,
-    `*Date:* ${formatDate(donation.paymentDate)}`,
-    `*Receipt No:* ${donation.receiptNumber || "—"}`,
-    `*Collected By:* ${donation.collectedByAdminName}`,
-    ...(donation.pdfUrl || donation.receiptNumber
-      ? [
-          "",
-          "📄 *Your Vargani Receipt PDF:*",
-          donation.pdfUrl ||
-            `${getPublicAppBaseUrl()}/api/vargani-pdf/${encodeURIComponent(donation.receiptNumber!)}.pdf`,
-        ]
-      : []),
-    "",
-    "✅ *Thank you for your contribution!* 🙏",
+    `*उत्सव / Festival:* ${festTitle || "गणेश उत्सव"}`,
+    `*दात्याचे नाव / Name:* ${donation.residentName || "—"}`,
   ];
 
-  if (festival.contactInfo) {
-    lines.push("", `📞 *Contact:* ${festival.contactInfo}`);
+  if (donation.buildingName || donation.wingName) {
+    const bldg = [donation.buildingName, donation.wingName].filter(Boolean).join(" - ");
+    lines.push(`*इमारत व विंग / Building:* ${bldg}`);
+  }
+  if (donation.flatNo) {
+    lines.push(`*फ्लॅट क्रमांक / Flat No:* ${donation.flatNo}`);
   }
 
-  return encodeURIComponent(lines.join("\n"));
+  lines.push(
+    `*देणगी रक्कम / Amount:* ${formatCurrency(donation.amount)}`,
+    `*पेमेंट पद्धत / Method:* ${(donation.paymentMethod || "CASH").toUpperCase().replace(/_/g, " ")}`,
+    `*दिनांक / Date:* ${formatDate(donation.paymentDate)}`,
+    `*पावती क्रमांक / Receipt No:* ${donation.receiptNumber || "—"}`
+  );
+
+  if (donation.collectedByAdminName) {
+    lines.push(`*प्राप्तकर्ता / Collected By:* ${donation.collectedByAdminName}`);
+  }
+
+  if (pdfUrl) {
+    lines.push("", "📄 *पावती डाउनलोड करा / Download Receipt PDF:*", pdfUrl);
+  }
+
+  lines.push(
+    "",
+    "आपल्या मौल्यवान देणगीबद्दल मनःपूर्वक धन्यवाद ! 🙏",
+    "॥ गणपती बाप्पा मोरया, मंगलमूर्ती मोरया ॥"
+  );
+
+  if (festival.contactInfo) {
+    lines.push("", `📞 *संपर्क / Contact:* ${festival.contactInfo}`);
+  }
+
+  return lines.join("\n");
 }
 
 function buildPendingReminderMessage(
   donation: WhatsAppDonationData,
-  festival: WhatsAppFestivalData,
-  societyName: string
+  festival: WhatsAppFestivalData
 ): string {
+  const festTitle = `${festival.name}${festival.year ? ` ${festival.year}` : ""}`.trim();
+
   const lines = [
-    `🏡 *${societyName}*`,
+    "🚩 *मेड़तिया मित्र मंडळ*",
     "",
-    "*⏳ Donation Reminder*",
+    "*⏳ देणगी स्मरणपत्र / Donation Reminder*",
     "",
-    `Dear *${donation.residentName}*,`,
+    `सस्नेह नमस्कार *${donation.residentName}*,`,
     "",
-    `This is a friendly reminder that your donation for *${festival.name} ${festival.year}* is currently marked as *Pending*.`,
-    "",
+    `*${festTitle}* साठी आपली वर्गणी/देणगी नोंद प्रलंबित आहे.`,
   ];
 
   if (donation.pendingReason) {
-    lines.push(`Reason: ${donation.pendingReason}`, "");
+    lines.push(`*कारण / Reason:* ${donation.pendingReason}`);
   }
 
   lines.push(
-    "We kindly request you to complete your donation at your earliest convenience.",
     "",
-    "Your contribution helps make our community festivals special! 🎉",
+    "मंडळाच्या उत्सवासाठी आपले सहकार्य अत्यंत मोलाचे आहे.",
+    "कृपया आपल्या सोयीनुसार देणगी जमा करावी ही नम्र विनंती. 🙏",
     "",
-    `_${societyName}_`,
+    "॥ गणपती बाप्पा मोरया, मंगलमूर्ती मोरया ॥"
   );
 
   if (festival.contactInfo) {
-    lines.push("", `📞 *Contact:* ${festival.contactInfo}`);
+    lines.push("", `📞 *संपर्क:* ${festival.contactInfo}`);
   }
 
-  return encodeURIComponent(lines.join("\n"));
+  return lines.join("\n");
 }
 
 // ── Send Function ────────────────────────────────────────────────────────────
 
 /**
- * Send a WhatsApp message to a resident.
- *
- * Current implementation opens WhatsApp Web with a pre-filled message.
- * To replace with WhatsApp Business API / Twilio, update only this function.
+ * Open WhatsApp with reliable cross-browser popup and mobile handling.
  *
  * @param mobile - Resident's mobile number
- * @param message - The pre-encoded message text (from buildWhatsAppMessage)
- * @returns true if the message was "sent" (WhatsApp web opened), false on error
+ * @param messageText - Plain text message (will be URL-encoded)
+ * @returns true if WhatsApp action was initiated, false on error
  */
-export function sendWhatsApp(mobile: string, message: string): boolean {
-  const cleaned = cleanMobile(mobile);
+export function sendWhatsApp(mobile: string | null | undefined, messageText: string): boolean {
+  const phone = formatWhatsAppPhone(mobile);
 
-  if (cleaned.length < 10) {
-    console.error(
-      `[WhatsApp Service] Invalid mobile number: ${mobile} (cleaned: ${cleaned})`
-    );
+  if (!phone || phone.length < 10) {
+    console.error(`[WhatsApp Service] Invalid mobile number: ${mobile} (formatted: ${phone})`);
     return false;
   }
 
   try {
-    // Using Indian country code by default
-    const url = `https://wa.me/91${cleaned}?text=${message}`;
-    window.open(url, "_blank");
-    return true;
+    const encodedText = encodeURIComponent(messageText);
+    const waUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${encodedText}`;
+
+    // Reliable navigation method to avoid browser popup blockers after async calls
+    if (typeof window !== "undefined") {
+      const link = document.createElement("a");
+      link.href = waUrl;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        if (document.body.contains(link)) {
+          document.body.removeChild(link);
+        }
+      }, 500);
+      return true;
+    }
+    return false;
   } catch (error) {
     console.error("[WhatsApp Service] Failed to open WhatsApp:", error);
     return false;
@@ -206,31 +236,24 @@ export function sendWhatsApp(mobile: string, message: string): boolean {
 
 /**
  * Convenience function to send a donation receipt via WhatsApp.
- *
- * @param donation - Donation data
- * @param festival - Festival data
- * @returns true if WhatsApp was opened, false on error
  */
 export function sendReceiptViaWhatsApp(
   donation: WhatsAppDonationData,
   festival: WhatsAppFestivalData
 ): boolean {
-  const message = buildWhatsAppMessage(donation, festival, "receipt");
+  const message = buildReceiptMessage(donation, festival);
   return sendWhatsApp(donation.residentMobile, message);
 }
 
 /**
  * Convenience function to send a pending donation reminder via WhatsApp.
- *
- * @param donation - Donation data
- * @param festival - Festival data
- * @returns true if WhatsApp was opened, false on error
  */
 export function sendPendingReminderViaWhatsApp(
   donation: WhatsAppDonationData,
   festival: WhatsAppFestivalData
 ): boolean {
-  const message = buildWhatsAppMessage(donation, festival, "pending_reminder");
+  const message = buildPendingReminderMessage(donation, festival);
   return sendWhatsApp(donation.residentMobile, message);
 }
+
 
