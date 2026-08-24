@@ -2,6 +2,8 @@ import { Router, type IRouter } from "express";
 import { db, outsiderDonationsTable, festivalsTable, festivalDonationsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
+import { generateVarganiPdf } from "../lib/vargani-pdf";
+import { getPublicAppBaseUrl } from "../lib/tshirt-url";
 
 const router: IRouter = Router();
 
@@ -518,6 +520,96 @@ router.delete("/admin/outsider-donations/:id", requireRole("Super Admin", "Admin
     res.status(204).end();
   } catch (err: any) {
     res.status(500).json({ error: err?.message || "Failed to delete donation" });
+  }
+});
+
+// ── GET/POST /api/admin/outsider-donations/:id/vargani-pdf ──────────────────
+// Generate fresh Vargani PDF for an outsider donation from latest DB data
+
+router.all(["/admin/outsider-donations/:id/vargani-pdf", "/admin/outsider-donations/:id/vargani-pdf/download"], requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: "Invalid donation ID" });
+      return;
+    }
+
+    const rows = await db.execute(sql`
+      SELECT od.*, f.name as festival_name, f.year as festival_year
+      FROM outsider_donations od
+      LEFT JOIN festivals f ON od.festival_id = f.id
+      WHERE od.id = ${id}
+      LIMIT 1
+    `);
+    const row = (rows.rows || [])[0] as any;
+    if (!row) {
+      res.status(404).json({ error: "Donation not found" });
+      return;
+    }
+
+    if (row.payment_status !== "paid" || row.amount == null || !row.receipt_number) {
+      res.status(422).json({ error: "A paid donation with receipt number is required" });
+      return;
+    }
+
+    const admin = (req as any).admin;
+    const collectedBy = row.collected_by_admin_name || admin?.fullName || admin?.username || "Authorized Signatory";
+
+    const pdf = await generateVarganiPdf({
+      receiptNumber: row.receipt_number,
+      donationDate: row.payment_date || row.created_at,
+      name: row.full_name,
+      mobile: row.mobile,
+      building: null,
+      wing: null,
+      flat: null,
+      amount: Number(row.amount),
+      paymentMethod: row.payment_method || "cash",
+      festivalName: row.festival_name,
+      festivalYear: Number(row.festival_year),
+      collectedBy,
+    });
+
+    if (req.path.endsWith("/download") || req.query.download === "true") {
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="Vargani-${row.receipt_number}.pdf"`);
+      res.setHeader("Content-Length", pdf.length);
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      res.setHeader("Surrogate-Control", "no-store");
+      res.end(pdf);
+      return;
+    }
+
+    const url = `${getPublicAppBaseUrl()}/api/vargani-pdf/${encodeURIComponent(row.receipt_number)}.pdf`;
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    res.setHeader("Surrogate-Control", "no-store");
+
+    res.json({
+      success: true,
+      pdfUrl: url,
+      downloadUrl: url,
+      filename: `Vargani-${row.receipt_number}.pdf`,
+      donation: {
+        id: row.id,
+        festivalId: row.festival_id,
+        festivalName: row.festival_name,
+        festivalYear: row.festival_year,
+        fullName: row.full_name,
+        mobile: row.mobile,
+        amount: Number(row.amount),
+        paymentMethod: row.payment_method,
+        paymentDate: row.payment_date,
+        receiptNumber: row.receipt_number,
+        collectedByAdminName: collectedBy,
+      },
+    });
+  } catch (err: any) {
+    console.error("Outsider Vargani PDF generation failed:", err?.stack || err);
+    res.status(500).json({ error: "Failed to generate Vargani receipt PDF" });
   }
 });
 

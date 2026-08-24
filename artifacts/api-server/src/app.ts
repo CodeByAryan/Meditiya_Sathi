@@ -105,6 +105,12 @@ app.get(["/tshirt-pdf/:collectionId"], (req, res) => {
   res.redirect(`/api/tshirt-pdf/${encodeURIComponent(collectionId || "")}`);
 });
 
+app.get(["/vargani-pdf/:receiptNumber", "/vargani-slip/:receiptNumber"], (req, res) => {
+  const rawReceipt = req.params.receiptNumber;
+  const receipt = Array.isArray(rawReceipt) ? rawReceipt[0] : rawReceipt;
+  res.redirect(`/api/vargani-pdf/${encodeURIComponent(receipt || "")}`);
+});
+
 // Redirect browser GETs for scanned QR / collection URLs to the frontend web app
 app.get(["/tshirt-distribution/:tshirtId", "/tshirt-collection-cash/:tshirtId", "/tshirt-collection/:tshirtId"], (req, res) => {
   const frontendBaseUrl =

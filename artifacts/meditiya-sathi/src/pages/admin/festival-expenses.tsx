@@ -686,61 +686,85 @@ export default function FestivalExpenses() {
 
   // ── Excel Export ─────────────────────────────────────────────────────────────
 
-  const handleExportExcel = () => {
-    if (!festival) return;
+  const handleExportExcel = async () => {
+    if (!festival || !festivalId) return;
 
-    const festivalTitle = `${festival.name} ${festival.year}`;
+    try {
+      const query = new URLSearchParams();
+      if (search) query.set("search", search);
+      if (categoryFilter) query.set("category", categoryFilter);
+      if (paymentFilter) query.set("paymentMethod", paymentFilter);
+      if (dateFrom) query.set("dateFrom", dateFrom);
+      if (dateTo) query.set("dateTo", dateTo);
 
-    // Summary Sheet
-    const summarySheetData = [
-      { Metric: "Festival", Value: festivalTitle },
-      { Metric: "Total Donations Collected", Value: summary.totalDonations || 0 },
-      { Metric: "Total Expenses Recorded", Value: summary.totalExpenses || 0 },
-      { Metric: "Remaining Balance", Value: summary.remainingMoney || 0 },
-      { Metric: "Total Expense Count", Value: summary.expenseCount || 0 },
-      { Metric: "Cash Expenses", Value: summary.cash || 0 },
-      { Metric: "UPI Expenses", Value: summary.upi || 0 },
-      { Metric: "Cheque Expenses", Value: summary.cheque || 0 },
-      { Metric: "Bank Transfer Expenses", Value: summary.bankTransfer || 0 },
-      { Metric: "Other Expenses", Value: summary.other || 0 },
-    ];
+      const res = await fetch(
+        `${getApiUrl()}/api/admin/festivals/${festivalId}/expenses?${query.toString()}`,
+        { headers: { ...authHeaders(), "Cache-Control": "no-cache" } }
+      );
 
-    // Expenses Sheet
-    const expensesSheetData = expenses.map((item) => ({
-      Date: formatDateReadable(item.expenseDate),
-      "Expense Name": item.expenseName,
-      Category: item.category,
-      "Amount (INR)": parseFloat(item.amount) || 0,
-      "Payment Method":
-        PAYMENT_METHODS.find((m) => m.key === item.paymentMethod)?.label ||
-        item.paymentMethod,
-      "Added By": item.createdByAdminName,
-      "Created At": item.createdAt ? new Date(item.createdAt).toLocaleString("en-IN") : "—",
-    }));
+      if (!res.ok) {
+        throw new Error("Failed to load fresh expense data for export");
+      }
 
-    const workbook = XLSX.utils.book_new();
+      const data = await res.json();
+      const freshExpenses: ExpenseItem[] = data.expenses || [];
+      const freshSummary: ExpenseSummary = data.summary || summary;
 
-    const wsSummary = XLSX.utils.json_to_sheet(summarySheetData);
-    const wsExpenses = XLSX.utils.json_to_sheet(expensesSheetData);
+      const festivalTitle = `${festival.name} ${festival.year}`;
 
-    // Auto width
-    wsSummary["!cols"] = [{ wch: 30 }, { wch: 25 }];
-    wsExpenses["!cols"] = [
-      { wch: 15 },
-      { wch: 30 },
-      { wch: 20 },
-      { wch: 15 },
-      { wch: 18 },
-      { wch: 20 },
-      { wch: 22 },
-    ];
+      // Summary Sheet
+      const summarySheetData = [
+        { Metric: "Festival", Value: festivalTitle },
+        { Metric: "Total Donations Collected", Value: freshSummary.totalDonations || 0 },
+        { Metric: "Total Expenses Recorded", Value: freshSummary.totalExpenses || 0 },
+        { Metric: "Remaining Balance", Value: freshSummary.remainingMoney || 0 },
+        { Metric: "Total Expense Count", Value: freshSummary.expenseCount || 0 },
+        { Metric: "Cash Expenses", Value: freshSummary.cash || 0 },
+        { Metric: "UPI Expenses", Value: freshSummary.upi || 0 },
+        { Metric: "Cheque Expenses", Value: freshSummary.cheque || 0 },
+        { Metric: "Bank Transfer Expenses", Value: freshSummary.bankTransfer || 0 },
+        { Metric: "Other Expenses", Value: freshSummary.other || 0 },
+      ];
 
-    XLSX.utils.book_append_sheet(workbook, wsSummary, "Expense Summary");
-    XLSX.utils.book_append_sheet(workbook, wsExpenses, "Expenses");
+      // Expenses Sheet
+      const expensesSheetData = freshExpenses.map((item) => ({
+        Date: formatDateReadable(item.expenseDate),
+        "Expense Name": item.expenseName,
+        Category: item.category,
+        "Amount (INR)": parseFloat(item.amount) || 0,
+        "Payment Method":
+          PAYMENT_METHODS.find((m) => m.key === item.paymentMethod)?.label ||
+          item.paymentMethod,
+        "Added By": item.createdByAdminName,
+        "Created At": item.createdAt ? new Date(item.createdAt).toLocaleString("en-IN") : "—",
+      }));
 
-    const safeFilename = `${festival.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_${festival.year}_Expenses.xlsx`;
-    XLSX.writeFile(workbook, safeFilename);
-    toast.success(`Exported ${safeFilename}`);
+      const workbook = XLSX.utils.book_new();
+
+      const wsSummary = XLSX.utils.json_to_sheet(summarySheetData);
+      const wsExpenses = XLSX.utils.json_to_sheet(expensesSheetData);
+
+      // Auto width
+      wsSummary["!cols"] = [{ wch: 30 }, { wch: 25 }];
+      wsExpenses["!cols"] = [
+        { wch: 15 },
+        { wch: 30 },
+        { wch: 20 },
+        { wch: 15 },
+        { wch: 18 },
+        { wch: 20 },
+        { wch: 22 },
+      ];
+
+      XLSX.utils.book_append_sheet(workbook, wsSummary, "Expense Summary");
+      XLSX.utils.book_append_sheet(workbook, wsExpenses, "Expenses");
+
+      const safeFilename = `${festival.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_${festival.year}_Expenses.xlsx`;
+      XLSX.writeFile(workbook, safeFilename);
+      toast.success(`Exported ${safeFilename}`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to export Excel");
+    }
   };
 
   // ── Computed Analytics ───────────────────────────────────────────────────────

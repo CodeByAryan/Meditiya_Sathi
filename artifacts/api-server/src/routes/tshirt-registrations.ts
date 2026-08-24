@@ -243,6 +243,10 @@ router.get("/admin/tshirt-registrations/export", requireRole("Super Admin", "Adm
     const csv = [headers.map(h => `"${h}"`).join(","), ...lines].join("\n");
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", "attachment; filename=tshirt-registrations.csv");
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    res.setHeader("Surrogate-Control", "no-store");
     res.send(csv);
   } catch (err: any) {
     console.error("Error exporting tshirt registrations:", err);
@@ -762,6 +766,11 @@ const rows = await db.execute(
     const dataUrl = await QRCode.toDataURL(payload, { width: 512, margin: 2, errorCorrectionLevel: "H" });
     const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
 
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    res.setHeader("Surrogate-Control", "no-store");
+
     res.json({
       qrDataUrl: dataUrl,
       qrBase64: base64,
@@ -891,6 +900,11 @@ router.post("/admin/tshirt-registrations/:id/pdf", requireRole("Super Admin", "A
     // Direct public PDF serving URL (guaranteed 100% accessible to recipients in browser without Cloudinary ACL blocks)
     const publicPdfUrl = `${baseUrl}/api/tshirt-pdf/${encodeURIComponent(collectionId)}.pdf`;
 
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    res.setHeader("Surrogate-Control", "no-store");
+
     res.json({
       success: true,
       pdfUrl: publicPdfUrl,
@@ -978,11 +992,15 @@ const handleServePublicTshirtPdf = async (req: any, res: any): Promise<void> => 
       qrPayload,
     });
 
+    const isDownload = req.query.download === "true" || req.path.endsWith("/download");
     const filename = `Meditiya-Sathi-Tshirt-${collectionId}.pdf`;
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+    res.setHeader("Content-Disposition", `${isDownload ? "attachment" : "inline"}; filename="${filename}"`);
     res.setHeader("Content-Length", pdfBuffer.length);
-    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    res.setHeader("Surrogate-Control", "no-store");
     res.end(pdfBuffer);
   } catch (err: any) {
     console.error("Error serving public tshirt PDF:", err);

@@ -10,6 +10,7 @@ import {
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { cn, getApiUrl } from '@/lib/utils';
+import { getPublicAppBaseUrl } from '@/lib/tshirt-url';
 import { PENDING_REASONS } from '@/lib/pending-reasons';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -275,30 +276,9 @@ function BuildingSearchDropdown({ onSelect, selectedBuilding, onClear }: {
 
 // ── WhatsApp PDF helpers ──────────────────────────────────────────────────
 
-function getPublicAppUrl(): string {
-  const envUrl =
-    (import.meta as any).env?.VITE_PUBLIC_APP_URL ||
-    (import.meta as any).env?.PUBLIC_APP_URL ||
-    (import.meta as any).env?.VITE_FRONTEND_URL ||
-    (import.meta as any).env?.VITE_WEB_APP_URL;
-
-  if (envUrl && !envUrl.includes("localhost") && !envUrl.includes("127.0.0.1")) {
-    return envUrl.replace(/\/+$/, "");
-  }
-
-  if (typeof window !== "undefined" && window.location.origin) {
-    const origin = window.location.origin.replace(/\/+$/, "");
-    if (!origin.includes("localhost") && !origin.includes("127.0.0.1") && !origin.includes(":8080")) {
-      return origin;
-    }
-  }
-
-  return "https://meditiya-sathi.vercel.app";
-}
-
 function normalizePublicUrl(rawUrl: string): string {
   if (!rawUrl) return "";
-  const publicBase = getPublicAppUrl();
+  const publicBase = getPublicAppBaseUrl();
   if (rawUrl.startsWith("/")) {
     return `${publicBase}${rawUrl}`;
   }
@@ -405,7 +385,7 @@ export default function AdminTshirtRegistrations() {
 
       const res = await fetch(`${getApiUrl()}/api/admin/tshirt-registrations/${registration.id}/pdf`, {
         method: "POST",
-        headers: authHeaders(),
+        headers: { ...authHeaders(), "Cache-Control": "no-cache" },
       });
 
       if (!res.ok) {
@@ -419,17 +399,19 @@ export default function AdminTshirtRegistrations() {
         throw new Error("PDF was generated but could not be uploaded. Please try again.");
       }
 
+      const freshReg = data.registration || {};
       const msg = buildTshirtWhatsAppMessage({
-        name: registration.name,
-        tshirtId: registration.collectionId || `TSH-#${registration.id}`,
-        tShirtSize: registration.tShirtSize,
-        quantity: registration.quantity,
+        name: freshReg.name || registration.name,
+        tshirtId: data.tshirtId || registration.collectionId || `TSH-#${registration.id}`,
+        tShirtSize: freshReg.tShirtSize || registration.tShirtSize,
+        quantity: freshReg.quantity != null ? freshReg.quantity : registration.quantity,
         pdfUrl,
       });
 
-      const waUrl = formatWhatsAppUrl(registration.mobileNumber, msg);
+      const targetMobile = freshReg.mobileNumber || registration.mobileNumber;
+      const waUrl = formatWhatsAppUrl(targetMobile, msg);
       window.open(waUrl, "_blank");
-      toast.success(`WhatsApp opened for ${registration.name}!`);
+      toast.success(`WhatsApp opened for ${freshReg.name || registration.name}!`);
     } catch (err: any) {
       toast.error(err?.message || "Unable to generate the T-shirt PDF. Please try again.");
     } finally {
@@ -626,7 +608,9 @@ const clearForm = () => {
       if (filterQuantity) sp.set('quantity', filterQuantity);
       if (filterPaymentMode) sp.set('payment_mode', filterPaymentMode);
       if (filterPaidTo) sp.set('paid_to', filterPaidTo);
-      const res = await fetch(`${getApiUrl()}/api/admin/tshirt-registrations/export?${sp.toString()}`, { headers: authHeaders() });
+      const res = await fetch(`${getApiUrl()}/api/admin/tshirt-registrations/export?${sp.toString()}`, {
+        headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
+      });
       if (!res.ok) throw new Error('Failed to export');
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -655,7 +639,9 @@ const clearForm = () => {
       if (filterPaidTo) sp.set('paid_to', filterPaidTo);
       sp.set('limit', '100000');
 
-      const res = await fetch(`${getApiUrl()}/api/admin/tshirt-registrations?${sp.toString()}`, { headers: authHeaders() });
+      const res = await fetch(`${getApiUrl()}/api/admin/tshirt-registrations?${sp.toString()}`, {
+        headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
+      });
       if (!res.ok) throw new Error('Failed to export');
       const data = await res.json();
       const rows: TshirtRegistration[] = data.registrations || [];
@@ -1438,7 +1424,7 @@ function QrCodeModal({ registration, onClose }: {
       setPdfLoadingState('generating');
       const res = await fetch(`${getApiUrl()}/api/admin/tshirt-registrations/${registration.id}/pdf`, {
         method: 'POST',
-        headers: authHeaders(),
+        headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
       });
 
       if (!res.ok) {
@@ -1453,24 +1439,27 @@ function QrCodeModal({ registration, onClose }: {
         throw new Error('PDF was generated but could not be uploaded. Please try again.');
       }
 
+      const freshReg = data.registration || {};
+
       if (openWhatsApp) {
         setPdfLoadingState('opening');
         const msg = buildTshirtWhatsAppMessage({
-          name: registration.name,
-          tshirtId: registration.collectionId || `TSH-#${registration.id}`,
-          tShirtSize: registration.tShirtSize,
-          quantity: registration.quantity,
+          name: freshReg.name || registration.name,
+          tshirtId: data.tshirtId || registration.collectionId || `TSH-#${registration.id}`,
+          tShirtSize: freshReg.tShirtSize || registration.tShirtSize,
+          quantity: freshReg.quantity != null ? freshReg.quantity : registration.quantity,
           pdfUrl,
         });
 
-        const waUrl = formatWhatsAppUrl(registration.mobileNumber, msg);
+        const targetMobile = freshReg.mobileNumber || registration.mobileNumber;
+        const waUrl = formatWhatsAppUrl(targetMobile, msg);
         window.open(waUrl, '_blank');
         toast.success('WhatsApp opened with T-shirt collection PDF link!');
       } else {
         const a = document.createElement('a');
         a.href = data.downloadUrl || pdfUrl;
         a.target = '_blank';
-        a.download = data.filename || `Meditiya-Sathi-Tshirt-${registration.collectionId || registration.id}.pdf`;
+        a.download = data.filename || `Meditiya-Sathi-Tshirt-${data.tshirtId || registration.collectionId || registration.id}.pdf`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

@@ -1,4 +1,6 @@
 export function getPublicAppBaseUrl(): string {
+  const isProd = (import.meta as any).env?.PROD || process.env.NODE_ENV === "production";
+
   const envUrl =
     (import.meta as any).env?.VITE_PUBLIC_APP_URL ||
     (import.meta as any).env?.PUBLIC_APP_URL ||
@@ -7,19 +9,39 @@ export function getPublicAppBaseUrl(): string {
 
   if (envUrl && envUrl.trim().length > 0) {
     const trimmed = envUrl.trim().replace(/\/+$/, "");
-    if (!trimmed.includes("localhost") && !trimmed.includes("127.0.0.1") && !trimmed.includes(":8080") && !trimmed.includes(":5173")) {
+    if (isProd) {
+      if (
+        !trimmed.includes("localhost") &&
+        !trimmed.includes("127.0.0.1") &&
+        !trimmed.includes(":8080") &&
+        !trimmed.includes(":5173")
+      ) {
+        return trimmed;
+      }
+    } else {
       return trimmed;
     }
   }
 
   if (typeof window !== "undefined" && window.location.origin) {
     const origin = window.location.origin.replace(/\/+$/, "");
-    if (!origin.includes("localhost") && !origin.includes("127.0.0.1") && !origin.includes(":8080") && !origin.includes(":5173")) {
+    if (isProd) {
+      if (
+        !origin.includes("localhost") &&
+        !origin.includes("127.0.0.1") &&
+        !origin.includes(":8080") &&
+        !origin.includes(":5173")
+      ) {
+        return origin;
+      }
+    } else {
       return origin;
     }
   }
 
-  return "https://meditiya-sathi.vercel.app";
+  return isProd
+    ? "https://meditiya-sathi.vercel.app"
+    : (typeof window !== "undefined" && window.location.origin ? window.location.origin.replace(/\/+$/, "") : "http://localhost:5173");
 }
 
 export function getTshirtScannerUrl(tshirtId: string | number): string {

@@ -11,6 +11,8 @@
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+import { getPublicAppBaseUrl } from "./tshirt-url";
+
 export interface WhatsAppDonationData {
   residentName: string;
   residentMobile: string;
@@ -24,6 +26,7 @@ export interface WhatsAppDonationData {
   collectedByAdminName: string;
   pendingReason: string | null;
   paymentStatus: "paid" | "pending";
+  pdfUrl?: string | null;
 }
 
 export interface WhatsAppFestivalData {
@@ -114,6 +117,14 @@ function buildReceiptMessage(
     `*Date:* ${formatDate(donation.paymentDate)}`,
     `*Receipt No:* ${donation.receiptNumber || "—"}`,
     `*Collected By:* ${donation.collectedByAdminName}`,
+    ...(donation.pdfUrl || donation.receiptNumber
+      ? [
+          "",
+          "📄 *Your Vargani Receipt PDF:*",
+          donation.pdfUrl ||
+            `${getPublicAppBaseUrl()}/api/vargani-pdf/${encodeURIComponent(donation.receiptNumber!)}.pdf`,
+        ]
+      : []),
     "",
     "✅ *Thank you for your contribution!* 🙏",
   ];

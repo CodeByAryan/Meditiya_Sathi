@@ -1,3 +1,4 @@
+import "regenerator-runtime/runtime.js";
 import { PDFDocument, rgb } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { readFile } from "node:fs/promises";
@@ -17,12 +18,12 @@ export interface VarganiPdfData {
   paymentMethod: string;
   festivalName?: string | null;
   festivalYear?: number | null;
-  collectedBy: string;
+  collectedBy?: string | null;
 }
 
-const clean = (value: unknown, fallback = "—") => {
+const clean = (value: unknown, fallback = "—"): string => {
   const text = String(value ?? "").trim();
-  return text && text !== "null" && text !== "undefined" ? text : fallback;
+  return text && text !== "null" && text !== "undefined" && text !== "[object Object]" ? text : fallback;
 };
 
 function underHundred(n: number): string {
@@ -48,7 +49,7 @@ function underThousand(n: number): string {
 }
 
 export function amountInWords(value: number): string {
-  if (!Number.isFinite(value) || value < 0) throw new Error("Invalid donation amount");
+  if (!Number.isFinite(value) || value < 0) return "—";
   const rupees = Math.floor(value + 1e-9);
   const paise = Math.round((value - rupees) * 100);
   const parts: string[] = [];
@@ -69,13 +70,39 @@ function projectAssetPath(fileName: string): string {
     path.resolve(process.cwd(), "artifacts/meditiya-sathi/public", fileName),
     path.resolve(process.cwd(), "../meditiya-sathi/public", fileName),
     path.resolve(process.cwd(), "../../artifacts/meditiya-sathi/public", fileName),
+    path.resolve(process.cwd(), "public", fileName),
+    path.resolve(process.cwd(), "dist", fileName),
+    path.resolve(process.cwd(), "artifacts/api-server/dist", fileName),
   ];
   return candidates.find((candidate) => existsSync(candidate)) || candidates[0];
 }
 
-function drawCentered(page: any, text: string, y: number, size: number, font: any, color: any) {
+function projectFontPath(fontFileName: string): string {
+  const candidates = [
+    path.resolve(process.cwd(), "artifacts/meditiya-sathi/public", fontFileName),
+    path.resolve(process.cwd(), "../meditiya-sathi/public", fontFileName),
+    path.resolve(process.cwd(), "node_modules/@fontsource/noto-sans/files", fontFileName),
+    path.resolve(process.cwd(), "artifacts/api-server/node_modules/@fontsource/noto-sans/files", fontFileName),
+    path.resolve(process.cwd(), "../../node_modules/@fontsource/noto-sans/files", fontFileName),
+    path.resolve(process.cwd(), "node_modules/@fontsource/noto-serif-devanagari/files", fontFileName),
+    path.resolve(process.cwd(), "artifacts/api-server/node_modules/@fontsource/noto-serif-devanagari/files", fontFileName),
+    path.resolve(process.cwd(), "../../node_modules/@fontsource/noto-serif-devanagari/files", fontFileName),
+  ];
+  return candidates.find((candidate) => existsSync(candidate)) || candidates[0];
+}
+
+function drawCentered(
+  page: any,
+  text: string,
+  y: number,
+  size: number,
+  font: any,
+  color: any,
+  customCenterX?: number
+) {
   const textWidth = font.widthOfTextAtSize(text, size);
-  const x = (page.getWidth() - textWidth) / 2;
+  const centerX = customCenterX ?? page.getWidth() / 2;
+  const x = centerX - textWidth / 2;
   page.drawText(text, { x, y, size, font, color });
 }
 
@@ -88,6 +115,35 @@ function fitText(text: string, maxWidth: number, size: number, font: any): strin
   return `${truncated}...`;
 }
 
+function formatIndianCurrency(amount: number): string {
+  const formatted = amount.toLocaleString("en-IN", {
+    minimumFractionDigits: amount % 1 ? 2 : 0,
+    maximumFractionDigits: 2,
+  });
+  return `₹ ${formatted}/-`;
+}
+
+function formatDateStr(dateVal: string | Date | null | undefined): string {
+  if (!dateVal) return "—";
+  const dateObj = new Date(dateVal);
+  if (Number.isNaN(dateObj.getTime())) return clean(dateVal);
+  return dateObj.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function formatPaymentMethod(method: string | null | undefined): string {
+  const raw = clean(method, "CASH").toUpperCase().replace(/_/g, " ");
+  if (raw === "UPI") return "UPI";
+  if (raw === "CASH") return "CASH";
+  if (raw === "BANK TRANSFER") return "BANK TRANSFER";
+  if (raw === "CHEQUE") return "CHEQUE";
+  return raw;
+}
+
+
 export async function generateVarganiPdf(data: VarganiPdfData): Promise<Buffer> {
   if (!Number.isFinite(data.amount) || data.amount <= 0) {
     throw new Error("Donation amount is invalid");
@@ -96,17 +152,32 @@ export async function generateVarganiPdf(data: VarganiPdfData): Promise<Buffer> 
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
 
-  // Load Unicode-safe fonts for INR (₹) symbol & Marathi/English typography
-  const fontPath = projectAssetPath("noto-sans-regular.woff");
-  const boldFontPath = projectAssetPath("noto-sans-bold.woff");
+  // Load Unicode-safe fonts supporting Marathi (Devanagari) & English typography
   let regular: any;
   let bold: any;
+  let serifBold: any;
+
   try {
-    regular = await doc.embedFont(await readFile(fontPath), { subset: false });
-    bold = await doc.embedFont(await readFile(boldFontPath), { subset: false });
+    const regFontPath = projectFontPath("noto-sans-devanagari-regular.woff");
+    const boldFontPath = projectFontPath("noto-sans-devanagari-bold.woff");
+    const serifFontPath = projectFontPath("noto-serif-devanagari-bold.woff");
+
+    const regBytes = await readFile(regFontPath).catch(() =>
+      readFile(projectFontPath("noto-sans-devanagari-400-normal.woff"))
+    );
+    const boldBytes = await readFile(boldFontPath).catch(() =>
+      readFile(projectFontPath("noto-sans-devanagari-700-normal.woff"))
+    );
+    const serifBytes = await readFile(serifFontPath).catch(() =>
+      readFile(projectFontPath("noto-serif-devanagari-devanagari-700-normal.woff")).catch(() => boldBytes)
+    );
+
+    regular = await doc.embedFont(regBytes, { subset: false });
+    bold = await doc.embedFont(boldBytes, { subset: false });
+    serifBold = await doc.embedFont(serifBytes, { subset: false });
   } catch (fontError) {
     throw new Error(
-      `Vargani receipt font could not be loaded: ${fontError instanceof Error ? fontError.message : String(fontError)}`
+      `Vargani receipt fonts could not be loaded: ${fontError instanceof Error ? fontError.message : String(fontError)}`
     );
   }
 
@@ -114,412 +185,601 @@ export async function generateVarganiPdf(data: VarganiPdfData): Promise<Buffer> 
   const page = doc.addPage([595.28, 841.89]);
   const pageWidth = page.getWidth();
   const pageHeight = page.getHeight();
+  const pageCenterX = pageWidth / 2;
 
-  // Premium festive color palette
-  const saffron = rgb(0.88, 0.40, 0.05);       // #E0660D
-  const darkNavy = rgb(0.09, 0.12, 0.18);      // #171F2E
-  const ink = rgb(0.18, 0.20, 0.24);           // #2E333D
-  const muted = rgb(0.44, 0.47, 0.52);         // #707885
-  const borderGold = rgb(0.86, 0.78, 0.62);    // #DCC79E
-  const innerBorder = rgb(0.92, 0.88, 0.80);   // #EBE0CC
-  const lightCream = rgb(0.99, 0.98, 0.95);    // #FCFAF2
+  // Premium festive color palette (Black, Charcoal, Gold, Saffron, Emerald)
+  const black = rgb(0.07, 0.08, 0.11);          // #12151C
+  const deepCharcoal = rgb(0.12, 0.14, 0.18);   // #1F242E
+  const gold = rgb(0.83, 0.65, 0.22);           // #D4A638
+  const goldLight = rgb(0.96, 0.82, 0.45);      // #F5D173
+  const saffron = rgb(0.88, 0.40, 0.06);        // #E0660F
+  const cream = rgb(0.985, 0.98, 0.965);        // #FAF8F6
   const white = rgb(1, 1, 1);
-  const emeraldGreen = rgb(0.08, 0.58, 0.32);  // #149452
+  const darkNavy = rgb(0.08, 0.10, 0.15);       // #141A26
+  const muted = rgb(0.44, 0.46, 0.50);          // #707580
+  const emeraldGreen = rgb(0.06, 0.55, 0.28);   // #0F8C47
+  const innerBorder = rgb(0.88, 0.83, 0.74);    // #E0D4BD
+  const sectionBorder = rgb(0.85, 0.78, 0.66);  // #D9C7A8
 
-  // 1. Page Background & Top Festive Accent Bar
+  // 1. Page Background
   page.drawRectangle({
     x: 0,
     y: 0,
     width: pageWidth,
     height: pageHeight,
-    color: lightCream,
-  });
-  page.drawRectangle({
-    x: 0,
-    y: pageHeight - 12,
-    width: pageWidth,
-    height: 12,
-    color: saffron,
+    color: cream,
   });
 
   // 2. Main Card Container (Single Page Guarantee)
-  const margin = 32;
+  const margin = 28;
   const cardX = margin;
   const cardY = margin;
-  const cardWidth = pageWidth - margin * 2;   // 531.28 pt
-  const cardHeight = pageHeight - margin * 2; // 777.89 pt
+  const cardWidth = pageWidth - margin * 2;   // 539.28 pt
+  const cardHeight = pageHeight - margin * 2; // 785.89 pt
+  const contentX = cardX + 16;
+  const contentW = cardWidth - 32;            // 507.28 pt
 
-  // Outer card box
+  // Outer card box with double gold border
   page.drawRectangle({
     x: cardX,
     y: cardY,
     width: cardWidth,
     height: cardHeight,
     color: white,
-    borderColor: borderGold,
+    borderColor: gold,
     borderWidth: 1.5,
   });
 
-  // Inner subtle double-border
+  // Inner subtle border
   page.drawRectangle({
-    x: cardX + 4,
-    y: cardY + 4,
-    width: cardWidth - 8,
-    height: cardHeight - 8,
+    x: cardX + 3.5,
+    y: cardY + 3.5,
+    width: cardWidth - 7,
+    height: cardHeight - 7,
     borderColor: innerBorder,
     borderWidth: 0.75,
   });
 
-  // 3. Header Section (Top-Left Logo + Top-Right Ganpati + Centered Mandal Info)
-  const headerTop = cardY + cardHeight - 20; // ~789.89
+  // 3. Header Section (Premium Black Header with Gold/Orange Accents)
+  const headerHeight = 108;
+  const headerY = cardY + cardHeight - headerHeight;
 
-  // Embed & Draw Top-Left Logo (Meditiya Sathi / Mandal Logo)
+  // Header background
+  page.drawRectangle({
+    x: cardX,
+    y: headerY,
+    width: cardWidth,
+    height: headerHeight,
+    color: black,
+  });
+
+  // Top saffron strip
+  page.drawRectangle({
+    x: cardX,
+    y: cardY + cardHeight - 3,
+    width: cardWidth,
+    height: 3,
+    color: saffron,
+  });
+
+  // Bottom gold & saffron dual accent lines
+  page.drawLine({
+    start: { x: cardX, y: headerY },
+    end: { x: cardX + cardWidth, y: headerY },
+    thickness: 1.5,
+    color: gold,
+  });
+  page.drawLine({
+    start: { x: cardX, y: headerY - 2.5 },
+    end: { x: cardX + cardWidth, y: headerY - 2.5 },
+    thickness: 1,
+    color: saffron,
+  });
+
+  // Header Left: Embed & Draw Mandal Logo
   try {
     const logoName = (CONFIG.mandalLogo || "/logo.png").replace(/^\/+/, "");
     const logoBuffer = await readFile(projectAssetPath(logoName));
     const logoImg = await doc.embedPng(logoBuffer);
-    const maxLogoSize = 60;
-    const logoScale = Math.min(maxLogoSize / logoImg.width, maxLogoSize / logoImg.height);
+    const maxLogoW = 74;
+    const maxLogoH = 74;
+    const logoScale = Math.min(maxLogoW / logoImg.width, maxLogoH / logoImg.height);
     const logoW = logoImg.width * logoScale;
     const logoH = logoImg.height * logoScale;
     page.drawImage(logoImg, {
-      x: cardX + 20,
-      y: headerTop - 64 + (60 - logoH) / 2,
+      x: cardX + 18,
+      y: headerY + (headerHeight - logoH) / 2,
       width: logoW,
       height: logoH,
     });
   } catch (err) {
-    console.warn("Top-left logo image unavailable:", err instanceof Error ? err.message : err);
+    console.warn("Mandal logo image unavailable:", err instanceof Error ? err.message : err);
   }
 
-  // Embed & Draw Top-Right Ganpati Image
-  try {
-    const ganpatiName = (CONFIG.ganpatiImage || "/logo.png").replace(/^\/+/, "");
-    const ganpatiBuffer = await readFile(projectAssetPath(ganpatiName));
-    const ganpatiImg = await doc.embedPng(ganpatiBuffer);
-    const maxGanpatiSize = 60;
-    const ganpatiScale = Math.min(maxGanpatiSize / ganpatiImg.width, maxGanpatiSize / ganpatiImg.height);
-    const ganpatiW = ganpatiImg.width * ganpatiScale;
-    const ganpatiH = ganpatiImg.height * ganpatiScale;
-    page.drawImage(ganpatiImg, {
-      x: cardX + cardWidth - 20 - maxGanpatiSize + (60 - ganpatiW) / 2,
-      y: headerTop - 64 + (60 - ganpatiH) / 2,
-      width: ganpatiW,
-      height: ganpatiH,
-    });
-  } catch (err) {
-    console.warn("Top-right Ganpati image unavailable:", err instanceof Error ? err.message : err);
-  }
+  // Header Center / Right: Mandal Typography
+  const headerTextCenterX = cardX + 90 + (cardWidth - 100) / 2;
+  drawCentered(page, CONFIG.mandalNameMarathi, headerY + 73, 20, serifBold, rgb(1, 0.98, 0.94), headerTextCenterX);
+  drawCentered(page, CONFIG.mandalNameEnglish.toUpperCase(), headerY + 54, 9.5, bold, goldLight, headerTextCenterX);
+  drawCentered(page, CONFIG.locationMarathi, headerY + 36, 9, regular, rgb(0.88, 0.88, 0.90), headerTextCenterX);
+  drawCentered(page, CONFIG.subtagMarathi, headerY + 18, 8, regular, rgb(0.92, 0.65, 0.35), headerTextCenterX);
 
-  // Centered Mandal Information
-  drawCentered(page, CONFIG.mandalName, headerTop - 18, 18, bold, darkNavy);
-  drawCentered(page, CONFIG.location, headerTop - 36, 11, regular, muted);
-  const festTitle = `${data.festivalName || CONFIG.festivalName} ${data.festivalYear || CONFIG.festivalYear}`;
-  drawCentered(page, festTitle, headerTop - 53, 12, bold, saffron);
+  // 4. Main Title Section ("पावती / DONATION RECEIPT")
+  const titleY = headerY - 32;
+  const titleText = CONFIG.receiptTitleMarathi; // "पावती"
+  const titleWidth = serifBold.widthOfTextAtSize(titleText, 22);
 
-  // Vargani Receipt Title Badge
-  const badgeWidth = 200;
-  const badgeHeight = 24;
-  const badgeX = (pageWidth - badgeWidth) / 2;
-  const badgeY = headerTop - 86;
-  page.drawRectangle({
-    x: badgeX,
-    y: badgeY,
-    width: badgeWidth,
-    height: badgeHeight,
-    color: rgb(0.99, 0.94, 0.88),
-    borderColor: saffron,
-    borderWidth: 1,
+  // Centered Title Text
+  page.drawText(titleText, {
+    x: pageCenterX - titleWidth / 2,
+    y: titleY,
+    size: 22,
+    font: serifBold,
+    color: darkNavy,
   });
-  drawCentered(page, CONFIG.receiptTitle, badgeY + 6.5, 12, bold, saffron);
 
-  // Header bottom divider
-  const dividerY = badgeY - 14; // ~689
+  // Gold decorative separator bars on both sides
+  const lineGap = 16;
+  const leftLineEnd = pageCenterX - titleWidth / 2 - lineGap;
+  const rightLineStart = pageCenterX + titleWidth / 2 + lineGap;
+
   page.drawLine({
-    start: { x: cardX + 16, y: dividerY },
-    end: { x: cardX + cardWidth - 16, y: dividerY },
+    start: { x: cardX + 50, y: titleY + 7 },
+    end: { x: leftLineEnd, y: titleY + 7 },
     thickness: 1,
-    color: innerBorder,
+    color: gold,
+  });
+  page.drawLine({
+    start: { x: rightLineStart, y: titleY + 7 },
+    end: { x: cardX + cardWidth - 50, y: titleY + 7 },
+    thickness: 1,
+    color: gold,
   });
 
-  // 4. Receipt Number & Date Row
-  const infoBarY = dividerY - 38; // ~651
+  // Diamond ornamental accents
+  page.drawText("❖", { x: leftLineEnd - 12, y: titleY + 2.5, size: 9, font: regular, color: saffron });
+  page.drawText("❖", { x: rightLineStart + 3, y: titleY + 2.5, size: 9, font: regular, color: saffron });
+
+  // English Subtitle
+  drawCentered(page, CONFIG.receiptTitleEnglish, titleY - 14, 10, bold, saffron, pageCenterX);
+
+  // 5. Receipt Summary Section (Horizontal Bar)
+  const summaryBoxH = 36;
+  const summaryBoxY = titleY - 58;
+
   page.drawRectangle({
-    x: cardX + 16,
-    y: infoBarY,
-    width: cardWidth - 32,
-    height: 30,
-    color: rgb(0.98, 0.96, 0.92),
+    x: contentX,
+    y: summaryBoxY,
+    width: contentW,
+    height: summaryBoxH,
+    color: rgb(0.985, 0.975, 0.95),
     borderColor: innerBorder,
     borderWidth: 1,
   });
 
-  page.drawText("Receipt No:", {
-    x: cardX + 28,
-    y: infoBarY + 9,
-    size: 10,
+  const colW = contentW / 3;
+
+  // Col 1: Receipt Number
+  page.drawText("पावती क्रमांक / Receipt No.", {
+    x: contentX + 12,
+    y: summaryBoxY + 21,
+    size: 7.5,
     font: bold,
     color: muted,
   });
-  page.drawText(clean(data.receiptNumber), {
-    x: cardX + 96,
-    y: infoBarY + 9,
-    size: 11,
+  page.drawText(fitText(clean(data.receiptNumber), colW - 24, 10, bold), {
+    x: contentX + 12,
+    y: summaryBoxY + 8,
+    size: 10,
     font: bold,
     color: darkNavy,
   });
 
-  const dateObj = new Date(data.donationDate);
-  const dateStr = Number.isNaN(dateObj.getTime())
-    ? clean(data.donationDate)
-    : dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
-
-  page.drawText("Date:", {
-    x: cardX + cardWidth - 170,
-    y: infoBarY + 9,
-    size: 10,
-    font: bold,
-    color: muted,
-  });
-  page.drawText(dateStr, {
-    x: cardX + cardWidth - 134,
-    y: infoBarY + 9,
-    size: 11,
-    font: bold,
-    color: darkNavy,
-  });
-
-  // 5. Donor Details Section
-  const donorSectionY = infoBarY - 26; // ~625
-  page.drawText("DONOR DETAILS", {
-    x: cardX + 18,
-    y: donorSectionY,
-    size: 11,
-    font: bold,
-    color: saffron,
-  });
+  // Divider 1
   page.drawLine({
-    start: { x: cardX + 120, y: donorSectionY + 4 },
-    end: { x: cardX + cardWidth - 18, y: donorSectionY + 4 },
+    start: { x: contentX + colW, y: summaryBoxY + 4 },
+    end: { x: contentX + colW, y: summaryBoxY + summaryBoxH - 4 },
     thickness: 0.75,
     color: innerBorder,
   });
 
-  // Donor Details Box (Tabular Grid with no overlaps)
-  const donorBoxHeight = 114;
-  const donorBoxY = donorSectionY - 10 - donorBoxHeight; // ~501
+  // Col 2: Date
+  page.drawText("दिनांक / Date", {
+    x: contentX + colW + 12,
+    y: summaryBoxY + 21,
+    size: 7.5,
+    font: bold,
+    color: muted,
+  });
+  page.drawText(formatDateStr(data.donationDate), {
+    x: contentX + colW + 12,
+    y: summaryBoxY + 8,
+    size: 10,
+    font: bold,
+    color: darkNavy,
+  });
+
+  // Divider 2
+  page.drawLine({
+    start: { x: contentX + colW * 2, y: summaryBoxY + 4 },
+    end: { x: contentX + colW * 2, y: summaryBoxY + summaryBoxH - 4 },
+    thickness: 0.75,
+    color: innerBorder,
+  });
+
+  // Col 3: Festival
+  const festivalTitle = data.festivalName
+    ? `${data.festivalName}${data.festivalYear ? ` ${data.festivalYear}` : ""}`
+    : "—";
+  page.drawText("उत्सव / Festival", {
+    x: contentX + colW * 2 + 12,
+    y: summaryBoxY + 21,
+    size: 7.5,
+    font: bold,
+    color: muted,
+  });
+  page.drawText(fitText(festivalTitle, colW - 24, 10, bold), {
+    x: contentX + colW * 2 + 12,
+    y: summaryBoxY + 8,
+    size: 10,
+    font: bold,
+    color: saffron,
+  });
+
+
+  // 6. Donor Information Box (दात्याची माहिती / DONOR INFORMATION)
+  const donorBoxH = 96;
+  const donorBoxY = summaryBoxY - 14 - donorBoxH;
+
   page.drawRectangle({
-    x: cardX + 16,
+    x: contentX,
     y: donorBoxY,
-    width: cardWidth - 32,
-    height: donorBoxHeight,
-    color: rgb(0.995, 0.995, 1),
-    borderColor: innerBorder,
+    width: contentW,
+    height: donorBoxH,
+    color: white,
+    borderColor: sectionBorder,
     borderWidth: 1,
   });
 
-  // Row 1: Name & Mobile
-  const col1X = cardX + 32;
-  const col2X = cardX + cardWidth / 2 + 10;
-  const colWidth = (cardWidth - 80) / 2;
+  // Section Header Tab (Saffron / Gold Tab)
+  const donorTabW = 195;
+  const donorTabH = 18;
+  page.drawRectangle({
+    x: contentX,
+    y: donorBoxY + donorBoxH - donorTabH,
+    width: donorTabW,
+    height: donorTabH,
+    color: saffron,
+  });
+  page.drawText("दात्याची माहिती / DONOR INFORMATION", {
+    x: contentX + 10,
+    y: donorBoxY + donorBoxH - donorTabH + 4.5,
+    size: 8,
+    font: bold,
+    color: white,
+  });
 
-  // Donor Name
-  page.drawText("NAME", { x: col1X, y: donorBoxY + 88, size: 8.5, font: bold, color: muted });
-  page.drawText(fitText(clean(data.name), colWidth, 11.5, bold), {
-    x: col1X,
-    y: donorBoxY + 72,
-    size: 11.5,
+  // Donor Grid Fields
+  const dCol1X = contentX + 16;
+  const dCol2X = contentX + contentW / 2 + 10;
+  const dColW = (contentW - 60) / 2;
+
+  // Row 1: Donor Name & Mobile Number
+  page.drawText("दात्याचे नाव / Donor Name", {
+    x: dCol1X,
+    y: donorBoxY + 58,
+    size: 7.5,
+    font: bold,
+    color: muted,
+  });
+  page.drawText(fitText(clean(data.name), dColW, 11, bold), {
+    x: dCol1X,
+    y: donorBoxY + 43,
+    size: 11,
     font: bold,
     color: darkNavy,
   });
 
-  // Mobile
-  page.drawText("MOBILE NUMBER", { x: col2X, y: donorBoxY + 88, size: 8.5, font: bold, color: muted });
-  page.drawText(fitText(clean(data.mobile), colWidth, 11.5, bold), {
-    x: col2X,
-    y: donorBoxY + 72,
-    size: 11.5,
+  page.drawText("मोबाईल क्रमांक / Mobile No.", {
+    x: dCol2X,
+    y: donorBoxY + 58,
+    size: 7.5,
+    font: bold,
+    color: muted,
+  });
+  page.drawText(fitText(clean(data.mobile), dColW, 11, bold), {
+    x: dCol2X,
+    y: donorBoxY + 43,
+    size: 11,
     font: bold,
     color: darkNavy,
   });
 
-  // Mid Divider in Donor Box
+  // Horizontal divider between rows
   page.drawLine({
-    start: { x: col1X, y: donorBoxY + 58 },
-    end: { x: cardX + cardWidth - 32, y: donorBoxY + 58 },
+    start: { x: contentX + 12, y: donorBoxY + 36 },
+    end: { x: contentX + contentW - 12, y: donorBoxY + 36 },
     thickness: 0.5,
     color: innerBorder,
   });
 
-  // Row 2: Building/Wing & Flat
-  const bldgText = [data.building, data.wing].filter(Boolean).join(" - ") || clean(data.building);
-  page.drawText("BUILDING / WING", { x: col1X, y: donorBoxY + 38, size: 8.5, font: bold, color: muted });
-  page.drawText(fitText(bldgText, colWidth, 11.5, bold), {
-    x: col1X,
+  // Row 2: Building/Wing & Flat Number
+  const bldgWingParts = [data.building, data.wing].filter(Boolean);
+  const bldgWingText = bldgWingParts.length > 0 ? bldgWingParts.join(" - ") : clean(data.building);
+
+  page.drawText("इमारत व विंग / Building & Wing", {
+    x: dCol1X,
     y: donorBoxY + 22,
-    size: 11.5,
+    size: 7.5,
+    font: bold,
+    color: muted,
+  });
+  page.drawText(fitText(bldgWingText, dColW, 10.5, bold), {
+    x: dCol1X,
+    y: donorBoxY + 8,
+    size: 10.5,
     font: bold,
     color: darkNavy,
   });
 
-  page.drawText("FLAT NUMBER", { x: col2X, y: donorBoxY + 38, size: 8.5, font: bold, color: muted });
-  page.drawText(fitText(clean(data.flat), colWidth, 11.5, bold), {
-    x: col2X,
+  page.drawText("फ्लॅट क्रमांक / Flat No.", {
+    x: dCol2X,
     y: donorBoxY + 22,
-    size: 11.5,
+    size: 7.5,
+    font: bold,
+    color: muted,
+  });
+  page.drawText(fitText(clean(data.flat), dColW, 10.5, bold), {
+    x: dCol2X,
+    y: donorBoxY + 8,
+    size: 10.5,
     font: bold,
     color: darkNavy,
   });
 
-  // 6. Payment Details Section
-  const paymentSectionY = donorBoxY - 24; // ~477
-  page.drawText("PAYMENT DETAILS", {
-    x: cardX + 18,
-    y: paymentSectionY,
-    size: 11,
-    font: bold,
-    color: saffron,
-  });
-  page.drawLine({
-    start: { x: cardX + 138, y: paymentSectionY + 4 },
-    end: { x: cardX + cardWidth - 18, y: paymentSectionY + 4 },
-    thickness: 0.75,
-    color: innerBorder,
-  });
+  // 7. Donation Details Box (देणगी तपशील / DONATION DETAILS)
+  const payBoxH = 135;
+  const payBoxY = donorBoxY - 14 - payBoxH;
 
-  // Highlighted Payment Card Box
-  const payCardHeight = 142;
-  const payCardY = paymentSectionY - 10 - payCardHeight; // ~325
   page.drawRectangle({
-    x: cardX + 16,
-    y: payCardY,
-    width: cardWidth - 32,
-    height: payCardHeight,
-    color: rgb(0.99, 0.975, 0.94),
-    borderColor: borderGold,
+    x: contentX,
+    y: payBoxY,
+    width: contentW,
+    height: payBoxH,
+    color: rgb(0.995, 0.985, 0.965),
+    borderColor: gold,
     borderWidth: 1.5,
   });
 
-  // Amount Subtitle
-  drawCentered(page, "VARGANI AMOUNT", payCardY + 118, 10, bold, rgb(0.50, 0.42, 0.30));
+  // Section Header Tab (Dark Charcoal / Gold Tab)
+  const payTabW = 195;
+  const payTabH = 18;
+  page.drawRectangle({
+    x: contentX,
+    y: payBoxY + payBoxH - payTabH,
+    width: payTabW,
+    height: payTabH,
+    color: deepCharcoal,
+  });
+  page.drawText("देणगी तपशील / DONATION DETAILS", {
+    x: contentX + 10,
+    y: payBoxY + payBoxH - payTabH + 4.5,
+    size: 8,
+    font: bold,
+    color: goldLight,
+  });
 
-  // Prominent Amount (Visual Focal Point)
-  const formattedAmt = `₹${data.amount.toLocaleString("en-IN", {
-    minimumFractionDigits: data.amount % 1 ? 2 : 0,
-    maximumFractionDigits: 2,
-  })}`;
-  drawCentered(page, formattedAmt, payCardY + 84, 28, bold, darkNavy);
+  // Amount Header Label
+  drawCentered(page, "देणगी रक्कम / Donation Amount", payBoxY + 98, 9, bold, saffron, pageCenterX);
+
+  // Prominent Amount (Visual Focal Point: e.g. ₹ 5,001/-)
+  const formattedAmount = formatIndianCurrency(data.amount);
+  drawCentered(page, formattedAmount, payBoxY + 70, 24, bold, darkNavy, pageCenterX);
 
   // Amount in Words
-  const wordsText = fitText(amountInWords(data.amount), cardWidth - 64, 10.5, regular);
-  drawCentered(page, wordsText, payCardY + 62, 10.5, regular, ink);
+  const wordsStr = `रक्कमेचे शब्दांत / Amount in Words : ${amountInWords(data.amount)}`;
+  const fittedWords = fitText(wordsStr, contentW - 40, 9.5, regular);
+  drawCentered(page, fittedWords, payBoxY + 48, 9.5, regular, darkNavy, pageCenterX);
 
-  // Inner Divider in Payment Card
+  // Inner Divider in Payment Box
   page.drawLine({
-    start: { x: cardX + 48, y: payCardY + 46 },
-    end: { x: cardX + cardWidth - 48, y: payCardY + 46 },
+    start: { x: contentX + 24, y: payBoxY + 36 },
+    end: { x: contentX + contentW - 24, y: payBoxY + 36 },
     thickness: 0.5,
-    color: borderGold,
+    color: innerBorder,
   });
 
-  // Payment Method Pill
-  const methodLabel = `Payment Method: ${clean(data.paymentMethod).replace(/_/g, " ").toUpperCase()}`;
-  const methodPillWidth = Math.min(cardWidth - 80, regular.widthOfTextAtSize(methodLabel, 10) + 32);
-  const methodPillX = (pageWidth - methodPillWidth) / 2;
-  page.drawRectangle({
-    x: methodPillX,
-    y: payCardY + 14,
-    width: methodPillWidth,
-    height: 22,
-    color: rgb(0.92, 0.97, 0.94),
-    borderColor: emeraldGreen,
-    borderWidth: 1,
-  });
-  drawCentered(page, methodLabel, payCardY + 20.5, 9.5, bold, emeraldGreen);
-
-  // 7. Collected By Section (NO SIGNATURE, NO SIGNATURE LINE, NO AUTHORIZED PERSON)
-  const collectedBoxHeight = 40;
-  const collectedBoxY = payCardY - 20 - collectedBoxHeight; // ~265
-  page.drawRectangle({
-    x: cardX + 16,
-    y: collectedBoxY,
-    width: cardWidth - 32,
-    height: collectedBoxHeight,
-    color: rgb(0.98, 0.985, 0.99),
-    borderColor: innerBorder,
-    borderWidth: 1,
-  });
-
-  page.drawText("Collected By:", {
-    x: cardX + 32,
-    y: collectedBoxY + 14,
-    size: 10.5,
+  // Lower Row: Payment Method & Payment Date
+  const methodLabel = formatPaymentMethod(data.paymentMethod);
+  page.drawText("पेमेंट पद्धत / Payment Method: ", {
+    x: contentX + 24,
+    y: payBoxY + 14,
+    size: 8.5,
     font: bold,
     color: muted,
   });
-  page.drawText(fitText(clean(data.collectedBy), 240, 12, bold), {
-    x: cardX + 115,
-    y: collectedBoxY + 13.5,
-    size: 12,
-    font: bold,
-    color: darkNavy,
-  });
 
-  // Paid Verification Tag on Right
-  const verifiedText = "STATUS: PAID ✓";
-  const verifiedWidth = bold.widthOfTextAtSize(verifiedText, 9.5) + 20;
+  // Payment method pill badge
+  const methodPillText = methodLabel;
+  const methodPillW = bold.widthOfTextAtSize(methodPillText, 9) + 16;
   page.drawRectangle({
-    x: cardX + cardWidth - 32 - verifiedWidth,
-    y: collectedBoxY + 9,
-    width: verifiedWidth,
-    height: 22,
-    color: rgb(0.90, 0.96, 0.92),
+    x: contentX + 160,
+    y: payBoxY + 9,
+    width: methodPillW,
+    height: 19,
+    color: rgb(0.92, 0.97, 0.94),
     borderColor: emeraldGreen,
-    borderWidth: 1,
+    borderWidth: 0.75,
   });
-  page.drawText(verifiedText, {
-    x: cardX + cardWidth - 22 - verifiedWidth,
-    y: collectedBoxY + 15,
-    size: 9.5,
+  page.drawText(methodPillText, {
+    x: contentX + 168,
+    y: payBoxY + 14,
+    size: 9,
     font: bold,
     color: emeraldGreen,
   });
 
-  // 8. Footer Section
-  const footerDividerY = collectedBoxY - 20; // ~245
+  // Payment Date on Right
+  page.drawText("पेमेंट दिनांक / Payment Date: ", {
+    x: contentX + contentW / 2 + 20,
+    y: payBoxY + 14,
+    size: 8.5,
+    font: bold,
+    color: muted,
+  });
+  page.drawText(formatDateStr(data.donationDate), {
+    x: contentX + contentW / 2 + 155,
+    y: payBoxY + 14,
+    size: 9.5,
+    font: bold,
+    color: darkNavy,
+  });
+
+
+  // 8. Thank You & Received By Box
+  const thankBoxH = 72;
+  const thankBoxY = payBoxY - 14 - thankBoxH;
+
+  page.drawRectangle({
+    x: contentX,
+    y: thankBoxY,
+    width: contentW,
+    height: thankBoxH,
+    color: white,
+    borderColor: innerBorder,
+    borderWidth: 1,
+  });
+
+  // Thank You Message (Left Side)
+  page.drawText(CONFIG.thankYouMarathi, {
+    x: contentX + 16,
+    y: thankBoxY + 48,
+    size: 9.5,
+    font: bold,
+    color: saffron,
+  });
+  page.drawText(CONFIG.thankYouEnglish, {
+    x: contentX + 16,
+    y: thankBoxY + 30,
+    size: 8.5,
+    font: regular,
+    color: muted,
+  });
+  page.drawText(CONFIG.blessingMarathi, {
+    x: contentX + 16,
+    y: thankBoxY + 12,
+    size: 8.5,
+    font: bold,
+    color: gold,
+  });
+
+  // Vertical Divider between Thank You and Received By
+  const recColX = contentX + contentW - 165;
   page.drawLine({
-    start: { x: cardX + 16, y: footerDividerY },
-    end: { x: cardX + cardWidth - 16, y: footerDividerY },
-    thickness: 1,
+    start: { x: recColX - 12, y: thankBoxY + 6 },
+    end: { x: recColX - 12, y: thankBoxY + thankBoxH - 6 },
+    thickness: 0.5,
     color: innerBorder,
   });
 
+  // Received By (Right Side)
+  page.drawText("प्राप्तकर्ता / Received By", {
+    x: recColX,
+    y: thankBoxY + 48,
+    size: 8,
+    font: bold,
+    color: muted,
+  });
+
+  const adminName = clean(data.collectedBy, CONFIG.defaultAdmin);
+  page.drawText(fitText(adminName, 155, 9.5, bold), {
+    x: recColX,
+    y: thankBoxY + 30,
+    size: 9.5,
+    font: bold,
+    color: darkNavy,
+  });
+
+  // Status Stamp Tag
+  const stampText = "✓ VERIFIED RECEIPT";
+  const stampW = bold.widthOfTextAtSize(stampText, 7.5) + 12;
+  page.drawRectangle({
+    x: recColX,
+    y: thankBoxY + 9,
+    width: stampW,
+    height: 16,
+    color: rgb(0.92, 0.97, 0.94),
+    borderColor: emeraldGreen,
+    borderWidth: 0.75,
+  });
+  page.drawText(stampText, {
+    x: recColX + 6,
+    y: thankBoxY + 13.5,
+    size: 7.5,
+    font: bold,
+    color: emeraldGreen,
+  });
+
+  // 9. Premium Black Footer ("मेड़तियाचा राजा")
+  const footerHeight = 76;
+  const footerY = cardY;
+
+  page.drawRectangle({
+    x: cardX,
+    y: footerY,
+    width: cardWidth,
+    height: footerHeight,
+    color: black,
+  });
+
+  // Top gold & saffron lines on footer
+  page.drawLine({
+    start: { x: cardX, y: footerY + footerHeight },
+    end: { x: cardX + cardWidth, y: footerY + footerHeight },
+    thickness: 1.5,
+    color: gold,
+  });
+  page.drawLine({
+    start: { x: cardX, y: footerY + footerHeight + 2.5 },
+    end: { x: cardX + cardWidth, y: footerY + footerHeight + 2.5 },
+    thickness: 1,
+    color: saffron,
+  });
+
+  // Centered Footer Heading: "✦   मेड़तियाचा राजा   ✦"
   drawCentered(
     page,
-    "Thank you for your valuable contribution.",
-    footerDividerY - 22,
-    10.5,
-    regular,
-    muted
+    `✦   ${CONFIG.footerRajaMarathi}   ✦`,
+    footerY + 48,
+    17,
+    serifBold,
+    goldLight,
+    pageCenterX
   );
+
+  // Centered Mandal Subtitle
   drawCentered(
     page,
-    "Ganpati Bappa Morya! 🙏",
-    footerDividerY - 42,
-    13,
-    bold,
-    saffron
-  );
-  drawCentered(
-    page,
-    "Official Mandal Vargani Receipt • Meditiya Sathi",
-    cardY + 18,
+    CONFIG.footerSubtext,
+    footerY + 28,
     8.5,
     regular,
-    rgb(0.60, 0.63, 0.68)
+    rgb(0.85, 0.85, 0.88),
+    pageCenterX
+  );
+
+  // Official Note
+  drawCentered(
+    page,
+    CONFIG.computerGeneratedNote,
+    footerY + 12,
+    7,
+    regular,
+    rgb(0.60, 0.60, 0.65),
+    pageCenterX
   );
 
   const pdfBytes = await doc.save();
   return Buffer.from(pdfBytes);
 }
+
 
