@@ -17,6 +17,9 @@ const srcLogo = path.resolve(artifactDir, "../meditiya-sathi/public/logo.png");
 async function buildAll() {
   // Shared external list — only native/unbundleable packages
   const nativeExternals = [
+    // PDFKit must stay external: its runtime uses the package-internal
+    // `#standard-fonts/*` imports, which esbuild cannot safely bundle.
+    "pdfkit",
     "*.node",
     "sharp",
     "better-sqlite3",
