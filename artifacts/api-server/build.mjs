@@ -3,13 +3,16 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
-import { rm } from "node:fs/promises";
+import { rm, cp, mkdir, copyFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
 
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
 const isVercel = process.env.VERCEL === "1";
+const srcFontsDir = path.resolve(artifactDir, "fonts");
+const srcLogo = path.resolve(artifactDir, "../meditiya-sathi/public/logo.png");
 
 async function buildAll() {
   // Shared external list — only native/unbundleable packages
@@ -45,7 +48,6 @@ async function buildAll() {
     "@prisma/client",
     "@mikro-orm/*",
     "@grpc/*",
-    "@swc/*",
     "@aws-sdk/*",
     "@azure/*",
     "@opentelemetry/*",
@@ -125,6 +127,14 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
       `module.exports = require("./index.mjs").default;\n`,
     );
 
+    // Keep server-side PDF assets beside the bundled function in deployments too.
+    const vercelFontsDir = path.resolve(vercelOutputDir, "fonts");
+    if (existsSync(srcFontsDir)) {
+      await cp(srcFontsDir, vercelFontsDir, { recursive: true });
+    }
+    if (existsSync(srcLogo)) {
+      await copyFile(srcLogo, path.resolve(vercelOutputDir, "logo.png"));
+    }
     console.log("✅ Vercel function bundle written to api/index.mjs");
   } else {
     // ── Local dev build: bundle to dist/ ──
@@ -157,6 +167,19 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     });
 
     console.log("✅ Local build written to dist/");
+
+    // Copy fonts and assets to dist/ for production runtime
+    const distFontsDir = path.resolve(distDir, "fonts");
+    if (existsSync(srcFontsDir)) {
+      await cp(srcFontsDir, distFontsDir, { recursive: true });
+      console.log("✅ Copied fonts to dist/fonts/");
+    }
+
+    const distLogo = path.resolve(distDir, "logo.png");
+    if (existsSync(srcLogo)) {
+      await copyFile(srcLogo, distLogo);
+      console.log("✅ Copied logo.png to dist/logo.png");
+    }
   }
 }
 

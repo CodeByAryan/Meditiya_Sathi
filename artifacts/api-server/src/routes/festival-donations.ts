@@ -11,6 +11,7 @@ import {
   buildVarganiCaption,
 } from "../lib/whatsapp-cloud-api";
 import { pdfRateLimiter } from "../middlewares/rateLimiter";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -59,6 +60,7 @@ router.all(["/admin/festival-donations/:id/vargani-pdf", "/admin/festival-donati
       res.status(400).json({ error: "Invalid donation ID" });
       return;
     }
+    logger.info({ donationId: id }, "Loading festival donation for Vargani PDF");
     const row = await loadVarganiDonation(id);
     if (!row) {
       res.status(404).json({ error: "Donation not found" });
@@ -83,6 +85,7 @@ router.all(["/admin/festival-donations/:id/vargani-pdf", "/admin/festival-donati
     }
 
     const collectedBy = row.collected_by_admin_name || admin.fullName || admin.username || "Authorized Signatory";
+    logger.info({ donationId: id, festivalId: row.festival_id }, "Generating Vargani PDF");
     const pdf = await generateVarganiPdf({
       receiptNumber: row.receipt_number,
       donationDate: row.payment_date,
@@ -98,50 +101,57 @@ router.all(["/admin/festival-donations/:id/vargani-pdf", "/admin/festival-donati
       collectedBy,
     });
 
-    // Check if direct binary download is requested
-    if (req.path.endsWith("/download") || req.query.download === "true") {
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="Vargani-${row.receipt_number}.pdf"`);
-      res.setHeader("Content-Length", pdf.length);
+    const isDownload = req.path.endsWith("/download") || req.query.download === "true";
+    const wantsJson = req.method === "POST" && (req.headers.accept?.includes("application/json") || req.is("json"));
+
+    // If frontend POSTed expecting JSON metadata
+    if (wantsJson && !isDownload) {
+      const url = getReceiptPdfUrl(row.receipt_number);
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
       res.setHeader("Surrogate-Control", "no-store");
-      res.end(pdf);
+
+      res.json({
+        success: true,
+        pdfUrl: url,
+        downloadUrl: `${url}?download=true`,
+        filename: `Vargani-${row.receipt_number}.pdf`,
+        donation: {
+          id: row.id,
+          festivalId: row.festival_id,
+          festivalName: row.festival_name,
+          festivalYear: row.festival_year,
+          residentName: row.resident_name,
+          residentMobile: row.resident_mobile,
+          buildingName: row.building_name,
+          wingName: row.wing_name,
+          flatNo: row.flat_no,
+          amount: Number(row.amount),
+          paymentMethod: row.payment_method,
+          paymentDate: row.payment_date,
+          receiptNumber: row.receipt_number,
+          collectedByAdminName: collectedBy,
+        },
+      });
       return;
     }
 
-    const url = getReceiptPdfUrl(row.receipt_number);
+    // Default: Send direct PDF binary (inline preview or attachment download)
+    const disposition = isDownload ? "attachment" : "inline";
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `${disposition}; filename="Vargani-${row.receipt_number}.pdf"`);
+    res.setHeader("Content-Length", pdf.length);
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
     res.setHeader("Surrogate-Control", "no-store");
-
-    res.json({
-      success: true,
-      pdfUrl: url,
-      downloadUrl: `${url}?download=true`,
-      filename: `Vargani-${row.receipt_number}.pdf`,
-      donation: {
-        id: row.id,
-        festivalId: row.festival_id,
-        festivalName: row.festival_name,
-        festivalYear: row.festival_year,
-        residentName: row.resident_name,
-        residentMobile: row.resident_mobile,
-        buildingName: row.building_name,
-        wingName: row.wing_name,
-        flatNo: row.flat_no,
-        amount: Number(row.amount),
-        paymentMethod: row.payment_method,
-        paymentDate: row.payment_date,
-        receiptNumber: row.receipt_number,
-        collectedByAdminName: collectedBy,
-      },
-    });
+    res.end(pdf);
   } catch (err: any) {
-    console.error("Vargani PDF generation failed:", err?.stack || err);
-    res.status(500).json({ error: "Failed to generate Vargani receipt PDF" });
+    logger.error({ err, donationId: req.params.id }, "Festival donation Vargani PDF request failed");
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Unable to generate donation receipt" });
+    }
   }
 });
 

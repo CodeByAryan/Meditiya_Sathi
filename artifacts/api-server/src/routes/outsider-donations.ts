@@ -576,46 +576,52 @@ router.all(["/admin/outsider-donations/:id/vargani-pdf", "/admin/outsider-donati
       collectedBy,
     });
 
-    if (req.path.endsWith("/download") || req.query.download === "true") {
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="Vargani-${row.receipt_number}.pdf"`);
-      res.setHeader("Content-Length", pdf.length);
+    const isDownload = req.path.endsWith("/download") || req.query.download === "true";
+    const wantsJson = req.method === "POST" && (req.headers.accept?.includes("application/json") || req.is("json"));
+
+    if (wantsJson && !isDownload) {
+      const url = getReceiptPdfUrl(row.receipt_number);
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
       res.setHeader("Surrogate-Control", "no-store");
-      res.end(pdf);
+
+      res.json({
+        success: true,
+        pdfUrl: url,
+        downloadUrl: `${url}?download=true`,
+        filename: `Vargani-${row.receipt_number}.pdf`,
+        donation: {
+          id: row.id,
+          festivalId: row.festival_id,
+          festivalName: row.festival_name,
+          festivalYear: row.festival_year,
+          fullName: row.full_name,
+          mobile: row.mobile,
+          amount: Number(row.amount),
+          paymentMethod: row.payment_method,
+          paymentDate: row.payment_date,
+          receiptNumber: row.receipt_number,
+          collectedByAdminName: collectedBy,
+        },
+      });
       return;
     }
 
-    const url = getReceiptPdfUrl(row.receipt_number);
+    const disposition = isDownload ? "attachment" : "inline";
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `${disposition}; filename="Vargani-${row.receipt_number}.pdf"`);
+    res.setHeader("Content-Length", pdf.length);
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
     res.setHeader("Surrogate-Control", "no-store");
-
-    res.json({
-      success: true,
-      pdfUrl: url,
-      downloadUrl: `${url}?download=true`,
-      filename: `Vargani-${row.receipt_number}.pdf`,
-      donation: {
-        id: row.id,
-        festivalId: row.festival_id,
-        festivalName: row.festival_name,
-        festivalYear: row.festival_year,
-        fullName: row.full_name,
-        mobile: row.mobile,
-        amount: Number(row.amount),
-        paymentMethod: row.payment_method,
-        paymentDate: row.payment_date,
-        receiptNumber: row.receipt_number,
-        collectedByAdminName: collectedBy,
-      },
-    });
+    res.end(pdf);
   } catch (err: any) {
     console.error("Outsider Vargani PDF generation failed:", err?.stack || err);
-    res.status(500).json({ error: "Failed to generate Vargani receipt PDF" });
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Unable to generate donation receipt" });
+    }
   }
 });
 
