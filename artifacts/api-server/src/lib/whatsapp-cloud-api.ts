@@ -94,15 +94,15 @@ export function isWhatsAppCloudApiConfigured(): boolean {
 
 /**
  * Sends a PDF document via WhatsApp Business Cloud API.
- * 1. Attempts direct media upload if pdfBuffer is provided
- * 2. Falls back to public link document delivery
- * 3. Never exposes secrets or access tokens in client error responses
+ * Uploads the freshly generated PDF as WhatsApp media and sends it by media ID.
+ * Public links are deliberately not used: the receipt must be the generated binary.
  */
 export async function sendWhatsAppDocument(
   options: WhatsAppSendDocumentOptions
 ): Promise<WhatsAppSendResult> {
   const token = process.env.WHATSAPP_ACCESS_TOKEN?.trim();
   const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
+  const apiVersion = process.env.WHATSAPP_API_VERSION?.trim() || "v21.0";
 
   if (!token || !phoneId) {
     return {
@@ -129,7 +129,7 @@ export async function sendWhatsAppDocument(
   try {
     let mediaId: string | null = null;
 
-    // 1. Try uploading binary buffer directly to Meta WhatsApp media endpoint if buffer is available
+    // Upload the binary directly. Do not fall back to a stale/public receipt URL.
     if (options.pdfBuffer && options.pdfBuffer.length > 0) {
       try {
         const formData = new FormData();
@@ -139,7 +139,7 @@ export async function sendWhatsAppDocument(
         formData.append("messaging_product", "whatsapp");
 
         const uploadRes = await fetch(
-          `https://graph.facebook.com/v21.0/${phoneId}/media`,
+          `https://graph.facebook.com/${apiVersion}/${phoneId}/media`,
           {
             method: "POST",
             headers: {
@@ -156,39 +156,23 @@ export async function sendWhatsAppDocument(
           }
         } else {
           const errText = await uploadRes.text();
-          logger.warn(
-            { status: uploadRes.status, err: errText },
-            "[WhatsApp Cloud API] Media upload failed, falling back to link document payload"
-          );
+          logger.error({ status: uploadRes.status, metaError: errText }, "[WhatsApp Cloud API] Media upload failed");
+          return { success: false, configured: true, error: "Unable to upload receipt to WhatsApp." };
         }
       } catch (uploadErr) {
-        logger.warn(
-          { err: uploadErr },
-          "[WhatsApp Cloud API] Media upload exception, falling back to link"
-        );
+        logger.error({ err: uploadErr }, "[WhatsApp Cloud API] Media upload exception");
+        return { success: false, configured: true, error: "Unable to upload receipt to WhatsApp." };
       }
     }
 
-    // 2. Build document payload: use media ID if uploaded, otherwise use HTTPS link
+    if (!mediaId) {
+      return { success: false, configured: true, error: "Unable to attach generated PDF to WhatsApp." };
+    }
+
     const documentPayload: Record<string, any> = {
       filename,
+      id: mediaId,
     };
-
-    if (mediaId) {
-      documentPayload.id = mediaId;
-    } else if (options.pdfUrl && options.pdfUrl.startsWith("https://")) {
-      documentPayload.link = options.pdfUrl;
-    } else if (options.pdfUrl && !options.pdfUrl.includes("localhost") && !options.pdfUrl.includes("127.0.0.1")) {
-      documentPayload.link = options.pdfUrl;
-    } else {
-      if (!mediaId) {
-        return {
-          success: false,
-          configured: true,
-          error: "Unable to attach PDF document. Both media upload and valid public HTTPS link were unavailable.",
-        };
-      }
-    }
 
     if (options.caption) {
       documentPayload.caption = options.caption.slice(0, 1024);
@@ -203,7 +187,7 @@ export async function sendWhatsAppDocument(
     };
 
     const sendRes = await fetch(
-      `https://graph.facebook.com/v21.0/${phoneId}/messages`,
+      `https://graph.facebook.com/${apiVersion}/${phoneId}/messages`,
       {
         method: "POST",
         headers: {
@@ -255,7 +239,7 @@ export async function sendWhatsAppDocument(
     return {
       success: false,
       configured: true,
-      error: err?.message || "Internal network error communicating with WhatsApp Cloud API.",
+      error: "Unable to communicate with WhatsApp Business API. Please try again.",
     };
   }
 }
@@ -345,23 +329,19 @@ export function buildVarganiCaption(data: {
   amount: number;
   pdfUrl?: string | null;
 }): string {
-  const fest = data.festivalName || "गणेश उत्सव";
+  const fest = data.festivalName || "उत्सव";
   const lines = [
-    "नमस्कार 🙏",
+    "🙏 नमस्कार!",
     "",
-    "मेड़तिया मित्र मंडळ कडून आपल्या देणगीची पावती येथे उपलब्ध आहे.",
+    "आपली देणगी पावती जोडलेली आहे.",
     "",
+    `गणपती उत्सव / Festival: ${fest} साठी आपल्या मौल्यवान योगदानाबद्दल मेड़तिया मित्र मंडळातर्फे मनःपूर्वक धन्यवाद.`,
     `Receipt No: ${data.receiptNumber}`,
-    `Festival: ${fest}`,
     `Donation Amount: ₹${data.amount.toLocaleString("en-IN")}`,
   ];
 
   if (data.donorName) {
     lines.push(`Donor Name: ${data.donorName}`);
-  }
-
-  if (data.pdfUrl) {
-    lines.push("", "पावती:", data.pdfUrl);
   }
 
   lines.push("", "धन्यवाद 🙏", "मेड़तिया मित्र मंडळ");

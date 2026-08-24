@@ -53,6 +53,25 @@ async function loadVarganiDonation(id: number) {
   return (result.rows || [])[0] as any;
 }
 
+/** Builds the receipt from the row just read. Never reads a stored PDF or URL. */
+async function generateFreshVarganiReceipt(row: any, admin: any): Promise<Buffer> {
+  logger.info({ donationId: row.id, receiptNumber: row.receipt_number }, "Generating fresh Vargani PDF");
+  return generateVarganiPdf({
+    receiptNumber: row.receipt_number,
+    donationDate: row.payment_date || row.created_at,
+    name: row.resident_name,
+    mobile: row.resident_mobile,
+    building: row.building_name,
+    wing: row.wing_name,
+    flat: row.flat_no,
+    amount: Number(row.amount),
+    paymentMethod: row.payment_method,
+    festivalName: row.festival_name,
+    festivalYear: Number(row.festival_year),
+    collectedBy: row.collected_by_admin_name || admin.fullName || admin.username || "Authorized Signatory",
+  });
+}
+
 router.all(["/admin/festival-donations/:id/vargani-pdf", "/admin/festival-donations/:id/vargani-pdf/download"], requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id as string, 10);
@@ -85,21 +104,7 @@ router.all(["/admin/festival-donations/:id/vargani-pdf", "/admin/festival-donati
     }
 
     const collectedBy = row.collected_by_admin_name || admin.fullName || admin.username || "Authorized Signatory";
-    logger.info({ donationId: id, festivalId: row.festival_id }, "Generating Vargani PDF");
-    const pdf = await generateVarganiPdf({
-      receiptNumber: row.receipt_number,
-      donationDate: row.payment_date,
-      name: row.resident_name,
-      mobile: row.resident_mobile,
-      building: row.building_name,
-      wing: row.wing_name,
-      flat: row.flat_no,
-      amount: Number(row.amount),
-      paymentMethod: row.payment_method,
-      festivalName: row.festival_name,
-      festivalYear: Number(row.festival_year),
-      collectedBy,
-    });
+    const pdf = await generateFreshVarganiReceipt(row, admin);
 
     const isDownload = req.path.endsWith("/download") || req.query.download === "true";
     const wantsJson = req.method === "POST" && (req.headers.accept?.includes("application/json") || req.is("json"));
@@ -165,7 +170,7 @@ router.get("/admin/whatsapp/status", requireRole("Super Admin", "Admin", "Volunt
 
 // ── POST /api/admin/festival-donations/:id/send-whatsapp ───────────────────
 // Send fresh Vargani PDF document directly to donor via WhatsApp Business Cloud API
-router.post("/admin/festival-donations/:id/send-whatsapp", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-donations/:id/send-whatsapp"], requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (!Number.isInteger(id) || id <= 0) {
@@ -200,49 +205,32 @@ router.post("/admin/festival-donations/:id/send-whatsapp", requireRole("Super Ad
       return;
     }
 
-    const receiptUrl = getReceiptPdfUrl(row.receipt_number);
-
     if (!isWhatsAppCloudApiConfigured()) {
       res.status(400).json({
         success: false,
         configured: false,
         fallbackRequired: true,
         error: "WhatsApp Cloud API is not configured. Please configure WhatsApp Business API credentials.",
-        receiptUrl,
         recipient: phoneNorm.normalized,
       });
       return;
     }
 
-    const collectedBy = row.collected_by_admin_name || admin.fullName || admin.username || "Authorized Signatory";
-    const pdf = await generateVarganiPdf({
-      receiptNumber: row.receipt_number,
-      donationDate: row.payment_date,
-      name: row.resident_name,
-      mobile: row.resident_mobile,
-      building: row.building_name,
-      wing: row.wing_name,
-      flat: row.flat_no,
-      amount: Number(row.amount),
-      paymentMethod: row.payment_method,
-      festivalName: row.festival_name,
-      festivalYear: Number(row.festival_year),
-      collectedBy,
-    });
+    const pdf = await generateFreshVarganiReceipt(row, admin);
 
+    logger.info({ donationId: id, receiptNumber: row.receipt_number }, "Uploading receipt to WhatsApp");
     const caption = buildVarganiCaption({
       receiptNumber: row.receipt_number,
       festivalName: row.festival_name,
       donorName: row.resident_name,
       amount: Number(row.amount),
-      pdfUrl: receiptUrl,
+      pdfUrl: undefined,
     });
 
     const sendResult = await sendWhatsAppDocument({
       to: phoneNorm.normalized,
       filename: `Vargani-${row.receipt_number}.pdf`,
       pdfBuffer: pdf,
-      pdfUrl: receiptUrl,
       caption,
     });
 
@@ -250,8 +238,7 @@ router.post("/admin/festival-donations/:id/send-whatsapp", requireRole("Super Ad
       res.status(500).json({
         success: false,
         configured: true,
-        error: sendResult.error || "Failed to send receipt via WhatsApp Business API",
-        receiptUrl,
+        error: sendResult.error || "Unable to send receipt on WhatsApp. Please try again.",
       });
       return;
     }
@@ -259,15 +246,14 @@ router.post("/admin/festival-donations/:id/send-whatsapp", requireRole("Super Ad
     res.json({
       success: true,
       configured: true,
-      message: "Receipt sent successfully via WhatsApp Business API",
+      message: "Receipt sent successfully on WhatsApp.",
       messageId: sendResult.messageId,
       recipient: phoneNorm.normalized,
       receiptNumber: row.receipt_number,
-      pdfUrl: receiptUrl,
     });
   } catch (err: any) {
-    console.error("WhatsApp delivery error:", err?.stack || err);
-    res.status(500).json({ error: "Failed to process WhatsApp receipt delivery" });
+    logger.error({ err, donationId: req.params.id }, "WhatsApp receipt delivery failed");
+    res.status(500).json({ error: "Unable to send receipt on WhatsApp. Please try again." });
   }
 });
 
@@ -325,20 +311,7 @@ router.get(["/vargani-pdf/:receiptNumber", "/vargani-slip/:receiptNumber"], pdfR
       return;
     }
 
-    const pdf = await generateVarganiPdf({
-      receiptNumber: row.receipt_number,
-      donationDate: row.payment_date || row.created_at,
-      name: row.resident_name || row.full_name,
-      mobile: row.resident_mobile || row.mobile,
-      building: row.building_name || null,
-      wing: row.wing_name || null,
-      flat: row.flat_no || null,
-      amount: Number(row.amount),
-      paymentMethod: row.payment_method,
-      festivalName: row.festival_name,
-      festivalYear: Number(row.festival_year),
-      collectedBy: row.collected_by_admin_name || "Authorized Signatory",
-    });
+    const pdf = await generateFreshVarganiReceipt(row, (req as any).admin);
 
     const isDownload = req.query.download === "true";
     res.setHeader("Content-Type", "application/pdf");
@@ -350,8 +323,8 @@ router.get(["/vargani-pdf/:receiptNumber", "/vargani-slip/:receiptNumber"], pdfR
     res.setHeader("Surrogate-Control", "no-store");
     res.end(pdf);
   } catch (err: any) {
-    console.error("Vargani PDF generation failed:", err?.stack || err);
-    res.status(500).setHeader("Content-Type", "text/plain").send("Failed to generate Vargani receipt PDF");
+    logger.error({ err, receiptNumber: req.params.receiptNumber }, "Public Vargani PDF generation failed");
+    if (!res.headersSent) res.status(500).json({ error: "Unable to generate donation receipt" });
   }
 });
 

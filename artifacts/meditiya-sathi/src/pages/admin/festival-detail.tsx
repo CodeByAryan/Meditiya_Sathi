@@ -799,8 +799,13 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to generate receipt');
-      window.open(data.pdfUrl || getReceiptPdfUrl(donation.receiptNumber || String(donation.id)), '_blank');
-      toast.success('Receipt opened in new tab');
+      const pdfBlob = await (await fetch(`${getApiUrl()}/api/admin/festival-donations/${donation.id}/vargani-pdf`, {
+        method: 'POST', headers: { ...authHeaders(), 'Accept': 'application/pdf', 'Cache-Control': 'no-cache' },
+      })).blob();
+      const pdfUrl = window.URL.createObjectURL(pdfBlob);
+      window.open(pdfUrl, '_blank');
+      setTimeout(() => window.URL.revokeObjectURL(pdfUrl), 60_000);
+      toast.success('Fresh receipt opened in new tab');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to preview receipt');
     } finally {
@@ -812,14 +817,14 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
     setIsSendingCloudWhatsApp(true);
     try {
       toast.info('Generating fresh receipt & sending via WhatsApp Business API...');
-      const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donation.id}/send-whatsapp`, {
+      const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donation.id}/vargani-whatsapp`, {
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
       });
       const data = await res.json();
       if (!res.ok) {
-        if (data.configured === false || data.fallbackRequired) {
-          toast.error('WhatsApp Business API is not configured. Use "Open WhatsApp" fallback below.', { duration: 5000 });
+        if (data.configured === false) {
+          toast.error('WhatsApp Business API is not configured.', { duration: 5000 });
         } else {
           throw new Error(data.error || 'Failed to send via WhatsApp Business API');
         }
@@ -834,6 +839,8 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
   };
 
   const handleOpenWhatsAppFallback = async () => {
+    toast.error('WhatsApp Web is not used. Send the receipt using Send on WhatsApp.');
+    return;
     setIsOpeningWhatsApp(true);
     try {
       toast.info('Fetching latest donation data for WhatsApp...');
