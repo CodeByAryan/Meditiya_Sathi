@@ -5,8 +5,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn, getApiUrl } from '@/lib/utils';
 import { PENDING_REASONS } from '@/lib/pending-reasons';
-import { sendWhatsApp, formatWhatsAppPhone, buildReceiptMessage } from '@/lib/whatsapp-service';
-import { getPublicAppBaseUrl, getReceiptPdfUrl, getReceiptShareUrl } from '@/lib/app-url';
+import { formatWhatsAppPhone, buildReceiptMessage } from '@/lib/whatsapp-service';
 
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -136,16 +135,11 @@ const collectionMethodConfig: Record<string, { label: string; icon: any; color: 
   pending: { label: 'Pending', icon: Clock, color: 'text-white/70', bar: 'from-white/40 to-white/10' },
 };
 
-// ── WhatsApp Receipt Generator ───────────────────────────────────────────────
+// Receipt delivery is handled by the authenticated server-side WhatsApp API.────────────────
 
-function buildWhatsAppReceipt(donation: Donation, festivalName: string, pdfUrl?: string): string {
+/* Legacy helper retained for unrelated text-only messaging. */
+function buildWhatsAppReceipt(donation: Donation, festivalName: string): string {
   const fest = festivalName || 'गणेश उत्सव';
-  const finalPdfUrl =
-    pdfUrl ||
-    (donation.receiptNumber
-      ? getReceiptPdfUrl(donation.receiptNumber)
-      : '');
-
   const lines = [
     'नमस्कार 🙏',
     '',
@@ -160,10 +154,6 @@ function buildWhatsAppReceipt(donation: Donation, festivalName: string, pdfUrl?:
     lines.push(`Donor Name: ${donation.residentName}`);
   }
 
-  if (finalPdfUrl) {
-    lines.push('', 'पावती:', finalPdfUrl);
-  }
-
   lines.push(
     '',
     'धन्यवाद 🙏',
@@ -173,12 +163,7 @@ function buildWhatsAppReceipt(donation: Donation, festivalName: string, pdfUrl?:
   return lines.join('\n');
 }
 
-function openWhatsApp(mobile: string, message: string) {
-  const ok = sendWhatsApp(mobile, message);
-  if (!ok) {
-    toast.error('Invalid mobile number for WhatsApp');
-  }
-}
+
 
 // ── Searchable Resident Dropdown ─────────────────────────────────────────────
 function ResidentSearchDropdown({ onSelect, selectedResident, onClear }: {
