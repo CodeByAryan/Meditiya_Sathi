@@ -754,9 +754,7 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isSendingCloudWhatsApp, setIsSendingCloudWhatsApp] = useState(false);
-  const [isOpeningWhatsApp, setIsOpeningWhatsApp] = useState(false);
-
-  const isBusy = isDownloading || isPreviewing || isSendingCloudWhatsApp || isOpeningWhatsApp;
+  const isBusy = isDownloading || isPreviewing || isSendingCloudWhatsApp;
 
   const handleDownloadPdf = async () => {
     setIsDownloading(true);
@@ -795,13 +793,13 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
       toast.info('Opening latest receipt...');
       const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donation.id}/vargani-pdf`, {
         method: 'POST',
-        headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
+        headers: { ...authHeaders(), 'Accept': 'application/pdf', 'Cache-Control': 'no-cache' },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to generate receipt');
-      const pdfBlob = await (await fetch(`${getApiUrl()}/api/admin/festival-donations/${donation.id}/vargani-pdf`, {
-        method: 'POST', headers: { ...authHeaders(), 'Accept': 'application/pdf', 'Cache-Control': 'no-cache' },
-      })).blob();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: 'Failed to generate receipt' }));
+        throw new Error(data.error || 'Failed to generate receipt');
+      }
+      const pdfBlob = await res.blob();
       const pdfUrl = window.URL.createObjectURL(pdfBlob);
       window.open(pdfUrl, '_blank');
       setTimeout(() => window.URL.revokeObjectURL(pdfUrl), 60_000);
@@ -839,42 +837,7 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
   };
 
   const handleOpenWhatsAppFallback = async () => {
-    toast.error('WhatsApp Web is not used. Send the receipt using Send on WhatsApp.');
-    return;
-    setIsOpeningWhatsApp(true);
-    try {
-      toast.info('Fetching latest donation data for WhatsApp...');
-      const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donation.id}/vargani-pdf`, {
-        method: 'POST',
-        headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to fetch latest donation data');
-
-      const freshDonation = data.donation ? {
-        ...donation,
-        residentName: data.donation.residentName || donation.residentName,
-        residentMobile: data.donation.residentMobile || donation.residentMobile,
-        flatNo: data.donation.flatNo || donation.flatNo,
-        buildingName: data.donation.buildingName || donation.buildingName,
-        wingName: data.donation.wingName || donation.wingName,
-        amount: data.donation.amount != null ? data.donation.amount : donation.amount,
-        paymentMethod: data.donation.paymentMethod || donation.paymentMethod,
-        paymentDate: data.donation.paymentDate || donation.paymentDate,
-        receiptNumber: data.donation.receiptNumber || donation.receiptNumber,
-        collectedByAdminName: data.donation.collectedByAdminName || donation.collectedByAdminName,
-      } : donation;
-
-      const festival = data.donation?.festivalName || festivalName;
-      const targetMobile = freshDonation.residentMobile || donation.residentMobile;
-      const msg = buildWhatsAppReceipt(freshDonation, festival, data.pdfUrl);
-      openWhatsApp(targetMobile, msg);
-      toast.success('WhatsApp opened with receipt link!');
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to open WhatsApp');
-    } finally {
-      setIsOpeningWhatsApp(false);
-    }
+    toast.error('WhatsApp Business API is required to send receipt documents.');
   };
 
   const PayIcon = paymentMethodIcons[donation.paymentMethod || ''] || Banknote;
@@ -965,10 +928,10 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
                 type="button"
                 onClick={() => { void handleOpenWhatsAppFallback(); }}
                 disabled={isBusy}
-                className="w-full py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                className="hidden w-full py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
-                {isOpeningWhatsApp ? 'Opening WhatsApp...' : 'Open WhatsApp (Link Fallback)'}
+                {'WhatsApp Business API only'}
               </button>
             </div>
           )}
@@ -1352,7 +1315,7 @@ export default function AdminFestivalDetail() {
     try {
       toast.info(`Sending receipt to ${d.residentName}...`);
       // 1. Try sending via WhatsApp Business Cloud API
-      const cloudRes = await fetch(`${getApiUrl()}/api/admin/festival-donations/${d.id}/send-whatsapp`, {
+      const cloudRes = await fetch(`${getApiUrl()}/api/admin/festival-donations/${d.id}/vargani-whatsapp`, {
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
       });
@@ -1363,35 +1326,7 @@ export default function AdminFestivalDetail() {
         return;
       }
 
-      // 2. If Cloud API not configured or requested fallback, use WhatsApp application deep link
-      if (!cloudRes.ok && (cloudData.configured === false || cloudData.fallbackRequired)) {
-        // Fetch fresh donation data to ensure latest DB record
-        const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${d.id}/vargani-pdf`, {
-          method: 'POST',
-          headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
-        });
-        const data = await res.json();
-        const freshDonation = data.donation ? {
-          ...d,
-          residentName: data.donation.residentName || d.residentName,
-          residentMobile: data.donation.residentMobile || d.residentMobile,
-          flatNo: data.donation.flatNo || d.flatNo,
-          buildingName: data.donation.buildingName || d.buildingName,
-          wingName: data.donation.wingName || d.wingName,
-          amount: data.donation.amount != null ? data.donation.amount : d.amount,
-          paymentMethod: data.donation.paymentMethod || d.paymentMethod,
-          paymentDate: data.donation.paymentDate || d.paymentDate,
-          receiptNumber: data.donation.receiptNumber || d.receiptNumber,
-          collectedByAdminName: data.donation.collectedByAdminName || d.collectedByAdminName,
-        } : d;
-
-        const targetFestivalName = data.donation?.festivalName || festival.name;
-        const targetMobile = freshDonation.residentMobile || d.residentMobile;
-        openWhatsApp(targetMobile, buildWhatsAppReceipt(freshDonation, targetFestivalName, data.pdfUrl));
-        toast.info('Cloud API not configured. WhatsApp opened with receipt link!');
-      } else {
-        throw new Error(cloudData.error || 'Failed to send WhatsApp message');
-      }
+      throw new Error(cloudData.error || 'Failed to send WhatsApp message');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to process WhatsApp receipt delivery');
     } finally {

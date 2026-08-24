@@ -5,34 +5,29 @@
  */
 
 export function getPublicAppBaseUrl(): string {
-  const isProd = process.env.NODE_ENV === "production";
+  // Render may not set NODE_ENV explicitly. Treat its deployment markers as
+  // production too, so a stale localhost value can never leak into a receipt.
+  const isProd =
+    process.env.NODE_ENV === "production" ||
+    process.env.RENDER === "true" ||
+    Boolean(process.env.RENDER_EXTERNAL_URL);
 
   const envUrl =
     process.env.PUBLIC_APP_URL ||
-    process.env.VITE_PUBLIC_APP_URL ||
     process.env.WEB_APP_URL ||
-    process.env.FRONTEND_URL;
+    process.env.FRONTEND_URL ||
+    process.env.VITE_PUBLIC_APP_URL;
 
   if (envUrl && envUrl.trim().length > 0) {
     const trimmed = envUrl.trim().replace(/\/+$/, "");
-    if (isProd) {
-      if (
-        !trimmed.includes("localhost") &&
-        !trimmed.includes("127.0.0.1") &&
-        !trimmed.includes(":8080") &&
-        !trimmed.includes(":5173") &&
-        !trimmed.includes(":3000")
-      ) {
-        return trimmed;
-      }
-    } else {
+    const isLocalUrl = /(?:localhost|127\.0\.1)(?::\d+)?/i.test(trimmed);
+    const isDevelopmentPort = /:(?:3000|5173|8080)(?:$|\/)/.test(trimmed);
+    if (!isProd || (!isLocalUrl && !isDevelopmentPort)) {
       return trimmed;
     }
   }
 
-  return isProd
-    ? "https://meditiya-sathi.vercel.app"
-    : "http://localhost:5173";
+  return isProd ? "https://meditiya-sathi.vercel.app" : "http://localhost:5173";
 }
 
 /**

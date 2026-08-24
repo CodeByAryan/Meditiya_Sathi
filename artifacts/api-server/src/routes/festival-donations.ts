@@ -109,7 +109,8 @@ router.all(["/admin/festival-donations/:id/vargani-pdf", "/admin/festival-donati
     const isDownload = req.path.endsWith("/download") || req.query.download === "true";
     const wantsJson = req.method === "POST" && (req.headers.accept?.includes("application/json") || req.is("json"));
 
-    // If frontend POSTed expecting JSON metadata
+    // JSON metadata is retained only for compatibility; the admin UI requests
+    // application/pdf and consumes the fresh bytes directly.
     if (wantsJson && !isDownload) {
       const url = getReceiptPdfUrl(row.receipt_number);
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");

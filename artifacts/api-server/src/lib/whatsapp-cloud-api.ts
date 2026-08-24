@@ -4,6 +4,7 @@ export interface WhatsAppSendDocumentOptions {
   to: string;
   filename: string;
   pdfBuffer?: Buffer;
+  /** Deprecated compatibility field; binary pdfBuffer is required for receipts. */
   pdfUrl?: string;
   caption?: string;
 }
