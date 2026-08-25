@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { logger } from "./logger";
+import { VARGANI_RECEIPT_CONFIG as CONFIG } from "./vargani-receipt-config";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -291,25 +292,9 @@ export async function generateVarganiPdf(
     throw new Error("Donation amount is invalid");
   }
 
-  const fontRegular = resolveAsset(
-    "Mukta-Regular.ttf",
-    "font"
-  );
-
-  const fontBold = resolveAsset(
-    "Mukta-Bold.ttf",
-    "font"
-  );
-
-  const logoPath = resolveAsset(
-    "logo.png",
-    "image"
-  );
-
-  const rajaPath = resolveAsset(
-    "raja.png",
-    "image"
-  );
+  const fontRegular = resolveAsset("Mukta-Regular.ttf", "font");
+  const fontBold = resolveAsset("Mukta-Bold.ttf", "font");
+  const logoPath = resolveAsset("logo.png", "image");
 
   const receiptNumber = clean(
     data.receiptNumber,
@@ -363,7 +348,6 @@ export async function generateVarganiPdf(
        */
       const pageWidth = 595.28;
       const pageHeight = 841.89;
-
       const doc = new PDFDocument({
         size: "A4",
         margin: 0,
@@ -392,9 +376,7 @@ export async function generateVarganiPdf(
       /* ------------------------------------------------ */
 
       const BLACK = "#0B0B0B";
-      const DARK = "#17140F";
       const GOLD = "#D89A22";
-      const GOLD_LIGHT = "#F3C45A";
       const SAFFRON = "#F07A00";
       const CREAM = "#FBF9F5";
       const BORDER = "#D9A13A";
@@ -505,7 +487,7 @@ export async function generateVarganiPdf(
 
       goldLine(
         doc,
-        220,
+          220,
         78,
         385,
         1.2
@@ -537,7 +519,7 @@ export async function generateVarganiPdf(
         .fontSize(11)
         .fillColor("#FFFFFF")
         .text(
-          "मेड़तिया नगर, कांदिवली (पूर्व), मुंबई – 400101",
+          CONFIG.locationMarathi,
           125,
           88,
           {
@@ -555,7 +537,7 @@ export async function generateVarganiPdf(
         .fontSize(7.5)
         .fillColor("#E8D9BA")
         .text(
-          "Omkareshwar Mandir, Medtiya Nagar, Opp. Seven Square School, Deepak Hospital Lane,",
+          CONFIG.addressLine1,
           125,
           107,
           {
@@ -569,7 +551,7 @@ export async function generateVarganiPdf(
         .fontSize(7.5)
         .fillColor("#E8D9BA")
         .text(
-          "Mira Road, Mumbai, Maharashtra 401107",
+          CONFIG.addressLine2,
           125,
           118,
           {
@@ -601,8 +583,7 @@ export async function generateVarganiPdf(
       const titleWidth =
         doc.widthOfString("पावती");
 
-      const center =
-        pageWidth / 2;
+      const center = pageWidth / 2;
 
       goldLine(
         doc,
@@ -669,8 +650,7 @@ export async function generateVarganiPdf(
         1
       );
 
-      const metaCol =
-        contentW / 3;
+      const metaCol = contentW / 3;
 
       /*
        * separators
@@ -713,7 +693,7 @@ export async function generateVarganiPdf(
         .text(
           "पावती क्रमांक / Receipt No.",
           contentX + 14,
-          metaY + 12
+          metaY + 12,
         );
 
       doc
@@ -723,7 +703,7 @@ export async function generateVarganiPdf(
         .text(
           receiptNumber,
           contentX + 14,
-          metaY + 32
+          metaY + 32,
         );
 
       /*
@@ -737,7 +717,7 @@ export async function generateVarganiPdf(
         .text(
           "दिनांक / Date",
           contentX + metaCol + 14,
-          metaY + 12
+          metaY + 12,
         );
 
       doc
@@ -747,7 +727,7 @@ export async function generateVarganiPdf(
         .text(
           donationDate,
           contentX + metaCol + 14,
-          metaY + 32
+          metaY + 32,
         );
 
       /*
@@ -761,7 +741,7 @@ export async function generateVarganiPdf(
         .text(
           "उत्सव / Festival",
           contentX + metaCol * 2 + 14,
-          metaY + 12
+          metaY + 12,
         );
 
       doc
@@ -771,7 +751,7 @@ export async function generateVarganiPdf(
         .text(
           `${festivalName} ${festivalYear}`,
           contentX + metaCol * 2 + 14,
-          metaY + 32
+          metaY + 32,
         );
 
       /* ------------------------------------------------ */
@@ -938,6 +918,7 @@ export async function generateVarganiPdf(
       const donationY = 475;
       const donationH = 154;
 
+
       roundedBox(
         doc,
         contentX,
@@ -969,8 +950,9 @@ export async function generateVarganiPdf(
         .fillColor(MUTED)
         .text(
           "देणगी रक्कम / Donation Amount",
-          contentX + 20,
-          donationY + 28
+          contentX,
+          donationY + 28,
+          { width: contentW, align: "center" }
         );
 
       const formattedAmount =
@@ -982,8 +964,9 @@ export async function generateVarganiPdf(
         .fillColor(TEXT)
         .text(
           formattedAmount,
-          contentX + 20,
-          donationY + 47
+          contentX,
+          donationY + 47,
+          { width: contentW, align: "center" }
         );
 
       /*
@@ -992,9 +975,9 @@ export async function generateVarganiPdf(
 
       doc
         .roundedRect(
-          contentX + 265,
+          contentX + contentW / 2 + 12,
           donationY + 22,
-          contentW - 285,
+          contentW / 2 - 32,
           55,
           8
         )
@@ -1010,10 +993,10 @@ export async function generateVarganiPdf(
         .fillColor("#25170D")
         .text(
           formattedAmount,
-          contentX + 265,
+          contentX + contentW / 2 + 12,
           donationY + 35,
           {
-            width: contentW - 285,
+            width: contentW / 2 - 32,
             align: "center",
           }
         );
@@ -1209,32 +1192,19 @@ export async function generateVarganiPdf(
        * Raja image
        */
 
-      if (existsSync(rajaPath)) {
-        doc.image(
-          rajaPath,
-          pageWidth / 2 - 70,
-          footerY + 8,
+      doc
+        .font(fontBold)
+        .fontSize(22)
+        .fillColor("#F4C84A")
+        .text(
+          CONFIG.footerRajaMarathi,
+          0,
+          footerY + 22,
           {
-            fit: [140, 55],
+            width: pageWidth,
             align: "center",
-            valign: "center",
           }
         );
-      } else {
-        doc
-          .font(fontBold)
-          .fontSize(22)
-          .fillColor("#F4C84A")
-          .text(
-            "मेड़तियाचा राजा",
-            0,
-            footerY + 22,
-            {
-              width: pageWidth,
-              align: "center",
-            }
-          );
-      }
 
       /*
        * Footer address
@@ -1245,7 +1215,7 @@ export async function generateVarganiPdf(
         .fontSize(7.5)
         .fillColor("#D8D1C3")
         .text(
-          "Omkareshwar Mandir, Medtiya Nagar, Opp. Seven Square School, Deepak Hospital Lane,",
+          CONFIG.addressLine1,
           30,
           footerY + 67,
           {
@@ -1259,7 +1229,7 @@ export async function generateVarganiPdf(
         .fontSize(7.5)
         .fillColor("#D8D1C3")
         .text(
-          "Mira Road, Mumbai, Maharashtra 401107",
+          CONFIG.addressLine2,
           30,
           footerY + 78,
           {

@@ -13,6 +13,9 @@ export function getPublicAppBaseUrl(): string {
     Boolean(process.env.RENDER_EXTERNAL_URL);
 
   const envUrl =
+    process.env.PDF_API_URL ||
+    process.env.API_PUBLIC_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
     process.env.PUBLIC_APP_URL ||
     process.env.WEB_APP_URL ||
     process.env.FRONTEND_URL ||
@@ -27,7 +30,7 @@ export function getPublicAppBaseUrl(): string {
     }
   }
 
-  return isProd ? "https://meditiya-sathi.vercel.app" : "http://localhost:5173";
+  return isProd ? "https://meditiya-sathi.onrender.com" : "http://localhost:5173";
 }
 
 /**
