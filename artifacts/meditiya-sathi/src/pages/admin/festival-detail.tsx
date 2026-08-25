@@ -745,26 +745,16 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
     setIsDownloading(true);
     try {
       toast.info('Generating latest receipt PDF...');
-      const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donation.id}/vargani-pdf?download=true`, {
+      const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donation.id}/vargani-pdf`, {
         method: 'POST',
-        headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
+        headers: { ...authHeaders(), 'Accept': 'application/json', 'Cache-Control': 'no-cache' },
       });
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({ error: 'Failed to generate PDF' }));
-        throw new Error(errJson.error || 'Failed to download receipt');
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result.success || !result.downloadUrl) {
+        throw new Error(result.error || 'Failed to download receipt');
       }
-      const blob = await res.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = `Vargani-${donation.receiptNumber || donation.id}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(blobUrl);
-      }, 500);
-      toast.success('Receipt PDF downloaded successfully!');
+      window.location.href = result.downloadUrl;
+      toast.success('Receipt PDF download started!');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to download receipt PDF');
     } finally {
@@ -778,16 +768,13 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
       toast.info('Opening latest receipt...');
       const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donation.id}/vargani-pdf`, {
         method: 'POST',
-        headers: { ...authHeaders(), 'Accept': 'application/pdf', 'Cache-Control': 'no-cache' },
+        headers: { ...authHeaders(), 'Accept': 'application/json', 'Cache-Control': 'no-cache' },
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: 'Failed to generate receipt' }));
-        throw new Error(data.error || 'Failed to generate receipt');
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result.success || !result.pdfUrl) {
+        throw new Error(result.error || 'Failed to generate receipt');
       }
-      const pdfBlob = await res.blob();
-      const pdfUrl = window.URL.createObjectURL(pdfBlob);
-      window.open(pdfUrl, '_blank');
-      setTimeout(() => window.URL.revokeObjectURL(pdfUrl), 60_000);
+      window.open(result.pdfUrl, '_blank', 'noopener,noreferrer');
       toast.success('Fresh receipt opened in new tab');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to preview receipt');
@@ -1267,26 +1254,16 @@ export default function AdminFestivalDetail() {
     setDownloadingDonationId(d.id);
     try {
       toast.info(`Generating receipt for ${d.residentName}...`);
-      const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${d.id}/vargani-pdf?download=true`, {
+      const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${d.id}/vargani-pdf`, {
         method: 'POST',
-        headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
+        headers: { ...authHeaders(), 'Accept': 'application/json', 'Cache-Control': 'no-cache' },
       });
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({ error: 'Failed to generate PDF' }));
-        throw new Error(errJson.error || 'Failed to download receipt');
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result.success || !result.downloadUrl) {
+        throw new Error(result.error || 'Failed to download receipt');
       }
-      const blob = await res.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = `Vargani-${d.receiptNumber || d.id}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(blobUrl);
-      }, 500);
-      toast.success(`Receipt downloaded for ${d.residentName}!`);
+      window.location.href = result.downloadUrl;
+      toast.success(`Receipt download started for ${d.residentName}!`);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to download receipt');
     } finally {
