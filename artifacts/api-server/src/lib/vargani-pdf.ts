@@ -1,9 +1,8 @@
 import PDFDocument from "pdfkit";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { logger } from "./logger";
 import { fileURLToPath } from "node:url";
-import { VARGANI_RECEIPT_CONFIG as CONFIG } from "./vargani-receipt-config";
+import { logger } from "./logger";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -24,410 +23,1285 @@ export interface VarganiPdfData {
 
 const clean = (value: unknown, fallback = "—"): string => {
   const text = String(value ?? "").trim();
-  return text && text !== "null" && text !== "undefined" && text !== "[object Object]" ? text : fallback;
+
+  if (
+    !text ||
+    text === "null" ||
+    text === "undefined" ||
+    text === "[object Object]"
+  ) {
+    return fallback;
+  }
+
+  return text;
 };
 
-const getMarathiNumberWords = (n: number): string => {
-  if (!Number.isFinite(n) || n <= 0) return "—";
-  const num = Math.floor(n);
-  const units: Record<number, string> = {
-    0: "", 1: "एक", 2: "दोन", 3: "तीन", 4: "चार", 5: "पाच", 6: "सहा", 7: "सात", 8: "आठ", 9: "नऊ",
-    10: "दहा", 11: "अकरा", 12: "बारा", 13: "तेरा", 14: "चौदा", 15: "पंधरा", 16: "सोळा", 17: "सतरा", 18: "अठरा", 19: "एकोणीस",
-    20: "वीस", 21: "एकवीस", 22: "बावीस", 23: "तेवीस", 24: "चोवीस", 25: "पंचवीस", 26: "सव्वीस", 27: "सत्तावीस", 28: "अठ्ठावीस", 29: "एकोणतीस",
-    30: "तीस", 31: "एकतीस", 32: "बत्तीस", 33: "तेहेतीस", 34: "चौतीस", 35: "पस्तीस", 36: "छत्तीस", 37: "सदतीस", 38: "अडतीस", 39: "एकोणचाळीस",
-    40: "चाळीस", 41: "एक्केचाळीस", 42: "बेचाळीस", 43: "त्रेचाळीस", 44: "चव्वेचाळीस", 45: "पंचेचाळीस", 46: "शेहेचाळीस", 47: "सत्तेचाळीस", 48: "अठ्ठेचाळीस", 49: "एकोणपन्नास",
-    50: "पन्नास", 51: "एकावन्न", 52: "बावन्न", 53: "त्रेपन्न", 54: "चौपन्न", 55: "पंचावन्न", 56: "छपन्न", 57: "सत्तावन्न", 58: "अठ्ठावन्न", 59: "एकोणसाठ",
-    60: "साठ", 61: "एकसष्ठ", 62: "बासष्ठ", 63: "त्रेसष्ठ", 64: "चौसष्ठ", 65: "पासष्ठ", 66: "सहासष्ठ", 67: "सदुसष्ठ", 68: "अडुसष्ठ", 69: "एकोणसत्तर",
-    70: "सत्तर", 71: "एकाहत्तर", 72: "बाहत्तर", 73: "त्र्याहत्तर", 74: "चौऱ्याहत्तर", 75: "पंच्याहत्तर", 76: "शहात्तर", 77: "सत्त्याहत्तर", 78: "अठ्ठ्याहत्तर", 79: "एकोणऐंशी",
-    80: "ऐंशी", 81: "एक्याऐंशी", 82: "ब्याऐंशी", 83: "त्र्याऐंशी", 84: "चौऱ्याऐंशी", 85: "पंच्याऐंशी", 86: "शहाऐंशी", 87: "सत्त्याऐंशी", 88: "अठ्ठ्याऐंशी", 89: "एकोणनव्वद",
-    90: "नव्वद", 91: "एक्याण्णव", 92: "ब्याण्णव", 93: "त्र्याण्णव", 94: "चौऱ्याण्णव", 95: "पंच्याण्णव", 96: "शहाण्णव", 97: "सत्त्याण्णव", 98: "अठ्ठ्याण्णव", 99: "नव्याण्णव",
-  };
+function resolveAsset(
+  assetName: string,
+  type: "font" | "image"
+): string {
+  const candidates =
+    type === "font"
+      ? [
+          path.resolve(currentDir, "fonts", assetName),
+          path.resolve(currentDir, assetName),
+          path.resolve(
+            process.cwd(),
+            "artifacts/api-server/dist/fonts",
+            assetName
+          ),
+          path.resolve(
+            process.cwd(),
+            "artifacts/api-server/fonts",
+            assetName
+          ),
+        ]
+      : [
+          path.resolve(currentDir, assetName),
+          path.resolve(
+            process.cwd(),
+            "artifacts/api-server/dist",
+            assetName
+          ),
+          path.resolve(
+            process.cwd(),
+            "artifacts/meditiya-sathi/public",
+            assetName
+          ),
+          path.resolve(process.cwd(), "public", assetName),
+        ];
 
-  const parts: string[] = [];
-  let rem = num;
-  const crore = Math.floor(rem / 10000000);
-  rem %= 10000000;
-  const lakh = Math.floor(rem / 100000);
-  rem %= 100000;
-  const thousand = Math.floor(rem / 1000);
-  rem %= 1000;
-  const hundred = Math.floor(rem / 100);
-  rem %= 100;
+  const found = candidates.find((p) => existsSync(p));
 
-  if (crore > 0) parts.push(`${units[crore] || crore} कोटी`);
-  if (lakh > 0) parts.push(`${units[lakh] || lakh} लाख`);
-  if (thousand > 0) parts.push(`${units[thousand] || thousand} हजार`);
-  if (hundred > 0) parts.push(`${units[hundred] || hundred} शे`);
-  if (rem > 0) parts.push(units[rem] || String(rem));
+  if (!found) {
+    logger.error(
+      {
+        assetName,
+        type,
+        candidates,
+      },
+      "Vargani PDF asset not found"
+    );
 
-  const words = parts.join(" ").trim();
-  return words ? `रुपये ${words} फक्त` : "रुपये शून्य फक्त";
-};
+    throw new Error(`Missing PDF asset: ${assetName}`);
+  }
 
-function underHundred(n: number): string {
-  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
-  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
-  if (n < 20) return ones[n] || "";
-  return `${tens[Math.floor(n / 10)] || ""}${n % 10 ? ` ${ones[n % 10]}` : ""}`;
+  return found;
 }
 
-function underThousand(n: number): string {
-  const hundreds = Math.floor(n / 100);
-  const remainder = n % 100;
-  return [hundreds ? `${underHundred(hundreds)} Hundred` : "", remainder ? underHundred(remainder) : ""].filter(Boolean).join(" ");
-}
+function formatDate(value: string | Date): string {
+  const date = new Date(value);
 
-export function amountInWords(value: number): string {
-  if (!Number.isFinite(value) || value < 0) return "—";
-  const rupees = Math.floor(value + 1e-9);
-  const paise = Math.round((value - rupees) * 100);
-  const parts: string[] = [];
-  const crore = Math.floor(rupees / 10000000);
-  const lakh = Math.floor((rupees % 10000000) / 100000);
-  const thousand = Math.floor((rupees % 100000) / 1000);
-  const rest = rupees % 1000;
-  if (crore) parts.push(`${underThousand(crore)} Crore`);
-  if (lakh) parts.push(`${underThousand(lakh)} Lakh`);
-  if (thousand) parts.push(`${underThousand(thousand)} Thousand`);
-  if (rest) parts.push(underThousand(rest));
-  const result = parts.join(" ") || "Zero";
-  return `Rupees ${result}${paise ? ` and ${underHundred(paise)} Paise` : ""} Only`;
-}
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
 
-function formatDateStr(dateVal: string | Date | null | undefined): string {
-  if (!dateVal) return "—";
-  const dateObj = new Date(dateVal);
-  if (Number.isNaN(dateObj.getTime())) return clean(dateVal);
-  return dateObj.toLocaleDateString("en-IN", {
+  return date.toLocaleDateString("en-IN", {
     day: "2-digit",
-    month: "2-digit",
+    month: "long",
     year: "numeric",
   });
 }
 
-/**
- * Resolve bundled assets from the server module, not from a browser/public URL.
- * In the compiled Render process `currentDir` is `.../api-server/dist`, where
- * build.mjs copies the assets. The source-tree fallbacks only help local tools.
- */
-function resolveAsset(assetName: string, kind: "font" | "image"): string {
-  const candidates = kind === "font"
-    ? [
-        path.resolve(currentDir, "fonts", assetName),
-        path.resolve(currentDir, assetName),
-        path.resolve(process.cwd(), "artifacts/api-server/fonts", assetName),
-        path.resolve(process.cwd(), "fonts", assetName),
-      ]
-    : [
-        path.resolve(currentDir, assetName),
-        path.resolve(process.cwd(), "artifacts/api-server/dist", assetName),
-        path.resolve(process.cwd(), "artifacts/meditiya-sathi/public", assetName),
-        path.resolve(process.cwd(), "public", assetName),
-      ];
-  const found = candidates.find((candidate) => existsSync(candidate));
-  if (!found) {
-    logger.error({ asset: assetName, kind, searchedLocations: candidates }, "Vargani PDF asset is missing");
-    throw new Error(`Required PDF ${kind} asset is missing`);
+function amountInWords(value: number): string {
+  const ones = [
+    "",
+    "One",
+    "Two",
+    "Three",
+    "Four",
+    "Five",
+    "Six",
+    "Seven",
+    "Eight",
+    "Nine",
+    "Ten",
+    "Eleven",
+    "Twelve",
+    "Thirteen",
+    "Fourteen",
+    "Fifteen",
+    "Sixteen",
+    "Seventeen",
+    "Eighteen",
+    "Nineteen",
+  ];
+
+  const tens = [
+    "",
+    "",
+    "Twenty",
+    "Thirty",
+    "Forty",
+    "Fifty",
+    "Sixty",
+    "Seventy",
+    "Eighty",
+    "Ninety",
+  ];
+
+  function below100(n: number): string {
+    if (n < 20) return ones[n];
+
+    return (
+      tens[Math.floor(n / 10)] +
+      (n % 10 ? ` ${ones[n % 10]}` : "")
+    );
   }
-  return found;
+
+  function below1000(n: number): string {
+    if (n < 100) return below100(n);
+
+    return (
+      ones[Math.floor(n / 100)] +
+      " Hundred" +
+      (n % 100 ? ` ${below100(n % 100)}` : "")
+    );
+  }
+
+  const rupees = Math.floor(value);
+
+  if (rupees === 0) {
+    return "Rupees Zero Only";
+  }
+
+  let remaining = rupees;
+  const parts: string[] = [];
+
+  const crore = Math.floor(remaining / 10000000);
+  remaining %= 10000000;
+
+  const lakh = Math.floor(remaining / 100000);
+  remaining %= 100000;
+
+  const thousand = Math.floor(remaining / 1000);
+  remaining %= 1000;
+
+  const hundred = remaining;
+
+  if (crore) {
+    parts.push(`${below1000(crore)} Crore`);
+  }
+
+  if (lakh) {
+    parts.push(`${below1000(lakh)} Lakh`);
+  }
+
+  if (thousand) {
+    parts.push(`${below1000(thousand)} Thousand`);
+  }
+
+  if (hundred) {
+    parts.push(below1000(hundred));
+  }
+
+  return `Rupees ${parts.join(" ")} Only`;
 }
 
-function resolveFontPath(fontName: string): string {
-  return resolveAsset(fontName, "font");
+/* ------------------------------------------------------- */
+/* Decorative helpers                                     */
+/* ------------------------------------------------------- */
+
+function roundedBox(
+  doc: PDFKit.PDFDocument,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  radius = 8,
+  fill = "#FFFFFF",
+  stroke = "#D69B27",
+  lineWidth = 1
+) {
+  doc
+    .roundedRect(x, y, w, h, radius)
+    .fillAndStroke(fill, stroke)
+    .lineWidth(lineWidth);
 }
 
-function resolveLogoPath(): string {
-  return resolveAsset("logo.png", "image");
+function goldLine(
+  doc: PDFKit.PDFDocument,
+  x1: number,
+  y: number,
+  x2: number,
+  width = 1
+) {
+  doc
+    .moveTo(x1, y)
+    .lineTo(x2, y)
+    .strokeColor("#D99A24")
+    .lineWidth(width)
+    .stroke();
 }
 
-function drawDiamond(doc: any, x: number, y: number, size = 4, color = "#D4A638") {
+function diamond(
+  doc: PDFKit.PDFDocument,
+  x: number,
+  y: number,
+  size = 4
+) {
   doc.save();
-  doc.fillColor(color);
-  doc.moveTo(x, y - size)
-     .lineTo(x + size, y)
-     .lineTo(x, y + size)
-     .lineTo(x - size, y)
-     .closePath()
-     .fill();
+
+  doc
+    .fillColor("#D99A24")
+    .moveTo(x, y - size)
+    .lineTo(x + size, y)
+    .lineTo(x, y + size)
+    .lineTo(x - size, y)
+    .closePath()
+    .fill();
+
   doc.restore();
 }
 
-function drawCheckmark(doc: any, x: number, y: number, size = 6, color = "#2E7D32") {
-  doc.save();
-  doc.strokeColor(color).lineWidth(1.2).lineCap("round").lineJoin("round");
-  doc.moveTo(x, y + size * 0.5)
-     .lineTo(x + size * 0.4, y + size * 0.9)
-     .lineTo(x + size, y)
-     .stroke();
-  doc.restore();
+function sectionHeader(
+  doc: PDFKit.PDFDocument,
+  x: number,
+  y: number,
+  width: number,
+  text: string,
+  fontBold: string
+) {
+  const tabWidth = Math.min(width * 0.55, 230);
+  const tabHeight = 25;
+  const tabX = x + (width - tabWidth) / 2;
+
+  doc
+    .roundedRect(tabX, y, tabWidth, tabHeight, 8)
+    .fill("#D78D09");
+
+  doc
+    .font(fontBold)
+    .fontSize(10)
+    .fillColor("#FFFFFF")
+    .text(text, tabX, y + 6, {
+      width: tabWidth,
+      align: "center",
+    });
 }
 
-export async function generateVarganiPdf(data: VarganiPdfData): Promise<Buffer> {
+/* ------------------------------------------------------- */
+/* MAIN PDF                                                */
+/* ------------------------------------------------------- */
+
+export async function generateVarganiPdf(
+  data: VarganiPdfData
+): Promise<Buffer> {
   if (!Number.isFinite(data.amount) || data.amount <= 0) {
     throw new Error("Donation amount is invalid");
   }
 
-  const fontBold = resolveFontPath("Mukta-Bold.ttf");
-  const fontReg = resolveFontPath("Mukta-Regular.ttf");
-  const logoPath = resolveLogoPath();
-  logger.info({ receiptNumber: data.receiptNumber }, "Starting Vargani PDF generation");
+  const fontRegular = resolveAsset(
+    "Mukta-Regular.ttf",
+    "font"
+  );
 
-  const receiptNumber = clean(data.receiptNumber, "—");
-  const donationDate = formatDateStr(data.donationDate);
-  const festivalTitle = data.festivalName
-    ? `${data.festivalName}${data.festivalYear ? ` ${data.festivalYear}` : ""}`
-    : "गणेश उत्सव 2026";
+  const fontBold = resolveAsset(
+    "Mukta-Bold.ttf",
+    "font"
+  );
 
-  const donorName = clean(data.name, "—");
-  const mobile = clean(data.mobile, "—");
-  const bldgWing = [data.building, data.wing].filter(Boolean).join(" - ") || clean(data.building, "—");
-  const flat = clean(data.flat, "—");
+  const logoPath = resolveAsset(
+    "logo.png",
+    "image"
+  );
 
-  const formattedAmount = `₹ ${Number(data.amount).toLocaleString("en-IN")}/-`;
-  const wordsMar = getMarathiNumberWords(data.amount);
-  const wordsEng = amountInWords(data.amount);
-  const wordsCombined = `रक्कमेचे शब्दांत / Amount in Words : ${wordsMar} (${wordsEng})`;
+  const rajaPath = resolveAsset(
+    "raja.png",
+    "image"
+  );
 
-  const methodText = clean(data.paymentMethod, "CASH").toUpperCase().replace(/_/g, " ");
-  const collectedBy = clean(data.collectedBy, CONFIG.defaultAdmin || "Admin (Authorized)");
+  const receiptNumber = clean(
+    data.receiptNumber,
+    "—"
+  );
+
+  const donorName = clean(data.name);
+  const mobile = clean(data.mobile);
+  const building = clean(data.building);
+  const wing = clean(data.wing);
+  const flat = clean(data.flat);
+
+  const festivalName = clean(
+    data.festivalName,
+    "गणेश उत्सव"
+  );
+
+  const festivalYear =
+    data.festivalYear || 2026;
+
+  const donationDate = formatDate(
+    data.donationDate
+  );
+
+  const amount = Number(data.amount);
+
+  const paymentMethod = clean(
+    data.paymentMethod,
+    "CASH"
+  )
+    .replace(/_/g, " ")
+    .toUpperCase();
+
+  const collectedBy = clean(
+    data.collectedBy,
+    "Admin"
+  );
+
+  logger.info(
+    {
+      donationId: data.receiptNumber,
+      receiptNumber,
+    },
+    "Starting Vargani PDF generation"
+  );
 
   return new Promise<Buffer>((resolve, reject) => {
     try {
+      /*
+       * A4
+       */
+      const pageWidth = 595.28;
+      const pageHeight = 841.89;
+
       const doc = new PDFDocument({
         size: "A4",
         margin: 0,
+        autoFirstPage: true,
         info: {
-          Title: `Vargani Receipt - ${receiptNumber}`,
+          Title: `Donation Receipt - ${receiptNumber}`,
           Author: "मेड़तिया मित्र मंडळ",
-          Subject: "Donation Receipt / पावती",
+          Subject: "Donation Receipt",
         },
       });
 
       const chunks: Buffer[] = [];
-      doc.on("data", (chunk: any) => chunks.push(Buffer.from(chunk)));
-      doc.on("end", () => resolve(Buffer.concat(chunks)));
-      doc.on("error", (err: any) => reject(err));
 
-      const pageWidth = 595.28;
-      const pageHeight = 841.89;
-      const margin = 20;
-      const cardWidth = pageWidth - margin * 2; // 555.28
-      const cardHeight = pageHeight - margin * 2; // 801.89
-      const cardX = margin;
-      const cardY = margin;
+      doc.on("data", (chunk) => {
+        chunks.push(Buffer.from(chunk));
+      });
 
-      // 1. Page Background (Cream)
-      doc.rect(0, 0, pageWidth, pageHeight).fill("#FAF8F5");
+      doc.on("end", () => {
+        resolve(Buffer.concat(chunks));
+      });
 
-      // 2. Outer Card Frame with Double Gold Border
-      doc.rect(cardX, cardY, cardWidth, cardHeight).fillAndStroke("#FFFFFF", "#D4A638").lineWidth(2.5);
-      doc.rect(cardX + 3.5, cardY + 3.5, cardWidth - 7, cardHeight - 7).stroke("#E0D4BD").lineWidth(0.75);
+      doc.on("error", reject);
 
-      // 3. Header Section (Dark Banner)
-      const headerH = 106;
-      doc.rect(cardX, cardY, cardWidth, headerH).fill("#11141A");
-      doc.rect(cardX, cardY, cardWidth, 4).fill("#E0660F"); // Top Saffron line
-      doc.rect(cardX, cardY + headerH - 2, cardWidth, 2).fill("#D4A638"); // Bottom Gold line
-      doc.rect(cardX, cardY + headerH, cardWidth, 1.5).fill("#E0660F"); // Sub-line
+      /* ------------------------------------------------ */
+      /* COLORS                                           */
+      /* ------------------------------------------------ */
 
-      // Logo on Left
-      if (logoPath && existsSync(logoPath)) {
-        try {
-          doc.image(logoPath, cardX + 18, cardY + 16, { fit: [74, 74], align: "center", valign: "center" });
-        } catch (imgErr) {
-          console.warn("Logo image embed warning:", imgErr);
+      const BLACK = "#0B0B0B";
+      const DARK = "#17140F";
+      const GOLD = "#D89A22";
+      const GOLD_LIGHT = "#F3C45A";
+      const SAFFRON = "#F07A00";
+      const CREAM = "#FBF9F5";
+      const BORDER = "#D9A13A";
+      const TEXT = "#241C14";
+      const MUTED = "#6B6259";
+
+      /* ------------------------------------------------ */
+      /* BACKGROUND                                       */
+      /* ------------------------------------------------ */
+
+      doc.rect(
+        0,
+        0,
+        pageWidth,
+        pageHeight
+      ).fill(CREAM);
+
+      /*
+       * Outer border
+       */
+      doc
+        .roundedRect(
+          12,
+          12,
+          pageWidth - 24,
+          pageHeight - 24,
+          12
+        )
+        .lineWidth(2)
+        .strokeColor(GOLD)
+        .stroke();
+
+      doc
+        .roundedRect(
+          17,
+          17,
+          pageWidth - 34,
+          pageHeight - 34,
+          10
+        )
+        .lineWidth(0.7)
+        .strokeColor("#E5D7BA")
+        .stroke();
+
+      /* ------------------------------------------------ */
+      /* HEADER                                           */
+      /* ------------------------------------------------ */
+
+      const headerY = 18;
+      const headerH = 132;
+
+      doc
+        .rect(
+          18,
+          headerY,
+          pageWidth - 36,
+          headerH
+        )
+        .fill(BLACK);
+
+      /*
+       * Header gold curved-looking separator
+       */
+      doc
+        .moveTo(18, headerY + headerH)
+        .lineTo(pageWidth - 18, headerY + headerH)
+        .lineWidth(4)
+        .strokeColor(GOLD)
+        .stroke();
+
+      doc
+        .moveTo(18, headerY + headerH + 4)
+        .lineTo(pageWidth - 18, headerY + headerH + 4)
+        .lineWidth(2)
+        .strokeColor(SAFFRON)
+        .stroke();
+
+      /* Logo */
+
+      doc.image(
+        logoPath,
+        34,
+        34,
+        {
+          fit: [90, 90],
+          align: "center",
+          valign: "center",
         }
+      );
+
+      /*
+       * Mandal name
+       */
+
+      doc
+        .font(fontBold)
+        .fontSize(25)
+        .fillColor("#FFFFFF")
+        .text(
+          "मेड़तिया मित्र मंडळ",
+          125,
+          42,
+          {
+            width: 430,
+            align: "center",
+          }
+        );
+
+      goldLine(
+        doc,
+        220,
+        78,
+        385,
+        1.2
+      );
+
+      diamond(
+        doc,
+        300,
+        78,
+        3
+      );
+
+      diamond(
+        doc,
+        305,
+        78,
+        5
+      );
+
+      diamond(
+        doc,
+        310,
+        78,
+        3
+      );
+
+      doc
+        .font(fontRegular)
+        .fontSize(11)
+        .fillColor("#FFFFFF")
+        .text(
+          "मेड़तिया नगर, कांदिवली (पूर्व), मुंबई – 400101",
+          125,
+          88,
+          {
+            width: 430,
+            align: "center",
+          }
+        );
+
+      /*
+       * ACTUAL ADDRESS
+       */
+
+      doc
+        .font(fontRegular)
+        .fontSize(7.5)
+        .fillColor("#E8D9BA")
+        .text(
+          "Omkareshwar Mandir, Medtiya Nagar, Opp. Seven Square School, Deepak Hospital Lane,",
+          125,
+          107,
+          {
+            width: 430,
+            align: "center",
+          }
+        );
+
+      doc
+        .font(fontRegular)
+        .fontSize(7.5)
+        .fillColor("#E8D9BA")
+        .text(
+          "Mira Road, Mumbai, Maharashtra 401107",
+          125,
+          118,
+          {
+            width: 430,
+            align: "center",
+          }
+        );
+
+      /* ------------------------------------------------ */
+      /* TITLE                                           */
+      /* ------------------------------------------------ */
+
+      const titleY = 166;
+
+      doc
+        .font(fontBold)
+        .fontSize(33)
+        .fillColor(TEXT)
+        .text(
+          "पावती",
+          0,
+          titleY,
+          {
+            width: pageWidth,
+            align: "center",
+          }
+        );
+
+      const titleWidth =
+        doc.widthOfString("पावती");
+
+      const center =
+        pageWidth / 2;
+
+      goldLine(
+        doc,
+        center - titleWidth / 2 - 70,
+        titleY + 22,
+        center - titleWidth / 2 - 12
+      );
+
+      goldLine(
+        doc,
+        center + titleWidth / 2 + 12,
+        titleY + 22,
+        center + titleWidth / 2 + 70
+      );
+
+      diamond(
+        doc,
+        center - titleWidth / 2 - 5,
+        titleY + 22,
+        4
+      );
+
+      diamond(
+        doc,
+        center + titleWidth / 2 + 5,
+        titleY + 22,
+        4
+      );
+
+      doc
+        .font(fontRegular)
+        .fontSize(12)
+        .fillColor(TEXT)
+        .text(
+          "DONATION RECEIPT",
+          0,
+          titleY + 39,
+          {
+            width: pageWidth,
+            align: "center",
+            characterSpacing: 2,
+          }
+        );
+
+      /* ------------------------------------------------ */
+      /* META INFORMATION                                 */
+      /* ------------------------------------------------ */
+
+      const contentX = 38;
+      const contentW = pageWidth - 76;
+
+      const metaY = 226;
+      const metaH = 63;
+
+      roundedBox(
+        doc,
+        contentX,
+        metaY,
+        contentW,
+        metaH,
+        9,
+        "#FFFFFF",
+        GOLD,
+        1
+      );
+
+      const metaCol =
+        contentW / 3;
+
+      /*
+       * separators
+       */
+
+      doc
+        .moveTo(
+          contentX + metaCol,
+          metaY + 10
+        )
+        .lineTo(
+          contentX + metaCol,
+          metaY + metaH - 10
+        )
+        .strokeColor("#DDCFAE")
+        .lineWidth(1)
+        .stroke();
+
+      doc
+        .moveTo(
+          contentX + metaCol * 2,
+          metaY + 10
+        )
+        .lineTo(
+          contentX + metaCol * 2,
+          metaY + metaH - 10
+        )
+        .strokeColor("#DDCFAE")
+        .lineWidth(1)
+        .stroke();
+
+      /*
+       * Receipt
+       */
+
+      doc
+        .font(fontBold)
+        .fontSize(8)
+        .fillColor(MUTED)
+        .text(
+          "पावती क्रमांक / Receipt No.",
+          contentX + 14,
+          metaY + 12
+        );
+
+      doc
+        .font(fontBold)
+        .fontSize(11)
+        .fillColor(TEXT)
+        .text(
+          receiptNumber,
+          contentX + 14,
+          metaY + 32
+        );
+
+      /*
+       * Date
+       */
+
+      doc
+        .font(fontBold)
+        .fontSize(8)
+        .fillColor(MUTED)
+        .text(
+          "दिनांक / Date",
+          contentX + metaCol + 14,
+          metaY + 12
+        );
+
+      doc
+        .font(fontBold)
+        .fontSize(11)
+        .fillColor(TEXT)
+        .text(
+          donationDate,
+          contentX + metaCol + 14,
+          metaY + 32
+        );
+
+      /*
+       * Festival
+       */
+
+      doc
+        .font(fontBold)
+        .fontSize(8)
+        .fillColor(MUTED)
+        .text(
+          "उत्सव / Festival",
+          contentX + metaCol * 2 + 14,
+          metaY + 12
+        );
+
+      doc
+        .font(fontBold)
+        .fontSize(10)
+        .fillColor(SAFFRON)
+        .text(
+          `${festivalName} ${festivalYear}`,
+          contentX + metaCol * 2 + 14,
+          metaY + 32
+        );
+
+      /* ------------------------------------------------ */
+      /* DONOR INFORMATION                                */
+      /* ------------------------------------------------ */
+
+      const donorY = 306;
+      const donorH = 150;
+
+      roundedBox(
+        doc,
+        contentX,
+        donorY,
+        contentW,
+        donorH,
+        9,
+        "#FFFFFF",
+        BORDER,
+        1
+      );
+
+      sectionHeader(
+        doc,
+        contentX,
+        donorY - 10,
+        contentW,
+        "दात्याची माहिती / DONOR INFORMATION",
+        fontBold
+      );
+
+      const leftX = contentX + 20;
+      const rightX = contentX + contentW / 2 + 8;
+
+      /*
+       * Name
+       */
+
+      doc
+        .font(fontBold)
+        .fontSize(8)
+        .fillColor(MUTED)
+        .text(
+          "दात्याचे नाव / Donor Name",
+          leftX,
+          donorY + 25
+        );
+
+      doc
+        .font(fontBold)
+        .fontSize(12)
+        .fillColor(TEXT)
+        .text(
+          donorName,
+          leftX,
+          donorY + 42,
+          {
+            width: 225,
+            ellipsis: true,
+          }
+        );
+
+      /*
+       * Mobile
+       */
+
+      doc
+        .font(fontBold)
+        .fontSize(8)
+        .fillColor(MUTED)
+        .text(
+          "मोबाईल क्रमांक / Mobile No.",
+          rightX,
+          donorY + 25
+        );
+
+      doc
+        .font(fontBold)
+        .fontSize(12)
+        .fillColor(TEXT)
+        .text(
+          mobile,
+          rightX,
+          donorY + 42
+        );
+
+      /*
+       * divider
+       */
+
+      doc
+        .moveTo(
+          contentX + 15,
+          donorY + 67
+        )
+        .lineTo(
+          contentX + contentW - 15,
+          donorY + 67
+        )
+        .strokeColor("#E8DECB")
+        .lineWidth(0.8)
+        .stroke();
+
+      /*
+       * Building
+       */
+
+      const buildingText =
+        wing && wing !== "—"
+          ? `${building} - ${wing}`
+          : building;
+
+      doc
+        .font(fontBold)
+        .fontSize(8)
+        .fillColor(MUTED)
+        .text(
+          "इमारत / विंग / Building & Wing",
+          leftX,
+          donorY + 79
+        );
+
+      doc
+        .font(fontBold)
+        .fontSize(12)
+        .fillColor(TEXT)
+        .text(
+          buildingText,
+          leftX,
+          donorY + 96,
+          {
+            width: 225,
+            ellipsis: true,
+          }
+        );
+
+      /*
+       * Flat
+       */
+
+      doc
+        .font(fontBold)
+        .fontSize(8)
+        .fillColor(MUTED)
+        .text(
+          "फ्लॅट क्रमांक / Flat No.",
+          rightX,
+          donorY + 79
+        );
+
+      doc
+        .font(fontBold)
+        .fontSize(12)
+        .fillColor(TEXT)
+        .text(
+          flat,
+          rightX,
+          donorY + 96
+        );
+
+      /* ------------------------------------------------ */
+      /* DONATION DETAILS                                 */
+      /* ------------------------------------------------ */
+
+      const donationY = 475;
+      const donationH = 154;
+
+      roundedBox(
+        doc,
+        contentX,
+        donationY,
+        contentW,
+        donationH,
+        9,
+        "#FFFDF9",
+        BORDER,
+        1
+      );
+
+      sectionHeader(
+        doc,
+        contentX,
+        donationY - 10,
+        contentW,
+        "देणगी तपशील / DONATION DETAILS",
+        fontBold
+      );
+
+      /*
+       * Amount
+       */
+
+      doc
+        .font(fontBold)
+        .fontSize(8)
+        .fillColor(MUTED)
+        .text(
+          "देणगी रक्कम / Donation Amount",
+          contentX + 20,
+          donationY + 28
+        );
+
+      const formattedAmount =
+        `₹ ${amount.toLocaleString("en-IN")}/-`;
+
+      doc
+        .font(fontBold)
+        .fontSize(29)
+        .fillColor(TEXT)
+        .text(
+          formattedAmount,
+          contentX + 20,
+          donationY + 47
+        );
+
+      /*
+       * Amount box
+       */
+
+      doc
+        .roundedRect(
+          contentX + 265,
+          donationY + 22,
+          contentW - 285,
+          55,
+          8
+        )
+        .fillAndStroke(
+          "#FFF6DF",
+          GOLD
+        )
+        .lineWidth(1);
+
+      doc
+        .font(fontBold)
+        .fontSize(25)
+        .fillColor("#25170D")
+        .text(
+          formattedAmount,
+          contentX + 265,
+          donationY + 35,
+          {
+            width: contentW - 285,
+            align: "center",
+          }
+        );
+
+      /*
+       * Payment method
+       */
+
+      doc
+        .font(fontBold)
+        .fontSize(8)
+        .fillColor(MUTED)
+        .text(
+          "पेमेंट पद्धत / Payment Method",
+          contentX + 20,
+          donationY + 91
+        );
+
+      doc
+        .font(fontBold)
+        .fontSize(11)
+        .fillColor(TEXT)
+        .text(
+          paymentMethod,
+          contentX + 20,
+          donationY + 108
+        );
+
+      /*
+       * Payment date
+       */
+
+      doc
+        .font(fontBold)
+        .fontSize(8)
+        .fillColor(MUTED)
+        .text(
+          "पेमेंट दिनांक / Payment Date",
+          contentX + 205,
+          donationY + 91
+        );
+
+      doc
+        .font(fontBold)
+        .fontSize(11)
+        .fillColor(TEXT)
+        .text(
+          donationDate,
+          contentX + 205,
+          donationY + 108
+        );
+
+      /*
+       * Amount in words
+       */
+
+      doc
+        .roundedRect(
+          contentX + 14,
+          donationY + 127,
+          contentW - 28,
+          20,
+          5
+        )
+        .fill("#FFF4DC");
+
+      doc
+        .font(fontRegular)
+        .fontSize(7.2)
+        .fillColor(TEXT)
+        .text(
+          `रक्कमेचे शब्दांत / Amount in Words : ${amountInWords(amount)}`,
+          contentX + 20,
+          donationY + 133,
+          {
+            width: contentW - 40,
+            align: "center",
+            ellipsis: true,
+          }
+        );
+
+      /* ------------------------------------------------ */
+      /* THANK YOU SECTION                                */
+      /* ------------------------------------------------ */
+
+      const thankY = 648;
+      const thankH = 70;
+
+      roundedBox(
+        doc,
+        contentX,
+        thankY,
+        contentW,
+        thankH,
+        8,
+        "#FFFFFF",
+        "#DFD5C1",
+        1
+      );
+
+      doc
+        .font(fontBold)
+        .fontSize(10)
+        .fillColor("#7B241C")
+        .text(
+          "आपल्या मौल्यवान देणगीबद्दल मनःपूर्वक धन्यवाद !",
+          contentX + 16,
+          thankY + 12
+        );
+
+      doc
+        .font(fontRegular)
+        .fontSize(8)
+        .fillColor(TEXT)
+        .text(
+          "Thank you for your valuable contribution and support.",
+          contentX + 16,
+          thankY + 31
+        );
+
+      /*
+       * Received by
+       */
+
+      doc
+        .moveTo(
+          contentX + contentW - 170,
+          thankY + 8
+        )
+        .lineTo(
+          contentX + contentW - 170,
+          thankY + thankH - 8
+        )
+        .strokeColor("#DDD1BA")
+        .lineWidth(0.8)
+        .stroke();
+
+      doc
+        .font(fontBold)
+        .fontSize(8)
+        .fillColor(MUTED)
+        .text(
+          "प्राप्तकर्ता / RECEIVED BY",
+          contentX + contentW - 155,
+          thankY + 13,
+          {
+            width: 135,
+            align: "center",
+          }
+        );
+
+      doc
+        .font(fontBold)
+        .fontSize(10)
+        .fillColor(TEXT)
+        .text(
+          collectedBy,
+          contentX + contentW - 155,
+          thankY + 31,
+          {
+            width: 135,
+            align: "center",
+            ellipsis: true,
+          }
+        );
+
+      /* ------------------------------------------------ */
+      /* FOOTER                                           */
+      /* ------------------------------------------------ */
+
+      const footerY = 727;
+      const footerH = 96;
+
+      doc
+        .rect(
+          18,
+          footerY,
+          pageWidth - 36,
+          footerH
+        )
+        .fill(BLACK);
+
+      doc
+        .rect(
+          18,
+          footerY,
+          pageWidth - 36,
+          3
+        )
+        .fill(GOLD);
+
+      /*
+       * Raja image
+       */
+
+      if (existsSync(rajaPath)) {
+        doc.image(
+          rajaPath,
+          pageWidth / 2 - 70,
+          footerY + 8,
+          {
+            fit: [140, 55],
+            align: "center",
+            valign: "center",
+          }
+        );
+      } else {
+        doc
+          .font(fontBold)
+          .fontSize(22)
+          .fillColor("#F4C84A")
+          .text(
+            "मेड़तियाचा राजा",
+            0,
+            footerY + 22,
+            {
+              width: pageWidth,
+              align: "center",
+            }
+          );
       }
 
-      // Header Text
-      const headerCenterX = cardX + 90;
-      const headerContentW = cardWidth - 105;
+      /*
+       * Footer address
+       */
 
-      doc.font(fontBold).fontSize(20).fillColor("#FFF9EA")
-        .text(CONFIG.mandalNameMarathi || "मेड़तिया मित्र मंडळ", headerCenterX, cardY + 16, { width: headerContentW, align: "center" });
+      doc
+        .font(fontRegular)
+        .fontSize(7.5)
+        .fillColor("#D8D1C3")
+        .text(
+          "Omkareshwar Mandir, Medtiya Nagar, Opp. Seven Square School, Deepak Hospital Lane,",
+          30,
+          footerY + 67,
+          {
+            width: pageWidth - 60,
+            align: "center",
+          }
+        );
 
-      doc.font(fontBold).fontSize(9.5).fillColor("#F5D173")
-        .text((CONFIG.mandalNameEnglish || "MEDITIYA MITRA MANDAL").toUpperCase(), headerCenterX, cardY + 42, { width: headerContentW, align: "center", characterSpacing: 1.5 });
+      doc
+        .font(fontRegular)
+        .fontSize(7.5)
+        .fillColor("#D8D1C3")
+        .text(
+          "Mira Road, Mumbai, Maharashtra 401107",
+          30,
+          footerY + 78,
+          {
+            width: pageWidth - 60,
+            align: "center",
+          }
+        );
 
-      doc.font(fontReg).fontSize(9).fillColor("#E5E7EB")
-        .text(CONFIG.locationMarathi || "मेड़तिया नगर, कांदिवली (पूर्व), मुंबई – 400101", headerCenterX, cardY + 58, { width: headerContentW, align: "center" });
+      /*
+       * Computer generated note
+       */
 
-      doc.font(fontReg).fontSize(8.5).fillColor("#EA9A4E")
-        .text(CONFIG.subtagMarathi || "सार्वजनिक गणेशोत्सव मंडळ • स्थापना: २००१", headerCenterX, cardY + 74, { width: headerContentW, align: "center" });
+      doc
+        .font(fontRegular)
+        .fontSize(6.5)
+        .fillColor("#918A7C")
+        .text(
+          "Official Computer Generated Donation Receipt",
+          0,
+          footerY + 88,
+          {
+            width: pageWidth,
+            align: "center",
+          }
+        );
 
-      // 4. Title Section ("पावती")
-      const titleY = cardY + headerH + 16;
-      doc.font(fontBold).fontSize(22).fillColor("#11141A")
-        .text("पावती", cardX, titleY, { width: cardWidth, align: "center" });
-
-      // Decorative Gold Lines & Diamonds on both sides of "पावती"
-      const titleTextW = doc.widthOfString("पावती");
-      const titleCenterX = cardX + cardWidth / 2;
-      const lineW = 75;
-      const lineGap = 16;
-
-      const leftLineEnd = titleCenterX - titleTextW / 2 - lineGap;
-      doc.moveTo(leftLineEnd - lineW, titleY + 14).lineTo(leftLineEnd, titleY + 14).strokeColor("#D4A638").lineWidth(1).stroke();
-      drawDiamond(doc, leftLineEnd + 7, titleY + 14, 3.5, "#E0660F");
-
-      const rightLineStart = titleCenterX + titleTextW / 2 + lineGap;
-      drawDiamond(doc, rightLineStart - 7, titleY + 14, 3.5, "#E0660F");
-      doc.moveTo(rightLineStart, titleY + 14).lineTo(rightLineStart + lineW, titleY + 14).strokeColor("#D4A638").lineWidth(1).stroke();
-
-      doc.font(fontBold).fontSize(10).fillColor("#E0660F")
-        .text(CONFIG.receiptTitleEnglish || "DONATION RECEIPT", cardX, titleY + 28, { width: cardWidth, align: "center", characterSpacing: 1.5 });
-
-      // 5. Receipt Meta Information Panel (3 Columns)
-      const metaY = titleY + 46;
-      const metaH = 44;
-      const contentPad = 22;
-      const contentX = cardX + contentPad;
-      const contentW = cardWidth - contentPad * 2; // 511.28
-
-      doc.rect(contentX, metaY, contentW, metaH).fillAndStroke("#FDFBF7", "#DFD7C7").lineWidth(1);
-
-      const colW = contentW / 3;
-      // Col 1: Receipt Number
-      doc.font(fontBold).fontSize(7.5).fillColor("#6B7280").text("पावती क्रमांक / RECEIPT NO.", contentX + 12, metaY + 8);
-      doc.font(fontBold).fontSize(11).fillColor("#11141A").text(receiptNumber, contentX + 12, metaY + 22);
-
-      // Div 1
-      doc.moveTo(contentX + colW, metaY + 5).lineTo(contentX + colW, metaY + metaH - 5).strokeColor("#EAE3D5").lineWidth(1).stroke();
-
-      // Col 2: Date
-      doc.font(fontBold).fontSize(7.5).fillColor("#6B7280").text("दिनांक / DATE", contentX + colW + 12, metaY + 8);
-      doc.font(fontBold).fontSize(11).fillColor("#11141A").text(donationDate, contentX + colW + 12, metaY + 22);
-
-      // Div 2
-      doc.moveTo(contentX + colW * 2, metaY + 5).lineTo(contentX + colW * 2, metaY + metaH - 5).strokeColor("#EAE3D5").lineWidth(1).stroke();
-
-      // Col 3: Festival
-      doc.font(fontBold).fontSize(7.5).fillColor("#6B7280").text("उत्सव / FESTIVAL", contentX + colW * 2 + 12, metaY + 8);
-      doc.font(fontBold).fontSize(11).fillColor("#D97706").text(festivalTitle, contentX + colW * 2 + 12, metaY + 22);
-
-      // 6. Donor Information Box
-      const donorY = metaY + metaH + 14;
-      const donorH = 102;
-      doc.rect(contentX, donorY, contentW, donorH).fillAndStroke("#FFFFFF", "#DCD3C1").lineWidth(1);
-
-      // Donor Tab
-      const tabW = 205;
-      const tabH = 18;
-      doc.rect(contentX, donorY, tabW, tabH).fill("#E0660F");
-      doc.font(fontBold).fontSize(8).fillColor("#FFFFFF").text("दात्याची माहिती / DONOR INFORMATION", contentX + 10, donorY + 5);
-
-      const dColW = (contentW - 32) / 2;
-      // Row 1: Name & Mobile
-      doc.font(fontBold).fontSize(7.5).fillColor("#6B7280").text("दात्याचे नाव / Donor Name", contentX + 14, donorY + 28);
-      doc.font(fontBold).fontSize(11).fillColor("#11141A").text(donorName, contentX + 14, donorY + 41, { width: dColW, ellipsis: true });
-
-      doc.font(fontBold).fontSize(7.5).fillColor("#6B7280").text("मोबाईल क्रमांक / Mobile No.", contentX + contentW / 2 + 8, donorY + 28);
-      doc.font(fontBold).fontSize(11).fillColor("#11141A").text(mobile, contentX + contentW / 2 + 8, donorY + 41);
-
-      // Divider Line
-      doc.moveTo(contentX + 14, donorY + 62).lineTo(contentX + contentW - 14, donorY + 62).strokeColor("#F3EDE2").lineWidth(0.75).stroke();
-
-      // Row 2: Building & Flat
-      doc.font(fontBold).fontSize(7.5).fillColor("#6B7280").text("इमारत व विंग / Building & Wing", contentX + 14, donorY + 68);
-      doc.font(fontBold).fontSize(10.5).fillColor("#11141A").text(bldgWing, contentX + 14, donorY + 81, { width: dColW, ellipsis: true });
-
-      doc.font(fontBold).fontSize(7.5).fillColor("#6B7280").text("फ्लॅट क्रमांक / Flat No.", contentX + contentW / 2 + 8, donorY + 68);
-      doc.font(fontBold).fontSize(10.5).fillColor("#11141A").text(flat, contentX + contentW / 2 + 8, donorY + 81);
-
-      // 7. Donation Details Box
-      const payY = donorY + donorH + 14;
-      const payH = 138;
-      doc.rect(contentX, payY, contentW, payH).fillAndStroke("#FDFCF9", "#D4A638").lineWidth(1.5);
-
-      // Pay Tab
-      doc.rect(contentX, payY, tabW, tabH).fill("#1F242E");
-      doc.font(fontBold).fontSize(8).fillColor("#F5D173").text("देणगी तपशील / DONATION DETAILS", contentX + 10, payY + 5);
-
-      // Prominent Donation Amount
-      doc.font(fontBold).fontSize(9.5).fillColor("#E0660F").text("देणगी रक्कम / Donation Amount", contentX, payY + 26, { width: contentW, align: "center" });
-
-      doc.font(fontBold).fontSize(28).fillColor("#11141A").text(formattedAmount, contentX, payY + 40, { width: contentW, align: "center" });
-
-      // Amount in Words Box
-      const wordsBoxW = contentW - 28;
-      const wordsBoxX = contentX + 14;
-      const wordsBoxY = payY + 76;
-      doc.rect(wordsBoxX, wordsBoxY, wordsBoxW, 20).fillAndStroke("#F3EDE2", "#E5DCCE").lineWidth(0.75);
-      doc.font(fontReg).fontSize(8.5).fillColor("#334155").text(wordsCombined, wordsBoxX + 6, wordsBoxY + 5.5, { width: wordsBoxW - 12, align: "center", ellipsis: true });
-
-      // Pay Meta Line
-      doc.moveTo(contentX + 14, payY + 104).lineTo(contentX + contentW - 14, payY + 104).strokeColor("#EAE2D3").lineWidth(0.75).stroke();
-
-      doc.font(fontBold).fontSize(8).fillColor("#6B7280").text("पेमेंट पद्धत / Method:", contentX + 16, payY + 115);
-
-      // Emerald Pill
-      const pillX = contentX + 120;
-      const pillW = 75;
-      doc.rect(pillX, payY + 110, pillW, 18).fillAndStroke("#EDF7ED", "#2E7D32").lineWidth(1);
-      doc.font(fontBold).fontSize(8.5).fillColor("#1E4620").text(methodText, pillX, payY + 114.5, { width: pillW, align: "center" });
-
-      doc.font(fontBold).fontSize(8).fillColor("#6B7280").text("पेमेंट दिनांक / Date:", contentX + contentW / 2 + 20, payY + 115);
-      doc.font(fontBold).fontSize(9.5).fillColor("#11141A").text(donationDate, contentX + contentW / 2 + 115, payY + 114);
-
-      // 8. Thank You & Received By Section
-      const thankY = payY + payH + 14;
-      const thankH = 74;
-      doc.rect(contentX, thankY, contentW, thankH).fillAndStroke("#FFFFFF", "#DFD7C7").lineWidth(1);
-
-      const recW = 155;
-      const thankW = contentW - recW;
-
-      doc.font(fontBold).fontSize(9.5).fillColor("#E0660F").text(CONFIG.thankYouMarathi || "आपल्या मौल्यवान देणगीबद्दल मनःपूर्वक धन्यवाद !", contentX + 14, thankY + 12);
-      doc.font(fontReg).fontSize(8).fillColor("#64748B").text(CONFIG.thankYouEnglish || "Thank you for your valuable contribution and support.", contentX + 14, thankY + 28);
-      doc.font(fontBold).fontSize(9).fillColor("#B45309").text(CONFIG.blessingMarathi || "॥ गणपती बाप्पा मोरया, मंगलमूर्ती मोरया ॥", contentX + 14, thankY + 46);
-
-      // Vertical Divider
-      doc.moveTo(contentX + thankW, thankY + 6).lineTo(contentX + thankW, thankY + thankH - 6).strokeColor("#EAE2D3").lineWidth(0.75).stroke();
-
-      // Received by (Right)
-      const recX = contentX + thankW + 10;
-      doc.font(fontBold).fontSize(7.5).fillColor("#6B7280").text("प्राप्तकर्ता / RECEIVED BY", recX, thankY + 12, { width: recW - 20, align: "center" });
-      doc.font(fontBold).fontSize(10).fillColor("#11141A").text(collectedBy, recX, thankY + 27, { width: recW - 20, align: "center", ellipsis: true });
-
-      // Green Verified Stamp
-      const stampW = 100;
-      const stampX = recX + (recW - 20 - stampW) / 2;
-      doc.rect(stampX, thankY + 46, stampW, 16).fillAndStroke("#EDF7ED", "#2E7D32").lineWidth(0.75);
-      drawCheckmark(doc, stampX + 8, thankY + 50, 6, "#2E7D32");
-      doc.font(fontBold).fontSize(7.5).fillColor("#1E4620").text("VERIFIED RECEIPT", stampX + 16, thankY + 50, { width: stampW - 20, align: "center" });
-
-      // 9. Footer Section (Dark Banner)
-      const footerH = 74;
-      const footerY = cardY + cardHeight - footerH;
-
-      doc.rect(cardX, footerY, cardWidth, footerH).fill("#11141A");
-      doc.rect(cardX, footerY, cardWidth, 2).fill("#D4A638");
-      doc.rect(cardX, footerY - 2, cardWidth, 1.5).fill("#E0660F");
-
-      // "मेड़तियाचा राजा" with flanking vector diamonds
-      const rajaText = CONFIG.footerRajaMarathi || "मेड़तियाचा राजा";
-      doc.font(fontBold).fontSize(17).fillColor("#F5D173")
-        .text(rajaText, cardX, footerY + 14, { width: cardWidth, align: "center", characterSpacing: 1 });
-
-      const rajaTextW = doc.widthOfString(rajaText);
-      const rajaCenterX = cardX + cardWidth / 2;
-      drawDiamond(doc, rajaCenterX - rajaTextW / 2 - 14, footerY + 22, 3.5, "#F5D173");
-      drawDiamond(doc, rajaCenterX + rajaTextW / 2 + 14, footerY + 22, 3.5, "#F5D173");
-
-      doc.font(fontReg).fontSize(8.5).fillColor("#D1D5DB")
-        .text(CONFIG.footerSubtext || "मेड़तिया मित्र मंडळ • कांदिवली (पूर्व), मुंबई – ४००१०१", cardX, footerY + 37, { width: cardWidth, align: "center" });
-
-      doc.font(fontReg).fontSize(7).fillColor("#9CA3AF")
-        .text(CONFIG.computerGeneratedNote || "ही संगणकीय पावती असल्याने स्वाक्षरीची आवश्यकता नाही • Official Computer Generated Receipt", cardX, footerY + 53, { width: cardWidth, align: "center" });
+      /*
+       * END
+       */
 
       doc.end();
-    } catch (err) {
-      logger.error({ err, receiptNumber: data.receiptNumber }, "Vargani PDF rendering failed");
-      reject(err);
+
+    } catch (error) {
+      logger.error(
+        {
+          err: error,
+          receiptNumber: data.receiptNumber,
+        },
+        "Vargani PDF rendering failed"
+      );
+
+      reject(error);
     }
   });
 }
-
-
-
-
