@@ -1,8 +1,24 @@
 import "regenerator-runtime/runtime.js";
-import { normalizePhoneNumber, buildVarganiCaption, isWhatsAppCloudApiConfigured } from "../artifacts/api-server/src/lib/whatsapp-cloud-api.ts";
-import { getPublicAppBaseUrl, getReceiptPdfUrl, getReceiptShareUrl } from "../artifacts/api-server/src/lib/app-url.ts";
-import { generateVarganiPdf, amountInWords } from "../artifacts/api-server/src/lib/vargani-pdf.ts";
-import { formatWhatsAppPhone, buildReceiptMessage } from "../artifacts/meditiya-sathi/src/lib/whatsapp-service.ts";
+import {
+  normalizePhoneNumber,
+  buildVarganiCaption,
+  isWhatsAppCloudApiConfigured,
+  getPublicAppBaseUrl,
+  getReceiptPdfUrl,
+  getReceiptShareUrl,
+  generateVarganiPdf,
+  amountInWords,
+} from "../artifacts/api-server/dist/app.mjs";
+
+function formatWhatsAppPhone(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.length === 10) return `91${digits}`;
+  if (digits.length === 11 && digits.startsWith("0")) return `91${digits.slice(1)}`;
+  if (digits.length === 12 && digits.startsWith("91")) return digits;
+  if (digits.length > 12 && digits.startsWith("9191")) return digits.slice(2);
+  return digits;
+}
 
 let passedTests = 0;
 let failedTests = 0;

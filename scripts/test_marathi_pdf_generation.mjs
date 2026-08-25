@@ -1,4 +1,4 @@
-import { generateVarganiPdf, amountInWords } from "../artifacts/api-server/src/lib/vargani-pdf.ts";
+import { generateVarganiPdf, amountInWords } from "../artifacts/api-server/dist/app.mjs";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { execSync } from "node:child_process";
@@ -116,10 +116,14 @@ async function runTestSuite() {
     console.log(`  ✓ Generated ${tc.id}.pdf (${pdfBuf.length} bytes in ${duration}ms)`);
   }
 
-  // Convert the first test case to PNG and inspect
-  console.log("\nConverting test-marathi-donor-5001.pdf to PNG for inspection...");
-  execSync(`python -c "import pymupdf; doc = pymupdf.open('test-marathi-donor-5001.pdf'); doc[0].get_pixmap(dpi=150).save('test-marathi-donor-5001.png')"`);
-  console.log("  ✓ Saved test-marathi-donor-5001.png");
+  // Convert the first test case to PNG if python/pymupdf is available
+  try {
+    console.log("\nConverting test-marathi-donor-5001.pdf to PNG for inspection...");
+    execSync(`python -c "import pymupdf; doc = pymupdf.open('test-marathi-donor-5001.pdf'); doc[0].get_pixmap(dpi=150).save('test-marathi-donor-5001.png')"`);
+    console.log("  ✓ Saved test-marathi-donor-5001.png");
+  } catch (err) {
+    console.log("  (Skipping PNG conversion: python/pymupdf not installed or not in PATH)");
+  }
 
   console.log("\n=======================================================");
   console.log("ALL MARATHI PAUTI PDF TESTS PASSED SUCCESSFULLY");

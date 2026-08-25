@@ -145,4 +145,7 @@ app.use((err: any, req: Request, res: Response, _next: express.NextFunction) => 
   res.status(err.status || 500).json({ error: "Internal server error" });
 });
 
+export { generateVarganiPdf, amountInWords, getMarathiNumberWords } from "./lib/vargani-pdf";
+export { normalizePhoneNumber, buildVarganiCaption, isWhatsAppCloudApiConfigured } from "./lib/whatsapp-cloud-api";
+export { getPublicAppBaseUrl, getReceiptPdfUrl, getReceiptShareUrl } from "./lib/app-url";
 export default app;

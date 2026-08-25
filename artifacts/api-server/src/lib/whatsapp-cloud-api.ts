@@ -345,6 +345,10 @@ export function buildVarganiCaption(data: {
     lines.push(`Donor Name: ${data.donorName}`);
   }
 
+  if (data.pdfUrl) {
+    lines.push(`Receipt Link: ${data.pdfUrl}`);
+  }
+
   lines.push("", "धन्यवाद 🙏", "मेड़तिया मित्र मंडळ");
   return lines.join("\n");
 }
