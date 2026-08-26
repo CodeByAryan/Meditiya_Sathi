@@ -17,6 +17,8 @@
     "typescript": "~5.9.3"
   },
   "dependencies": {
+    "dotenv": "^17.4.2",
+    "googleapis": "^176.0.0",
     "regenerator-runtime": "^0.14.1"
   }
 }

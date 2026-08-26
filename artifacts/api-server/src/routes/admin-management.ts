@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
-import { db, adminsTable } from "@workspace/db";
-import { eq, asc, or, and } from "drizzle-orm";
+import { db, adminsTable, festivalsTable, eventsTable, volunteerFestivalAssignmentsTable, volunteerEventAssignmentsTable } from "@workspace/db";
+import { eq, asc, or, and, inArray } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
@@ -37,8 +37,18 @@ router.get("/admin/manage", requireRole("Super Admin", "Admin"), async (_req, re
       .from(adminsTable)
       .orderBy(asc(adminsTable.fullName));
 
+    const volunteerIds = admins.filter((a) => a.role === "Volunteer").map((a) => a.id);
+    const [festivalAssignments, eventAssignments] = volunteerIds.length === 0
+      ? [[], []]
+      : await Promise.all([
+          db.select({ volunteerId: volunteerFestivalAssignmentsTable.volunteerId, festivalId: volunteerFestivalAssignmentsTable.festivalId }).from(volunteerFestivalAssignmentsTable).where(inArray(volunteerFestivalAssignmentsTable.volunteerId, volunteerIds)),
+          db.select({ volunteerId: volunteerEventAssignmentsTable.volunteerId, eventId: volunteerEventAssignmentsTable.eventId }).from(volunteerEventAssignmentsTable).where(inArray(volunteerEventAssignmentsTable.volunteerId, volunteerIds)),
+        ]);
+
     res.json(admins.map(a => ({
       ...a,
+      assignedFestivalIds: festivalAssignments.filter((x) => x.volunteerId === a.id).map((x) => x.festivalId),
+      assignedEventIds: eventAssignments.filter((x) => x.volunteerId === a.id).map((x) => x.eventId),
       createdAt: a.createdAt?.toISOString?.() || a.createdAt,
       updatedAt: a.updatedAt?.toISOString?.() || a.updatedAt,
       lastLogin: a.lastLogin?.toISOString?.() || a.lastLogin,
@@ -71,8 +81,8 @@ router.post("/admin/manage", requireRole("Super Admin", "Admin"), async (req, re
       res.status(400).json({ error: "Password is required" });
       return;
     }
-    if (body.password.length < 6) {
-      res.status(400).json({ error: "Password must be at least 6 characters" });
+    if (body.password.length < 6 || body.password.length > 128) {
+      res.status(400).json({ error: "Password must be between 6 and 128 characters" });
       return;
     }
     if (body.password !== body.confirmPassword) {
@@ -362,8 +372,8 @@ router.patch("/admin/manage/:id/reset-password", requireRole("Super Admin", "Adm
     }
 
     const { newPassword, confirmPassword } = req.body || {};
-    if (!isNonEmptyString(newPassword) || newPassword.length < 6) {
-      res.status(400).json({ error: "New password must be at least 6 characters" });
+    if (!isNonEmptyString(newPassword) || newPassword.length < 6 || newPassword.length > 128) {
+      res.status(400).json({ error: "New password must be between 6 and 128 characters" });
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -432,5 +442,95 @@ router.delete("/admin/manage/:id", requireRole("Super Admin", "Admin"), async (r
     res.status(500).json({ error: err?.message || "Failed to delete account" });
   }
 });
+
+// Assignment management remains inside Admin Management and follows its existing
+// role gate. Admins retain their existing ability to manage Volunteer accounts;
+// Volunteers cannot reach these endpoints.
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function getVolunteerForAssignment(id: string) {
+  if (!uuidPattern.test(id)) return null;
+  const [volunteer] = await db.select({ id: adminsTable.id, role: adminsTable.role })
+    .from(adminsTable).where(eq(adminsTable.id, id)).limit(1);
+  return volunteer?.role === "Volunteer" ? volunteer : null;
+}
+
+router.get("/admin/manage/:id/assignments", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
+  const volunteerId = String(req.params.id);
+  try {
+    if (!(await getVolunteerForAssignment(volunteerId))) { res.status(404).json({ error: "Volunteer not found" }); return; }
+    const rows = await db.select({ festivalId: volunteerFestivalAssignmentsTable.festivalId, festivalName: festivalsTable.name, year: festivalsTable.year })
+      .from(volunteerFestivalAssignmentsTable)
+      .innerJoin(festivalsTable, eq(festivalsTable.id, volunteerFestivalAssignmentsTable.festivalId))
+      .where(eq(volunteerFestivalAssignmentsTable.volunteerId, volunteerId));
+    res.json(rows);
+  } catch (error) {
+    console.error("[assignments] load failed", { volunteerId, error: error instanceof Error ? error.message : error });
+    res.status(500).json({ error: "Failed to load Volunteer assignments" });
+  }
+});
+
+router.post("/admin/manage/:id/assignments", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
+  const volunteerId = String(req.params.id);
+  const festivalId = Number(req.body?.festivalId);
+  try {
+    if (!(await getVolunteerForAssignment(volunteerId))) { res.status(404).json({ error: "Volunteer not found" }); return; }
+    if (!Number.isInteger(festivalId) || festivalId <= 0) { res.status(400).json({ error: "A valid festivalId is required" }); return; }
+    const [festival] = await db.select({ id: festivalsTable.id, name: festivalsTable.name, year: festivalsTable.year })
+      .from(festivalsTable).where(eq(festivalsTable.id, festivalId)).limit(1);
+    if (!festival) { res.status(404).json({ error: "Festival not found" }); return; }
+    const [created] = await db.insert(volunteerFestivalAssignmentsTable)
+      .values({ volunteerId, festivalId }).returning();
+    res.status(201).json({ ...created, festival });
+  } catch (error: any) {
+    if (error?.code === "23505") { res.status(409).json({ error: "Volunteer is already assigned to this festival" }); return; }
+    console.error("[assignments] create failed", { volunteerId, festivalId, error: error instanceof Error ? error.message : error });
+    res.status(500).json({ error: "Failed to assign Volunteer to festival" });
+  }
+});
+
+router.delete("/admin/manage/:id/assignments/:festivalId", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
+  const volunteerId = String(req.params.id);
+  const festivalId = Number(req.params.festivalId);
+  try {
+    if (!(await getVolunteerForAssignment(volunteerId))) { res.status(404).json({ error: "Volunteer not found" }); return; }
+    if (!Number.isInteger(festivalId) || festivalId <= 0) { res.status(400).json({ error: "Invalid festivalId" }); return; }
+    const deleted = await db.delete(volunteerFestivalAssignmentsTable)
+      .where(and(eq(volunteerFestivalAssignmentsTable.volunteerId, volunteerId), eq(volunteerFestivalAssignmentsTable.festivalId, festivalId)))
+      .returning({ volunteerId: volunteerFestivalAssignmentsTable.volunteerId });
+    if (!deleted.length) { res.status(404).json({ error: "Assignment not found" }); return; }
+    res.json({ success: true, message: "Volunteer unassigned from festival" });
+  } catch (error) {
+    console.error("[assignments] remove failed", { volunteerId, festivalId, error: error instanceof Error ? error.message : error });
+    res.status(500).json({ error: "Failed to remove Volunteer assignment" });
+  }
+});
+
+router.patch("/admin/manage/:id/assignments", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
+  try {
+    const volunteerId = String(req.params.id);
+    const [volunteer] = await db.select({ id: adminsTable.id, role: adminsTable.role }).from(adminsTable).where(eq(adminsTable.id, volunteerId as any)).limit(1);
+    if (!volunteer) { res.status(404).json({ error: "Account not found" }); return; }
+    if (volunteer.role !== "Volunteer") { res.status(400).json({ error: "Assignments can only be changed for Volunteers" }); return; }
+    const festivalIds: number[] = Array.isArray(req.body?.festivalIds) ? Array.from(new Set<number>(req.body.festivalIds.map(Number).filter((id: number) => Number.isInteger(id) && id > 0))) : [];
+    const eventIds: number[] = Array.isArray(req.body?.eventIds) ? Array.from(new Set<number>(req.body.eventIds.map(Number).filter((id: number) => Number.isInteger(id) && id > 0))) : [];
+    const validFestivals = await db.select({ id: festivalsTable.id }).from(festivalsTable).where(inArray(festivalsTable.id, festivalIds));
+    const validEvents = await db.select({ id: eventsTable.id }).from(eventsTable).where(inArray(eventsTable.id, eventIds));
+    if (validFestivals.length !== festivalIds.length || validEvents.length !== eventIds.length) { res.status(400).json({ error: "One or more assignment targets do not exist" }); return; }
+    await db.transaction(async (tx) => {
+      await tx.delete(volunteerFestivalAssignmentsTable).where(eq(volunteerFestivalAssignmentsTable.volunteerId, volunteerId as any));
+      await tx.delete(volunteerEventAssignmentsTable).where(eq(volunteerEventAssignmentsTable.volunteerId, volunteerId as any));
+      if (festivalIds.length) await tx.insert(volunteerFestivalAssignmentsTable).values(festivalIds.map((festivalId) => ({ volunteerId: volunteerId as any, festivalId })));
+      if (eventIds.length) await tx.insert(volunteerEventAssignmentsTable).values(eventIds.map((eventId) => ({ volunteerId: volunteerId as any, eventId })));
+    });
+    // Keep the legacy single-assignment columns compatible with older code paths.
+    await db.update(festivalsTable).set({ assignedVolunteerId: null }).where(eq(festivalsTable.assignedVolunteerId, volunteerId));
+    await db.update(eventsTable).set({ assignedVolunteerId: null }).where(eq(eventsTable.assignedVolunteerId, volunteerId));
+    if (festivalIds.length) await db.update(festivalsTable).set({ assignedVolunteerId: volunteerId }).where(inArray(festivalsTable.id, festivalIds));
+    if (eventIds.length) await db.update(eventsTable).set({ assignedVolunteerId: volunteerId }).where(inArray(eventsTable.id, eventIds));
+    res.json({ volunteerId, festivalIds, eventIds, message: "Volunteer assignments updated successfully" });
+  } catch { res.status(500).json({ error: "Failed to update Volunteer assignments" }); }
+});
+
 
 export default router;

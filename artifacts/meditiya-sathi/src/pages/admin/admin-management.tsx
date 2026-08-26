@@ -37,6 +37,8 @@ interface Admin {
   isActive: boolean;
   createdAt: string;
   lastLogin: string | null;
+  assignedFestivalIds?: number[];
+  assignedEventIds?: number[];
 }
 
 interface FormData {
@@ -76,6 +78,7 @@ export default function AdminManagement() {
 
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editAdmin, setEditAdmin] = useState<Admin | null>(null);
@@ -100,6 +103,13 @@ export default function AdminManagement() {
     newPassword: "",
     confirmPassword: "",
   });
+
+  const [assignmentAdmin, setAssignmentAdmin] = useState<Admin | null>(null);
+  const [assignmentFestivalIds, setAssignmentFestivalIds] = useState<number[]>([]);
+  const [assignmentEventIds, setAssignmentEventIds] = useState<number[]>([]);
+  const [assignmentFestivals, setAssignmentFestivals] = useState<{ id: number; name: string; year: number }[]>([]);
+  const [assignmentEvents, setAssignmentEvents] = useState<{ id: number; title: string }[]>([]);
+  const [assignmentLoading, setAssignmentLoading] = useState(false);
 
   const fetchAdmins = useCallback(async () => {
     setLoading(true);
@@ -265,6 +275,25 @@ export default function AdminManagement() {
     }
   };
 
+  const openAssignments = async (admin: Admin) => {
+    setAssignmentAdmin(admin); setAssignmentFestivalIds(admin.assignedFestivalIds || []); setAssignmentEventIds(admin.assignedEventIds || []); setAssignmentLoading(true);
+    try {
+      const [festivalsRes, eventsRes] = await Promise.all([fetch(`${getApiUrl()}/api/admin/festivals`, { headers: getAuthHeaders() }), fetch(`${getApiUrl()}/api/admin/events`, { headers: getAuthHeaders() })]);
+      setAssignmentFestivals(await festivalsRes.json()); setAssignmentEvents(await eventsRes.json());
+    } finally { setAssignmentLoading(false); }
+  };
+
+  const saveAssignments = async () => {
+    if (!assignmentAdmin) return;
+    setAssignmentLoading(true); clearMessages();
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/manage/${assignmentAdmin.id}/assignments`, { method: "PATCH", headers: getAuthHeaders(), body: JSON.stringify({ festivalIds: assignmentFestivalIds, eventIds: assignmentEventIds }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to update assignments");
+      setSuccess("Volunteer assignments updated successfully"); setAssignmentAdmin(null); await fetchAdmins();
+    } catch (err: any) { setError(err?.message || "Failed to update assignments"); } finally { setAssignmentLoading(false); }
+  };
+
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -366,7 +395,7 @@ export default function AdminManagement() {
     clearMessages();
   };
 
-  if (!isSuperAdmin) {
+  if (!isSuperAdmin && user?.role !== "Admin") {
     return (
       <div className="relative min-h-screen w-full overflow-hidden bg-[#080808] text-white">
         {/* Gold ambient glow */}
@@ -482,7 +511,7 @@ export default function AdminManagement() {
                 <UserPlus className="h-4 w-4" />
               )}
 
-              {showAddForm ? "Cancel" : "Add Admin"}
+              {showAddForm ? "Cancel" : "Add Account"}
             </Button>
           </div>
 
@@ -721,6 +750,10 @@ export default function AdminManagement() {
                     >
                       Super Admin
                     </option>
+
+                    <option value="Volunteer" className="bg-[#111]">
+                      Volunteer
+                    </option>
                   </select>
                 </div>
 
@@ -752,7 +785,7 @@ export default function AdminManagement() {
                     type="submit"
                     className="rounded-full bg-gradient-to-r from-amber-200 via-orange-300 to-amber-400 px-6 font-semibold text-black shadow-[0_0_30px_rgba(251,191,36,0.12)] hover:brightness-110"
                   >
-                    {editAdmin ? "Update Admin" : "Create Admin"}
+                    {isSubmitting ? "Creating..." : (editAdmin ? "Update Admin" : "Create Admin")}
                   </Button>
 
                   <Button
@@ -857,6 +890,17 @@ export default function AdminManagement() {
         )}
 
         {/* =========================================================
+        {assignmentAdmin && (
+          <Card className="mb-8 rounded-3xl border-emerald-300/10 bg-white/[0.035] backdrop-blur-2xl">
+            <CardHeader><CardTitle className="text-white">Assignments for {assignmentAdmin.fullName}</CardTitle></CardHeader>
+            <CardContent className="space-y-5">
+              <div><p className="mb-2 text-sm font-semibold text-white/70">Festivals</p><div className="grid gap-2 sm:grid-cols-2">{assignmentFestivals.map((festival) => <label key={festival.id} className="flex items-center gap-2 text-sm text-white/70"><input type="checkbox" checked={assignmentFestivalIds.includes(festival.id)} onChange={(event) => setAssignmentFestivalIds((old) => event.target.checked ? [...old, festival.id] : old.filter((id) => id !== festival.id))} />{festival.name} {festival.year}</label>)}</div></div>
+              <div><p className="mb-2 text-sm font-semibold text-white/70">Events</p><div className="grid gap-2 sm:grid-cols-2">{assignmentEvents.map((event) => <label key={event.id} className="flex items-center gap-2 text-sm text-white/70"><input type="checkbox" checked={assignmentEventIds.includes(event.id)} onChange={(change) => setAssignmentEventIds((old) => change.target.checked ? [...old, event.id] : old.filter((id) => id !== event.id))} />{event.title}</label>)}</div></div>
+              <div className="flex gap-3 pt-2"><Button onClick={saveAssignments} disabled={assignmentLoading}>{assignmentLoading ? "Saving..." : "Save Assignments"}</Button><Button variant="outline" onClick={() => setAssignmentAdmin(null)}>Cancel</Button></div>
+            </CardContent>
+          </Card>
+        )}
+
             ADMIN TABLE
         ========================================================== */}
 
@@ -999,6 +1043,9 @@ export default function AdminManagement() {
 
                           <td className="px-5 py-4">
                             <div className="flex items-center justify-end gap-1">
+                              {admin.role === "Volunteer" && <span className="mr-2 text-xs text-white/40">{(admin.assignedFestivalIds || []).length} festivals · {(admin.assignedEventIds || []).length} events</span>}
+                              {admin.role === "Volunteer" && <button onClick={() => openAssignments(admin)} className="rounded-lg p-2 transition-colors hover:bg-emerald-300/10" title="Assignments"><Check className="h-4 w-4 text-emerald-300" /></button>}
+
                               <button
                                 onClick={() =>
                                   openEditForm(admin)

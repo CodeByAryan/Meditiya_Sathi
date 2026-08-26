@@ -56,6 +56,7 @@ export default function Shell({
     isAuthenticated,
     logout,
     isSuperAdmin,
+    isVolunteer,
   } = useAdminAuth();
 
   const shouldReduceMotion = useReducedMotion();
@@ -215,6 +216,12 @@ export default function Shell({
   ============================================================ */
 
   const adminLinks = [
+    ...(isVolunteer
+      ? [
+          { name: 'Festival Collection', href: '/admin/festivals', icon: PartyPopper, description: 'Collect assigned festival donations', superAdminOnly: false },
+          { name: 'Events', href: '/admin/events', icon: ClipboardList, description: 'Work on assigned events', superAdminOnly: false },
+        ]
+      : []),
     ...(isSuperAdmin
       ? [
           {
@@ -234,7 +241,7 @@ export default function Shell({
         ]
       : []),
 
-    {
+    ...(!isVolunteer ? [{
       name: 'Building',
       href: '/admin/buildings',
       icon: Building2,
@@ -264,7 +271,7 @@ export default function Shell({
       icon: ClipboardList,
       description: 'Manage events',
       superAdminOnly: false,
-    },
+    }] : []),
   ];
 
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');

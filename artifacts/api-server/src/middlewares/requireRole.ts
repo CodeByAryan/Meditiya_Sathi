@@ -1,6 +1,6 @@
 import type { RequestHandler } from "express";
-import { db, adminsTable, festivalsTable, eventsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, adminsTable, festivalsTable, eventsTable, volunteerFestivalAssignmentsTable, volunteerEventAssignmentsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import { verifyAdminToken } from "../routes/admin-auth";
 
 /**
@@ -48,6 +48,13 @@ export const PERMISSIONS = {
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
+export type SystemRole = "Super Admin" | "Admin" | "Volunteer";
+
+export const ROLES: readonly SystemRole[] = ["Super Admin", "Admin", "Volunteer"];
+
+export function isSystemRole(role: unknown): role is SystemRole {
+  return typeof role === "string" && ROLES.includes(role as SystemRole);
+}
 
 /**
  * Check if a role has a specific permission.
@@ -202,8 +209,12 @@ export async function canAccessFestival(
     .from(festivalsTable)
     .where(eq(festivalsTable.id, festivalId))
     .limit(1);
-
-  return !!festival && festival.assignedVolunteerId === adminId;
+  if (festival?.assignedVolunteerId === adminId) return true;
+  const [assignment] = await db.select({ volunteerId: volunteerFestivalAssignmentsTable.volunteerId })
+    .from(volunteerFestivalAssignmentsTable)
+    .where(and(eq(volunteerFestivalAssignmentsTable.volunteerId, adminId), eq(volunteerFestivalAssignmentsTable.festivalId, festivalId)))
+    .limit(1);
+  return !!assignment;
 }
 
 /**
@@ -223,8 +234,12 @@ export async function canAccessEvent(
     .from(eventsTable)
     .where(eq(eventsTable.id, eventId))
     .limit(1);
-
-  return !!event && event.assignedVolunteerId === adminId;
+  if (event?.assignedVolunteerId === adminId) return true;
+  const [assignment] = await db.select({ volunteerId: volunteerEventAssignmentsTable.volunteerId })
+    .from(volunteerEventAssignmentsTable)
+    .where(and(eq(volunteerEventAssignmentsTable.volunteerId, adminId), eq(volunteerEventAssignmentsTable.eventId, eventId)))
+    .limit(1);
+  return !!assignment;
 }
 
 /**

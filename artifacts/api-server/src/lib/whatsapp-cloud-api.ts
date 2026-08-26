@@ -90,7 +90,9 @@ export function normalizePhoneNumber(raw: string | null | undefined): {
 export function isWhatsAppCloudApiConfigured(): boolean {
   const token = process.env.WHATSAPP_ACCESS_TOKEN?.trim();
   const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
-  return Boolean(token && phoneId);
+  const businessAccountId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID?.trim();
+  const apiVersion = process.env.WHATSAPP_API_VERSION?.trim();
+  return Boolean(token && phoneId && businessAccountId && apiVersion);
 }
 
 /**
@@ -103,9 +105,10 @@ export async function sendWhatsAppDocument(
 ): Promise<WhatsAppSendResult> {
   const token = process.env.WHATSAPP_ACCESS_TOKEN?.trim();
   const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
-  const apiVersion = process.env.WHATSAPP_API_VERSION?.trim() || "v21.0";
+  const businessAccountId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID?.trim();
+  const apiVersion = process.env.WHATSAPP_API_VERSION?.trim();
 
-  if (!token || !phoneId) {
+  if (!token || !phoneId || !businessAccountId || !apiVersion) {
     return {
       success: false,
       configured: false,
@@ -210,11 +213,17 @@ export async function sendWhatsAppDocument(
 
       let userMsg = "Failed to send WhatsApp document via Meta Cloud API.";
       if (errorObj?.code === 190) {
-        userMsg = "WhatsApp access token is invalid or expired. Please update WHATSAPP_ACCESS_TOKEN.";
-      } else if (errorObj?.code === 100) {
-        userMsg = errorObj.message || "Invalid WhatsApp request parameter.";
+        userMsg = "WhatsApp access token is invalid or expired. Please contact the administrator.";
+      } else if (errorObj?.code === 100 && /phone.?number.?id/i.test(errorObj?.message || "")) {
+        userMsg = "The configured WhatsApp Business phone number is invalid.";
+      } else if (errorObj?.code === 100 && /recipient|phone number/i.test(errorObj?.message || "")) {
+        userMsg = "The donor's mobile number is not valid for WhatsApp.";
+      } else if (errorObj?.code === 131026 || /not on WhatsApp|no WhatsApp account/i.test(errorObj?.message || "")) {
+        userMsg = "This donor does not have an active WhatsApp account.";
+      } else if (errorObj?.code === 131047 || /24.?hour|customer.?service window|template/i.test(errorObj?.message || "")) {
+        userMsg = "An approved WhatsApp template is required because the 24-hour customer-service window has expired.";
       } else if (errorObj?.message) {
-        userMsg = errorObj.message;
+        userMsg = "WhatsApp rejected the receipt message. Please check the Business API configuration.";
       }
 
       return {

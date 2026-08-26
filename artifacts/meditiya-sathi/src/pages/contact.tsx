@@ -1,9 +1,10 @@
-import { MapPin, Mail, Phone, Clock } from 'lucide-react';
+import { MapPin, Mail, Phone, Clock, MessageCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { getWhatsAppClickToChatUrl } from '@/config/whatsapp';
 
 export default function Contact() {
   return (
@@ -20,7 +21,7 @@ export default function Contact() {
 
       <div className="container mx-auto max-w-5xl px-4 -mt-20 relative z-20">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
+
           <div className="lg:col-span-2">
             <Card className="shadow-xl border-border bg-card h-full">
               <CardContent className="p-8 md:p-10">
@@ -66,7 +67,7 @@ export default function Contact() {
                   <h3 className="font-bold text-foreground text-lg mb-2">Location</h3>
                   <p className="text-muted-foreground">Meditiya Nagar Society,<br/>Sector 4, Charkop,<br/>Kandivali West, Mumbai,<br/>Maharashtra 400067</p>
                 </div>
-                
+
                 <div>
                   <div className="w-12 h-12 bg-secondary/10 text-secondary rounded-xl flex items-center justify-center mb-4">
                     <Mail className="w-6 h-6" />
@@ -75,7 +76,7 @@ export default function Contact() {
                   <p className="text-muted-foreground">committee@meditiyanagar.com</p>
                   <p className="text-muted-foreground">support@meditiyanagar.com</p>
                 </div>
-                
+
                 <div>
                   <div className="w-12 h-12 bg-accent/20 text-accent-foreground rounded-xl flex items-center justify-center mb-4">
                     <Phone className="w-6 h-6" />
@@ -83,6 +84,24 @@ export default function Contact() {
                   <h3 className="font-bold text-foreground text-lg mb-2">Phone</h3>
                   <p className="text-muted-foreground">Security Gate: 022-2867-XXXX</p>
                   <p className="text-muted-foreground">Society Office: 022-2867-YYYY</p>
+                </div>
+
+                <div>
+                  <div className="w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-xl flex items-center justify-center mb-4">
+                    <MessageCircle className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-bold text-foreground text-lg mb-2">WhatsApp</h3>
+                  <p className="text-muted-foreground mb-3">Quick query or message to Mandal committee</p>
+                  <a
+                    href={getWhatsAppClickToChatUrl()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Contact us on WhatsApp"
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#25D366] px-4 py-2 text-xs font-bold text-white shadow-md transition-all duration-300 hover:bg-[#20ba5a] hover:scale-105 active:scale-95"
+                  >
+                    <MessageCircle className="h-4 w-4 fill-white" />
+                    Chat with us on WhatsApp
+                  </a>
                 </div>
               </CardContent>
             </Card>

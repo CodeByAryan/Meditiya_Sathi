@@ -45,7 +45,7 @@ async function generateReceiptNumber(festivalId: number): Promise<string> {
 // ── GET /api/admin/outsider-donations/stats ────────────────────────────────
 // Dashboard summary: total collection, total donors, today's collection, pending amount
 
-router.get("/admin/outsider-donations/stats", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+router.get("/admin/outsider-donations/stats", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const today = new Date().toISOString().split("T")[0];
 
@@ -83,7 +83,7 @@ router.get("/admin/outsider-donations/stats", requireRole("Super Admin", "Admin"
 // ── GET /api/admin/outsider-donations/analytics ────────────────────────────
 // Outsider donation analytics card: totals, averages, highest/lowest, recent donations
 
-router.get("/admin/outsider-donations/analytics", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+router.get("/admin/outsider-donations/analytics", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     // Optional festivalId filter to scope analytics to a single festival
     const festivalIdParam = req.query.festivalId as string | undefined;
@@ -169,7 +169,7 @@ router.get("/admin/outsider-donations/reports", requireRole("Super Admin", "Admi
 // ── GET /api/admin/outsider-donations ──────────────────────────────────────
 // List all outsider donations with filters, search, pagination
 
-router.get("/admin/outsider-donations", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+router.get("/admin/outsider-donations", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 20));
@@ -274,10 +274,17 @@ router.get("/admin/outsider-donations", requireRole("Super Admin", "Admin", "Vol
 // ── POST /api/admin/outsider-donations ─────────────────────────────────────
 // Create an outsider donation (auto-collect admin info from token)
 
-router.post("/admin/outsider-donations", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+router.post("/admin/outsider-donations", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const body = req.body || {};
     const admin = (req as any).admin;
+
+    // Outsider donations are sensitive financial/admin data and are not part of
+    // the Volunteer operational role.
+    if (admin.role === "Volunteer") {
+      res.status(403).json({ error: "Volunteers cannot manage outsider donations" });
+      return;
+    }
 
     // Validation
     if (!isNonEmptyString(body.fullName)) {
@@ -366,7 +373,7 @@ router.post("/admin/outsider-donations", requireRole("Super Admin", "Admin", "Vo
 // ── PATCH /api/admin/outsider-donations/:id ────────────────────────────────
 // Update an outsider donation (supports pending→paid transition)
 
-router.patch("/admin/outsider-donations/:id", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+router.patch("/admin/outsider-donations/:id", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const donationId = parseInt(req.params.id as string, 10);
     if (isNaN(donationId)) {
@@ -532,7 +539,7 @@ router.delete("/admin/outsider-donations/:id", requireRole("Super Admin", "Admin
 // ── GET/POST /api/admin/outsider-donations/:id/vargani-pdf ──────────────────
 // Generate fresh Vargani PDF for an outsider donation from latest DB data
 
-router.all(["/admin/outsider-donations/:id/vargani-pdf", "/admin/outsider-donations/:id/vargani-pdf/download"], requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+router.all(["/admin/outsider-donations/:id/vargani-pdf", "/admin/outsider-donations/:id/vargani-pdf/download"], requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (!Number.isInteger(id) || id <= 0) {
@@ -627,7 +634,7 @@ router.all(["/admin/outsider-donations/:id/vargani-pdf", "/admin/outsider-donati
 
 // ── POST /api/admin/outsider-donations/:id/send-whatsapp ───────────────────
 // Send fresh Vargani PDF document directly to outsider donor via WhatsApp Business Cloud API
-router.post("/admin/outsider-donations/:id/send-whatsapp", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+router.post("/admin/outsider-donations/:id/send-whatsapp", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (!Number.isInteger(id) || id <= 0) {

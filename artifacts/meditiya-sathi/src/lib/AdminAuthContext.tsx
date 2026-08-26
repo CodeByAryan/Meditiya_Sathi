@@ -33,6 +33,9 @@ export interface AdminAuthContextType {
   canDeleteEvents: boolean;
   canViewReports: boolean;
   canManageSystemSettings: boolean;
+  canCollectDonations: boolean;
+  canEditOwnDonations: boolean;
+  canViewAssignedEvents: boolean;
 }
 
 const AdminAuthContext = createContext<AdminAuthContextType>({
@@ -57,6 +60,9 @@ const AdminAuthContext = createContext<AdminAuthContextType>({
   canDeleteEvents: false,
   canViewReports: false,
   canManageSystemSettings: false,
+  canCollectDonations: false,
+  canEditOwnDonations: false,
+  canViewAssignedEvents: false,
 });
 
 const STORAGE_KEY = "admin_auth";
@@ -103,6 +109,9 @@ const canDeleteFestivals = isSuperAdmin; // Only Super Admin can delete festival
   const canDeleteEvents = isSuperAdmin || isAdmin;
   const canViewReports = isSuperAdmin || isAdmin;
   const canManageSystemSettings = isSuperAdmin;
+  const canCollectDonations = isSuperAdmin || isAdmin || isVolunteer;
+  const canEditOwnDonations = canCollectDonations;
+  const canViewAssignedEvents = canCollectDonations;
 
   const login = useCallback(async (username: string, password: string): Promise<boolean> => {
     setIsLoading(true);
@@ -171,6 +180,9 @@ const canDeleteFestivals = isSuperAdmin; // Only Super Admin can delete festival
         canDeleteEvents,
         canViewReports,
         canManageSystemSettings,
+        canCollectDonations,
+        canEditOwnDonations,
+        canViewAssignedEvents,
       }}
     >
       {children}

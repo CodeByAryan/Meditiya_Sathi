@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, buildingsTable, wingsTable, residentsTable } from "@workspace/db";
+import { db, buildingsTable, wingsTable, residentsTable, festivalsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 
@@ -583,6 +583,25 @@ router.get("/admin/residents/search", requireRole("Super Admin", "Admin", "Volun
     const buildingIdParam = req.query.buildingId as string | undefined;
     const wingIdParam = req.query.wingId as string | undefined;
     const festivalIdParam = req.query.festivalId as string | undefined;
+    const admin = (req as any).admin;
+
+    // A Volunteer may search only the residents in an assigned festival. This
+    // prevents the resident search endpoint from becoming a system-wide lookup.
+    if (admin.role === "Volunteer") {
+      const festivalId = parseInt(festivalIdParam || "", 10);
+      if (!Number.isInteger(festivalId)) {
+        res.status(403).json({ error: "A festival assignment is required" });
+        return;
+      }
+      const [festival] = await db.select({ id: festivalsTable.id })
+        .from(festivalsTable)
+        .where(and(eq(festivalsTable.id, festivalId), eq(festivalsTable.assignedVolunteerId, admin.id)))
+        .limit(1);
+      if (!festival) {
+        res.status(403).json({ error: "You can only search residents for assigned festivals" });
+        return;
+      }
+    }
 
     if (q.length < 1 && !buildingIdParam) {
       res.json({ residents: [], festivalHistory: {} });

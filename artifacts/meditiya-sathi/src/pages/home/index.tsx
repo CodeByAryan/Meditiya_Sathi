@@ -7,6 +7,7 @@ import FeaturesBento from './FeaturesBento';
 import VolunteersSection from './VolunteersSection';
 import CTA from './CTA';
 import { pageFade } from './motionVariants';
+import WhatsAppFloatingButton from '@/components/WhatsAppFloatingButton';
 
 export default function HomePage() {
   return (
@@ -17,6 +18,7 @@ export default function HomePage() {
       <FeaturesBento />
       <VolunteersSection />
       <CTA />
+      <WhatsAppFloatingButton />
     </motion.div>
   );
 }

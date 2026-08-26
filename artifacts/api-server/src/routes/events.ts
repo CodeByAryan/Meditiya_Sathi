@@ -1,8 +1,8 @@
 import { Router, type IRouter } from "express";
-import { db, eventsTable, eventRegistrationsTable } from "@workspace/db";
+import { db, eventsTable, eventRegistrationsTable, volunteerEventAssignmentsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/requireRole";
 import { publicFormRateLimiter } from "../middlewares/rateLimiter";
-import { eq, desc, gte, lte, lt, count, and, sql } from "drizzle-orm";
+import { eq, desc, gte, lte, lt, count, and, sql, inArray, or } from "drizzle-orm";
 import {
   CreateEventBody,
   UpdateEventBody,
@@ -48,9 +48,18 @@ router.get("/admin/events", requireRole("Super Admin", "Admin", "Volunteer"), as
     const now = new Date();
     let conditions: any[] = [];
 
-    // Volunteers only see events assigned to them
+    // Volunteers only see events assigned to them, including normalized
+    // multi-assignment rows. The legacy column remains supported.
     if (admin.role === "Volunteer") {
-      conditions.push(eq(eventsTable.assignedVolunteerId, admin.id));
+      const assignments = await db.select({ eventId: volunteerEventAssignmentsTable.eventId })
+        .from(volunteerEventAssignmentsTable)
+        .where(eq(volunteerEventAssignmentsTable.volunteerId, admin.id));
+      const assignedIds = assignments.map((assignment) => assignment.eventId);
+      if (assignedIds.length) {
+        conditions.push(or(eq(eventsTable.assignedVolunteerId, admin.id), inArray(eventsTable.id, assignedIds)));
+      } else {
+        conditions.push(eq(eventsTable.assignedVolunteerId, admin.id));
+      }
     }
 
     if (status === "upcoming") conditions.push(gte(eventsTable.date, now));
@@ -83,7 +92,13 @@ router.get("/admin/events/upcoming/summary", requireRole("Super Admin", "Admin",
     let conditions: any[] = [gte(eventsTable.date, now)];
 
     if (admin.role === "Volunteer") {
-      conditions.push(eq(eventsTable.assignedVolunteerId, admin.id));
+      const assignments = await db.select({ eventId: volunteerEventAssignmentsTable.eventId })
+        .from(volunteerEventAssignmentsTable)
+        .where(eq(volunteerEventAssignmentsTable.volunteerId, admin.id));
+      const assignedIds = assignments.map((assignment) => assignment.eventId);
+      conditions.push(assignedIds.length
+        ? or(eq(eventsTable.assignedVolunteerId, admin.id), inArray(eventsTable.id, assignedIds))
+        : eq(eventsTable.assignedVolunteerId, admin.id));
     }
 
     const events = await db
@@ -202,9 +217,17 @@ router.patch("/admin/events/:id", requireRole("Super Admin", "Admin", "Volunteer
 
     const updateData: any = { ...parsed.data };
 
-    // Prevent Volunteer from changing ownership or creating events
+    // Volunteers perform operational updates only. Ownership and event identity
+    // remain controlled by administrators.
     if (admin.role === "Volunteer") {
       delete updateData.assignedVolunteerId;
+      delete updateData.title;
+      delete updateData.description;
+      delete updateData.location;
+      delete updateData.category;
+      delete updateData.imageUrl;
+      delete updateData.maxParticipants;
+      delete updateData.festivalId;
     }
 
     if (updateData.date) updateData.date = new Date(updateData.date);

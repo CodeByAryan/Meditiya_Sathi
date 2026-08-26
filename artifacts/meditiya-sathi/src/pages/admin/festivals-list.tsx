@@ -238,7 +238,7 @@ function DeleteConfirmDialog({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function AdminFestivalsList() {
-  const { canDeleteFestivals } = useAdminAuth();
+  const { canDeleteFestivals, canManageFestivals } = useAdminAuth();
 
   const [festivals, setFestivals] = useState<Festival[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -474,8 +474,8 @@ export default function AdminFestivalsList() {
               </div>
             </div>
 
-            {/* Create button */}
-            <Link
+            {/* Festival creation is administrative; Volunteers only see assigned festivals. */}
+            {canManageFestivals && <Link
               href="/admin/festivals/create"
               className="group flex items-center gap-2 px-4 md:px-5 py-3 bg-gradient-to-r from-[#B8860B] via-[#D4AF37] to-[#E5C158] text-black rounded-xl font-bold text-sm shadow-lg shadow-[#D4AF37]/10 hover:shadow-[#D4AF37]/25 hover:brightness-110 transition-all"
             >
@@ -488,7 +488,7 @@ export default function AdminFestivalsList() {
               <span className="sm:hidden">
                 Create
               </span>
-            </Link>
+            </Link>}
           </div>
         </div>
       </header>
@@ -665,13 +665,13 @@ export default function AdminFestivalsList() {
                 Create your first festival to get started.
               </p>
 
-              <Link
+              {canManageFestivals && <Link
                 href="/admin/festivals/create"
                 className="inline-flex items-center gap-2 mt-6 px-5 py-3 bg-gradient-to-r from-[#B8860B] to-[#D4AF37] text-black rounded-xl font-bold text-sm hover:brightness-110 transition-all shadow-lg shadow-[#D4AF37]/10"
               >
                 <Plus className="w-4 h-4" />
                 Create Festival
-              </Link>
+              </Link>}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -848,21 +848,21 @@ export default function AdminFestivalsList() {
                               <Eye className="w-4 h-4" />
                             </Link>
 
-                            <Link
+                            {canManageFestivals && <Link
                               href={`/admin/festivals/${f.id}/expenses`}
                               className="w-9 h-9 rounded-lg border-transparent flex items-center justify-center text-zinc-500 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 hover:border-[#D4AF37]/20 transition-all"
                               title="Expenses"
                             >
                               <Wallet className="w-4 h-4" />
-                            </Link>
+                            </Link>}
 
-                            <Link
+                            {canManageFestivals && <Link
                               href={`/admin/festivals/${f.id}/edit`}
                               className="w-9 h-9 rounded-lg border border-transparent flex items-center justify-center text-zinc-500 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 hover:border-[#D4AF37]/20 transition-all"
                               title="Edit"
                             >
                               <Edit3 className="w-4 h-4" />
-                            </Link>
+                            </Link>}
 
                             {canDeleteFestivals && (
                               <button

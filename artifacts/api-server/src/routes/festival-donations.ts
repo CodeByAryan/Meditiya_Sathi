@@ -144,7 +144,7 @@ router.get("/admin/whatsapp/status", requireRole("Super Admin", "Admin", "Volunt
 
 // ── POST /api/admin/festival-donations/:id/send-whatsapp ───────────────────
 // Send fresh Vargani PDF document directly to donor via WhatsApp Business Cloud API
-router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-donations/:id/send-whatsapp"], requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-donations/:id/send-whatsapp"], requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (!Number.isInteger(id) || id <= 0) {
@@ -169,7 +169,17 @@ router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-
       return;
     }
 
-    const rawMobile = row.resident_mobile || req.body?.mobile;
+    // The resident relationship is authoritative. Never accept a browser-supplied
+    // mobile number for this operation: the donor may have been updated since the
+    // details page was opened.
+    const rawMobile = row.resident_mobile;
+    if (!rawMobile || !String(rawMobile).trim()) {
+      res.status(422).json({
+        success: false,
+        error: "This donor does not have a mobile number on file.",
+      });
+      return;
+    }
     const phoneNorm = normalizePhoneNumber(rawMobile);
     if (!phoneNorm.isValid) {
       res.status(400).json({
@@ -209,10 +219,16 @@ router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-
     });
 
     if (!sendResult.success) {
-      res.status(500).json({
+      const errorMessage = sendResult.error || "Unable to send receipt on WhatsApp. Please try again.";
+      const status = /template|required template|24-hour|customer-service window/i.test(errorMessage)
+        ? 422
+        : /invalid or expired|invalid phone number|no WhatsApp account|not on WhatsApp/i.test(errorMessage)
+          ? 400
+          : 502;
+      res.status(status).json({
         success: false,
         configured: true,
-        error: sendResult.error || "Unable to send receipt on WhatsApp. Please try again.",
+        error: errorMessage,
       });
       return;
     }
@@ -220,10 +236,11 @@ router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-
     res.json({
       success: true,
       configured: true,
-      message: "Receipt sent successfully on WhatsApp.",
-      messageId: sendResult.messageId,
-      recipient: phoneNorm.normalized,
+      message: "Receipt sent successfully on WhatsApp",
       receiptNumber: row.receipt_number,
+      recipient: phoneNorm.normalized,
+      filename: `Vargani-${row.receipt_number}.pdf`,
+      whatsappMessageId: sendResult.messageId,
     });
   } catch (err: any) {
     logger.error({ err, donationId: req.params.id }, "WhatsApp receipt delivery failed");
@@ -829,20 +846,21 @@ const totalResult = await db.execute(
     const totalEntries = totalRow.count ?? 0;
     const averageDonation = parseFloat(String(totalRow.avg ?? "0"));
 
-    // Outsider collection for this festival (paid, non-null amount)
-    const outsiderResult = await db.execute(
-      sql`SELECT
-          COALESCE(SUM(amount::numeric), 0) as total,
-          COUNT(*)::int as count
-          FROM outsider_donations
-          WHERE festival_id = ${festivalId}
-            AND payment_status = 'paid'
-            AND amount IS NOT NULL`
-    );
-
-    const outsiderRow = outsiderResult?.rows?.[0] as any || {};
-    const outsiderCollection = parseFloat(String(outsiderRow.total ?? "0"));
-    const outsiderDonations = outsiderRow.count ?? 0;
+    // Outsider donations are private administrative financial data. They are
+    // intentionally omitted from Volunteer responses.
+    let outsiderCollection = 0;
+    let outsiderDonations = 0;
+    if (admin.role !== "Volunteer") {
+      const outsiderResult = await db.execute(
+        sql`SELECT COALESCE(SUM(amount::numeric), 0) as total,
+            COUNT(*)::int as count FROM outsider_donations
+            WHERE festival_id = ${festivalId}
+              AND payment_status = 'paid' AND amount IS NOT NULL`
+      );
+      const outsiderRow = outsiderResult?.rows?.[0] as any || {};
+      outsiderCollection = parseFloat(String(outsiderRow.total ?? "0"));
+      outsiderDonations = outsiderRow.count ?? 0;
+    }
 
     // Grand total = resident + outsider collection
     const totalCollection = residentCollection + outsiderCollection;
@@ -1215,7 +1233,7 @@ router.post("/admin/festivals/:festivalId/door-to-door/collect", requireRole("Su
 
     // Check if donation already exists
     const existing = await db
-      .select({ id: festivalDonationsTable.id, paymentMethod: festivalDonationsTable.paymentMethod })
+      .select({ id: festivalDonationsTable.id, paymentMethod: festivalDonationsTable.paymentMethod, collectedByAdminId: festivalDonationsTable.collectedByAdminId })
       .from(festivalDonationsTable)
       .where(and(
         eq(festivalDonationsTable.festivalId, festivalId),
@@ -1224,6 +1242,12 @@ router.post("/admin/festivals/:festivalId/door-to-door/collect", requireRole("Su
       .limit(1);
 
     if (existing.length > 0) {
+      // A Volunteer may not overwrite a donation created by another collector.
+      if (!(await canAccessDonation(admin.role, admin.id, existing[0].collectedByAdminId))) {
+        res.status(403).json({ error: "You can only update donations you collected" });
+        return;
+      }
+
       // Update existing donation
       const receiptNumber = existing[0].paymentMethod === "pending"
         ? await generateReceiptNumber(festivalId)

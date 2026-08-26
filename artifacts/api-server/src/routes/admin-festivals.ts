@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, festivalsTable, festivalDonationsTable, adminsTable } from "@workspace/db";
-import { eq, and, sql, desc, asc } from "drizzle-orm";
+import { db, festivalsTable, festivalDonationsTable, adminsTable, volunteerFestivalAssignmentsTable } from "@workspace/db";
+import { eq, and, sql, desc, asc, inArray, or } from "drizzle-orm";
 import { requireRole, canAccessFestival } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
@@ -26,10 +26,17 @@ router.get("/admin/festivals", requireRole("Super Admin", "Admin", "Volunteer"),
    let festivals;
 
 if (admin.role === "Volunteer") {
+  const assignments = await db.select({ festivalId: volunteerFestivalAssignmentsTable.festivalId })
+    .from(volunteerFestivalAssignmentsTable)
+    .where(eq(volunteerFestivalAssignmentsTable.volunteerId, admin.id));
+  const assignedIds = assignments.map((assignment) => assignment.festivalId);
+  const access = assignedIds.length
+    ? or(eq(festivalsTable.assignedVolunteerId, admin.id), inArray(festivalsTable.id, assignedIds))
+    : eq(festivalsTable.assignedVolunteerId, admin.id);
   festivals = await db
     .select()
     .from(festivalsTable)
-    .where(eq(festivalsTable.assignedVolunteerId, admin.id))
+    .where(access)
     .orderBy(desc(festivalsTable.year), desc(festivalsTable.createdAt));
 } else {
   festivals = await db

@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { cn, getApiUrl } from '@/lib/utils';
 import { PENDING_REASONS } from '@/lib/pending-reasons';
 import { formatWhatsAppPhone, buildReceiptMessage } from '@/lib/whatsapp-service';
+import { useAdminAuth } from '@/lib/AdminAuthContext';
 
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -166,8 +167,9 @@ function buildWhatsAppReceipt(donation: Donation, festivalName: string): string 
 
 
 // ── Searchable Resident Dropdown ─────────────────────────────────────────────
-function ResidentSearchDropdown({ onSelect, selectedResident, onClear }: {
+function ResidentSearchDropdown({ onSelect, selectedResident, onClear, festivalId }: {
   onSelect: (resident: SearchResident) => void;
+  festivalId: number;
   selectedResident: SearchResident | null;
   onClear: () => void;
 }) {
@@ -197,7 +199,7 @@ function ResidentSearchDropdown({ onSelect, selectedResident, onClear }: {
     searchTimeout.current = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`${getApiUrl()}/api/admin/residents/search?q=${encodeURIComponent(query)}`, { headers: authHeaders() });
+        const res = await fetch(`${getApiUrl()}/api/admin/residents/search?q=${encodeURIComponent(query)}&festivalId=${festivalId}`, { headers: authHeaders() });
         if (res.ok) {
           const data = await res.json();
           setResults(data.residents || []);
@@ -402,7 +404,7 @@ function AddDonationModal({ festivalId, festivalName, onClose, onSaved }: {
     setSelectedResident(resident);
     setErrors(prev => { const { resident, ...rest } = prev; return rest; });
     try {
-      const res = await fetch(`${getApiUrl()}/api/admin/residents/${resident.id}/festival-history`, { headers: authHeaders() });
+      const res = await fetch(`${getApiUrl()}/api/admin/residents/${resident.id}/festival-history?festivalId=${festivalId}`, { headers: authHeaders() });
       if (res.ok) {
         const data = await res.json();
         setFestivalHistory(data || []);
@@ -476,6 +478,7 @@ function AddDonationModal({ festivalId, festivalName, onClose, onSaved }: {
             <ResidentSearchDropdown
               selectedResident={selectedResident}
               onSelect={handleResidentSelect}
+              festivalId={festivalId}
               onClear={() => { setSelectedResident(null); setFestivalHistory([]); setErrors(prev => { const { resident, ...rest } = prev; return rest; }); }}
             />
             {errors.resident && <p className="text-xs text-destructive">{errors.resident}</p>}
@@ -787,7 +790,7 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
     setIsSendingCloudWhatsApp(true);
     try {
       toast.info('Generating fresh receipt & sending via WhatsApp Business API...');
-      const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donation.id}/vargani-whatsapp`, {
+      const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donation.id}/send-whatsapp`, {
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
       });
@@ -800,7 +803,7 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
         }
         return;
       }
-      toast.success('Receipt PDF document sent successfully via WhatsApp!');
+      toast.success(`Receipt sent successfully on WhatsApp${data.whatsappMessageId ? ` (Message ID: ${data.whatsappMessageId})` : ''}`);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to send WhatsApp document');
     } finally {
@@ -893,7 +896,7 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
                 className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 <Send className="w-4 h-4" />
-                {isSendingCloudWhatsApp ? 'Sending to WhatsApp...' : 'Send on WhatsApp (Cloud API)'}
+                {isSendingCloudWhatsApp ? 'Generating & Sending...' : 'Send Receipt on WhatsApp'}
               </button>
 
               <button
@@ -1203,6 +1206,7 @@ function PendingResidentsModal({ festivalId, onClose }: { festivalId: number; on
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export default function AdminFestivalDetail() {
+  const { isVolunteer } = useAdminAuth();
   const params = useParams();
   const festivalId = (params as any)?.id ? parseInt((params as any).id, 10) : null;
 
@@ -1277,7 +1281,7 @@ export default function AdminFestivalDetail() {
     try {
       toast.info(`Sending receipt to ${d.residentName}...`);
       // 1. Try sending via WhatsApp Business Cloud API
-      const cloudRes = await fetch(`${getApiUrl()}/api/admin/festival-donations/${d.id}/vargani-whatsapp`, {
+      const cloudRes = await fetch(`${getApiUrl()}/api/admin/festival-donations/${d.id}/send-whatsapp`, {
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
       });
@@ -1514,7 +1518,7 @@ const fetchStats = useCallback(async () => {
               <StatsCard title="Total Collection" value={formatCurrency(stats.totalCollection)} icon={IndianRupee} color="text-white" />
 <StatsCard title="Residents Paid" value={String(stats.residentsPaid)} icon={Users} color="text-white" subtitle={`of ${stats.totalResidents || 0} total`} />
 <PaymentSummaryCard stats={stats} />
-              <OutsiderCollectionCard festivalId={festival.id} stats={stats} />
+              {!isVolunteer && <OutsiderCollectionCard festivalId={festival.id} stats={stats} />}
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
               <StatsCard title="Pending Collection" value={formatCurrency(stats.pendingCollection)} icon={IndianRupee} color="text-amber-600" />
@@ -1804,8 +1808,8 @@ const fetchStats = useCallback(async () => {
                           <td className="px-3 py-3">
                             <div className="flex items-center justify-end gap-0.5">
                               <button onClick={() => setViewDonation(d)} className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-primary" title="View Details"><Eye className="w-3.5 h-3.5" /></button>
-                              <button onClick={() => setEditDonation(d)} className="p-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-950/30 transition-colors text-amber-600" title="Edit"><Edit3 className="w-3.5 h-3.5" /></button>
-                              <button onClick={() => setDeleteDonation(d)} className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-destructive" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                              {(!isVolunteer || d.collectedByAdminId === JSON.parse(localStorage.getItem('admin_auth') || '{}').id) && <button onClick={() => setEditDonation(d)} className="p-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-950/30 transition-colors text-amber-600" title="Edit"><Edit3 className="w-3.5 h-3.5" /></button>}
+                              {!isVolunteer && <button onClick={() => setDeleteDonation(d)} className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-destructive" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>}
                               {isPaid(d) && d.receiptNumber && (
                                 <>
                                   <button
