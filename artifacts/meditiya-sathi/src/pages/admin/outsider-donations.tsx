@@ -275,15 +275,15 @@ const [stats, setStats] = useState<Stats | null>(null);
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
       });
       const data = await res.json();
-      if (!res.ok) {
+      if (!res.ok || !data.success) {
         if (data.configured === false || data.fallbackRequired) {
-          toast.error('WhatsApp Business API is not configured. Use "Open WhatsApp" fallback below.', { duration: 5000 });
+          toast.error(data.message || data.error || 'WhatsApp Business API is not configured. Use "Open WhatsApp" fallback below.', { duration: 5000 });
         } else {
-          throw new Error(data.error || 'Failed to send via WhatsApp Business API');
+          throw new Error(data.message || data.error || 'Failed to send via WhatsApp Business API');
         }
         return;
       }
-      toast.success('Receipt PDF document sent successfully via WhatsApp!');
+      toast.success(data.message || 'WhatsApp receipt sent successfully.');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to send WhatsApp document');
     } finally {
@@ -386,7 +386,7 @@ const [stats, setStats] = useState<Stats | null>(null);
         openWhatsApp(targetMobile, msg);
         toast.info('Cloud API not configured. WhatsApp opened with receipt link!');
       } else {
-        throw new Error(cloudData.error || 'Failed to send WhatsApp message');
+        throw new Error(cloudData.message || cloudData.error || 'Failed to send WhatsApp message');
       }
     } catch (err: any) {
       toast.error(err?.message || 'Failed to process WhatsApp receipt delivery');

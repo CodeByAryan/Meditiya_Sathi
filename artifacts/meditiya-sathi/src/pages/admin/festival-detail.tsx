@@ -795,15 +795,15 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
       });
       const data = await res.json();
-      if (!res.ok) {
+      if (!res.ok || !data.success) {
         if (data.configured === false) {
-          toast.error('WhatsApp Business API is not configured.', { duration: 5000 });
+          toast.error(data.message || data.error || 'WhatsApp Business API is not configured.', { duration: 5000 });
         } else {
-          throw new Error(data.error || 'Failed to send via WhatsApp Business API');
+          throw new Error(data.message || data.error || 'Failed to send via WhatsApp Business API');
         }
         return;
       }
-      toast.success(`Receipt sent successfully on WhatsApp${data.whatsappMessageId ? ` (Message ID: ${data.whatsappMessageId})` : ''}`);
+      toast.success(data.message || `Receipt sent successfully on WhatsApp${data.whatsappMessageId ? ` (Message ID: ${data.whatsappMessageId})` : ''}`);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to send WhatsApp document');
     } finally {
@@ -1288,11 +1288,11 @@ export default function AdminFestivalDetail() {
 
       const cloudData = await cloudRes.json();
       if (cloudRes.ok && cloudData.success) {
-        toast.success(`Receipt document sent to ${d.residentName} via WhatsApp Business API!`);
+        toast.success(cloudData.message || `Receipt document sent to ${d.residentName} via WhatsApp Business API!`);
         return;
       }
 
-      throw new Error(cloudData.error || 'Failed to send WhatsApp message');
+      throw new Error(cloudData.message || cloudData.error || 'Failed to send WhatsApp message');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to process WhatsApp receipt delivery');
     } finally {

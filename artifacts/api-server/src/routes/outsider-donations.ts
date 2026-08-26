@@ -638,7 +638,12 @@ router.post("/admin/outsider-donations/:id/send-whatsapp", requireRole("Super Ad
   try {
     const id = parseInt(req.params.id as string, 10);
     if (!Number.isInteger(id) || id <= 0) {
-      res.status(400).json({ error: "Invalid donation ID" });
+      res.status(400).json({
+        success: false,
+        code: "INVALID_DONATION_ID",
+        error: "Invalid donation ID",
+        message: "Invalid donation ID",
+      });
       return;
     }
 
@@ -651,20 +656,44 @@ router.post("/admin/outsider-donations/:id/send-whatsapp", requireRole("Super Ad
     `);
     const row = (rows.rows || [])[0] as any;
     if (!row) {
-      res.status(404).json({ error: "Donation not found" });
+      res.status(404).json({
+        success: false,
+        code: "DONATION_NOT_FOUND",
+        error: "Donation not found",
+        message: "Donation not found",
+      });
       return;
     }
 
     if (row.payment_status !== "paid" || row.amount == null || !row.receipt_number) {
-      res.status(422).json({ error: "A paid donation with receipt number is required to send receipt" });
+      res.status(422).json({
+        success: false,
+        code: "UNPAID_DONATION",
+        error: "A paid donation with receipt number is required to send receipt",
+        message: "A paid donation with receipt number is required to send receipt",
+      });
       return;
     }
 
-    const rawMobile = row.mobile || req.body?.mobile;
+    // Authoritative lookup: donor mobile must ALWAYS come from PostgreSQL
+    const rawMobile = row.mobile;
+    if (!rawMobile || !String(rawMobile).trim()) {
+      res.status(422).json({
+        success: false,
+        code: "MISSING_MOBILE",
+        error: "This outsider donor does not have a mobile number on file.",
+        message: "This outsider donor does not have a mobile number on file.",
+      });
+      return;
+    }
+
     const phoneNorm = normalizePhoneNumber(rawMobile);
     if (!phoneNorm.isValid) {
       res.status(400).json({
+        success: false,
+        code: "INVALID_RECIPIENT",
         error: phoneNorm.error || "Invalid donor mobile number for WhatsApp delivery",
+        message: phoneNorm.error || "Invalid donor mobile number for WhatsApp delivery",
         recipient: rawMobile,
       });
       return;
@@ -677,7 +706,9 @@ router.post("/admin/outsider-donations/:id/send-whatsapp", requireRole("Super Ad
         success: false,
         configured: false,
         fallbackRequired: true,
+        code: "CONFIG_ERROR",
         error: "WhatsApp Cloud API is not configured. Please configure WhatsApp Business API credentials.",
+        message: "WhatsApp Cloud API is not configured. Please configure WhatsApp Business API credentials.",
         receiptUrl,
         recipient: phoneNorm.normalized,
       });
@@ -709,20 +740,32 @@ router.post("/admin/outsider-donations/:id/send-whatsapp", requireRole("Super Ad
       pdfUrl: receiptUrl,
     });
 
+    const filename = `Vargani-${row.receipt_number}.pdf`;
+
     const sendResult = await sendWhatsAppDocument({
       to: phoneNorm.normalized,
-      filename: `Vargani-${row.receipt_number}.pdf`,
+      filename,
       pdfBuffer: pdf,
       pdfUrl: receiptUrl,
       caption,
+      donationId: id,
     });
 
     if (!sendResult.success) {
-      res.status(500).json({
+      const errorMessage = sendResult.message || sendResult.error || "Failed to send receipt via WhatsApp Business API";
+      const status = sendResult.code === "TEMPLATE_REQUIRED"
+        ? 422
+        : 400;
+
+      res.status(status).json({
         success: false,
-        configured: true,
-        error: sendResult.error || "Failed to send receipt via WhatsApp Business API",
+        configured: sendResult.configured !== false,
+        code: sendResult.code || "WHATSAPP_SEND_FAILED",
+        error: errorMessage,
+        message: errorMessage,
+        metaError: sendResult.metaError,
         receiptUrl,
+        recipient: phoneNorm.normalized,
       });
       return;
     }
@@ -730,15 +773,21 @@ router.post("/admin/outsider-donations/:id/send-whatsapp", requireRole("Super Ad
     res.json({
       success: true,
       configured: true,
-      message: "Receipt sent successfully via WhatsApp Business API",
-      messageId: sendResult.messageId,
-      recipient: phoneNorm.normalized,
+      message: "WhatsApp receipt sent successfully.",
       receiptNumber: row.receipt_number,
-      pdfUrl: receiptUrl,
+      recipient: phoneNorm.normalized,
+      filename,
+      whatsappMessageId: sendResult.messageId,
+      receiptUrl,
     });
   } catch (err: any) {
     console.error("Outsider WhatsApp delivery error:", err?.stack || err);
-    res.status(500).json({ error: "Failed to process WhatsApp receipt delivery" });
+    res.status(500).json({
+      success: false,
+      code: "INTERNAL_ERROR",
+      error: "Unable to send receipt on WhatsApp. Please try again.",
+      message: "Unable to send receipt on WhatsApp. Please try again.",
+    });
   }
 });
 

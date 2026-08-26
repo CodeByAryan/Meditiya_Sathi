@@ -146,6 +146,6 @@ app.use((err: any, req: Request, res: Response, _next: express.NextFunction) => 
 });
 
 export { generateVarganiPdf, amountInWords, getMarathiNumberWords } from "./lib/vargani-pdf";
-export { normalizePhoneNumber, buildVarganiCaption, isWhatsAppCloudApiConfigured } from "./lib/whatsapp-cloud-api";
+export { normalizePhoneNumber, buildVarganiCaption, isWhatsAppCloudApiConfigured, maskPhoneNumber, classifyMetaError, getWhatsAppConfig } from "./lib/whatsapp-cloud-api";
 export { getPublicAppBaseUrl, getReceiptPdfUrl, getReceiptShareUrl } from "./lib/app-url";
 export default app;

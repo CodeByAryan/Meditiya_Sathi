@@ -148,24 +148,44 @@ router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-
   try {
     const id = parseInt(req.params.id as string, 10);
     if (!Number.isInteger(id) || id <= 0) {
-      res.status(400).json({ error: "Invalid donation ID" });
+      res.status(400).json({
+        success: false,
+        code: "INVALID_DONATION_ID",
+        error: "Invalid donation ID",
+        message: "Invalid donation ID",
+      });
       return;
     }
 
     const row = await loadVarganiDonation(id);
     if (!row) {
-      res.status(404).json({ error: "Donation not found" });
+      res.status(404).json({
+        success: false,
+        code: "DONATION_NOT_FOUND",
+        error: "Donation not found",
+        message: "Donation not found",
+      });
       return;
     }
 
     const admin = (req as any).admin;
     if (!(await canAccessFestival(admin.role, admin.id, Number(row.festival_id)))) {
-      res.status(403).json({ error: "Forbidden" });
+      res.status(403).json({
+        success: false,
+        code: "FORBIDDEN",
+        error: "Forbidden",
+        message: "Forbidden",
+      });
       return;
     }
 
     if (row.payment_method === "pending" || row.amount == null || !row.receipt_number) {
-      res.status(422).json({ error: "A paid donation with receipt number is required to send receipt" });
+      res.status(422).json({
+        success: false,
+        code: "UNPAID_DONATION",
+        error: "A paid donation with receipt number is required to send receipt",
+        message: "A paid donation with receipt number is required to send receipt",
+      });
       return;
     }
 
@@ -176,14 +196,19 @@ router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-
     if (!rawMobile || !String(rawMobile).trim()) {
       res.status(422).json({
         success: false,
+        code: "MISSING_MOBILE",
         error: "This donor does not have a mobile number on file.",
+        message: "This donor does not have a mobile number on file.",
       });
       return;
     }
     const phoneNorm = normalizePhoneNumber(rawMobile);
     if (!phoneNorm.isValid) {
       res.status(400).json({
+        success: false,
+        code: "INVALID_RECIPIENT",
         error: phoneNorm.error || "Invalid donor mobile number for WhatsApp delivery",
+        message: phoneNorm.error || "Invalid donor mobile number for WhatsApp delivery",
         recipient: rawMobile,
       });
       return;
@@ -194,7 +219,9 @@ router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-
         success: false,
         configured: false,
         fallbackRequired: true,
+        code: "CONFIG_ERROR",
         error: "WhatsApp Cloud API is not configured. Please configure WhatsApp Business API credentials.",
+        message: "WhatsApp Cloud API is not configured. Please configure WhatsApp Business API credentials.",
         recipient: phoneNorm.normalized,
       });
       return;
@@ -211,24 +238,30 @@ router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-
       pdfUrl: undefined,
     });
 
+    const filename = `Vargani-${row.receipt_number}.pdf`;
+
     const sendResult = await sendWhatsAppDocument({
       to: phoneNorm.normalized,
-      filename: `Vargani-${row.receipt_number}.pdf`,
+      filename,
       pdfBuffer: pdf,
       caption,
+      donationId: id,
     });
 
     if (!sendResult.success) {
-      const errorMessage = sendResult.error || "Unable to send receipt on WhatsApp. Please try again.";
-      const status = /template|required template|24-hour|customer-service window/i.test(errorMessage)
+      const errorMessage = sendResult.message || sendResult.error || "Unable to send receipt on WhatsApp. Please try again.";
+      const status = sendResult.code === "TEMPLATE_REQUIRED"
         ? 422
-        : /invalid or expired|invalid phone number|no WhatsApp account|not on WhatsApp/i.test(errorMessage)
-          ? 400
-          : 502;
+        : 400;
+
       res.status(status).json({
         success: false,
-        configured: true,
+        configured: sendResult.configured !== false,
+        code: sendResult.code || "WHATSAPP_SEND_FAILED",
         error: errorMessage,
+        message: errorMessage,
+        metaError: sendResult.metaError,
+        recipient: phoneNorm.normalized,
       });
       return;
     }
@@ -236,15 +269,20 @@ router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-
     res.json({
       success: true,
       configured: true,
-      message: "Receipt sent successfully on WhatsApp",
+      message: "WhatsApp receipt sent successfully.",
       receiptNumber: row.receipt_number,
       recipient: phoneNorm.normalized,
-      filename: `Vargani-${row.receipt_number}.pdf`,
+      filename,
       whatsappMessageId: sendResult.messageId,
     });
   } catch (err: any) {
     logger.error({ err, donationId: req.params.id }, "WhatsApp receipt delivery failed");
-    res.status(500).json({ error: "Unable to send receipt on WhatsApp. Please try again." });
+    res.status(500).json({
+      success: false,
+      code: "INTERNAL_ERROR",
+      error: "Unable to send receipt on WhatsApp. Please try again.",
+      message: "Unable to send receipt on WhatsApp. Please try again.",
+    });
   }
 });
 
