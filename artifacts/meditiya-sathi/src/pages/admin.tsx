@@ -29,6 +29,17 @@ import {
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAdminAuth } from '@/lib/AdminAuthContext';
+import { getApiUrl } from '@/lib/utils';
+
+function adminAuthHeaders(): Record<string, string> {
+  try {
+    const stored = localStorage.getItem('admin_auth');
+    const token = stored ? JSON.parse(stored)?.token : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 
@@ -104,6 +115,23 @@ export default function Admin() {
     canManageVolunteers,
     canManageAdmins,
   } = useAdminAuth();
+  const [diagnosticLoading, setDiagnosticLoading] = React.useState(false);
+  const [diagnostic, setDiagnostic] = React.useState<any>(null);
+
+  const runWhatsAppDiagnostic = async () => {
+    setDiagnosticLoading(true);
+    try {
+      const response = await fetch(`${getApiUrl()}/api/admin/whatsapp/diagnostic`, {
+        headers: adminAuthHeaders(),
+      });
+      const data = await response.json().catch(() => ({}));
+      setDiagnostic({ ...data, httpStatus: response.status });
+    } catch (error: any) {
+      setDiagnostic({ success: false, message: error?.message || 'Unable to reach the diagnostic endpoint.' });
+    } finally {
+      setDiagnosticLoading(false);
+    }
+  };
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -1008,6 +1036,45 @@ export default function Admin() {
         {/* =================================================
             QUICK ACTIONS
             ================================================= */}
+
+        {!isVolunteer && (
+          <motion.section
+            variants={heroVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.15 }}
+            className="relative mt-8"
+          >
+            <Card className="rounded-2xl border-white/8 bg-white/[0.025] p-5 backdrop-blur-2xl">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-white">WhatsApp API Diagnostic</h2>
+                  <p className="mt-1 text-sm text-white/40">Check the configured Cloud API connection securely.</p>
+                </div>
+                <button type="button" onClick={runWhatsAppDiagnostic} disabled={diagnosticLoading} className="rounded-xl border-amber-300/25 bg-amber-300/10 px-4 py-2.5 text-sm font-semibold text-amber-200 transition hover:bg-amber-300/20 disabled:cursor-wait disabled:opacity-50">
+                  {diagnosticLoading ? 'Checking...' : 'Run diagnostic'}
+                </button>
+              </div>
+              {diagnostic && (
+                <div className="mt-5 space-y-4 rounded-xl border-white/8 bg-black/20 p-4 text-sm">
+                  <div>
+                    <h3 className="mb-2 font-semibold text-white">WhatsApp Configuration</h3>
+                    <div className="grid gap-1 text-white/70 sm:grid-cols-2">
+                      <span>{diagnostic.configured !== false ? '✓' : '✗'} Access token configured</span>
+                      <span>{diagnostic.details?.phoneNumberId ? '✓' : '✗'} Phone Number ID configured</span>
+                      <span>{diagnostic.details?.businessAccountId ? '✓' : '✗'} WABA ID configured</span>
+                      <span>{diagnostic.details?.apiVersion ? '✓' : '✗'} API version configured</span>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="mb-2 font-semibold text-white">Meta Connection</h3>
+                    <p className={diagnostic.success ? 'text-emerald-300' : 'text-red-300'}>{diagnostic.success ? '✓ Token valid, Phone Number ID accessible, WABA matches' : `✗ ${diagnostic.message || diagnostic.error || 'Meta connection failed'}`}</p>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </motion.section>
+        )}
 
         {!isVolunteer && (
           <motion.section
