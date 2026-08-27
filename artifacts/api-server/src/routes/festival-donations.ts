@@ -7,6 +7,7 @@ import {
   isWhatsAppCloudApiConfigured,
   sendWhatsAppDocument,
   normalizePhoneNumber,
+  maskPhoneNumber,
   buildVarganiCaption,
   getWhatsAppConfigurationStatus,
   diagnoseWhatsAppConfiguration,
@@ -83,6 +84,7 @@ router.all(["/admin/festival-donations/:id/vargani-pdf", "/admin/festival-donati
     }
     logger.info({ donationId: id }, "Loading festival donation for Vargani PDF");
     const row = await loadVarganiDonation(id);
+    logger.info(`[WhatsApp] Donation loaded: ${Boolean(row)}`);
     if (!row) {
       res.status(404).json({ error: "Donation not found" });
       return;
@@ -205,6 +207,7 @@ router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-
     // mobile number for this operation: the donor may have been updated since the
     // details page was opened.
     const rawMobile = row.resident_mobile;
+    logger.info(`[WhatsApp] Resident loaded: ${Boolean(row.resident_id && row.resident_name)}`);
     if (!rawMobile || !String(rawMobile).trim()) {
       res.status(422).json({
         success: false,
@@ -220,18 +223,20 @@ router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-
         success: false,
         code: "INVALID_RECIPIENT",
         error: phoneNorm.error || "Invalid donor mobile number for WhatsApp delivery",
+        stage: "recipient_validation",
         message: phoneNorm.error || "Invalid donor mobile number for WhatsApp delivery",
-        recipient: rawMobile,
       });
       return;
     }
 
+    logger.info(`[WhatsApp] Recipient normalized: ${maskPhoneNumber(phoneNorm.normalized)}`);
     if (!isWhatsAppCloudApiConfigured()) {
       res.status(400).json({
         success: false,
         configured: false,
         fallbackRequired: true,
         code: "CONFIG_ERROR",
+        stage: "configuration",
         error: "WhatsApp Cloud API is not configured. Please configure WhatsApp Business API credentials.",
         message: "WhatsApp Cloud API is not configured. Please configure WhatsApp Business API credentials.",
         recipient: phoneNorm.normalized,
@@ -239,12 +244,22 @@ router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-
       return;
     }
 
-    const pdf = await generateFreshVarganiReceipt(row, admin);
+    let pdf: Buffer;
+    try {
+      pdf = await generateFreshVarganiReceipt(row, admin);
+    } catch (error: any) {
+      logger.error({ donationId: id, stage: "pdf_generation", error: error?.message || "PDF generation failed" }, "WhatsApp failure");
+      res.status(500).json({ success: false, stage: "pdf_generation", code: "PDF_GENERATION_FAILED", error: "Vargani PDF generation failed.", message: error?.message || "Vargani PDF generation failed." });
+      return;
+    }
+    logger.info(`[WhatsApp] PDF generated: ${Buffer.isBuffer(pdf)}`);
+    logger.info(`[WhatsApp] PDF size: ${pdf.length} bytes`);
     if (!Buffer.isBuffer(pdf) || pdf.length === 0) {
       res.status(500).json({ success: false, code: "PDF_GENERATION_FAILED", error: "Generated Vargani PDF is empty.", message: "Generated Vargani PDF is empty." });
       return;
     }
     logger.info({ donationId: id, receiptNumber: row.receipt_number, pdfBytes: pdf.length }, "Vargani PDF generated for WhatsApp");
+    logger.info(`[WhatsApp] Media upload started`);
     logger.info({ donationId: id, receiptNumber: row.receipt_number }, "Uploading receipt to WhatsApp");
     const caption = buildVarganiCaption({
       receiptNumber: row.receipt_number,
@@ -264,6 +279,8 @@ router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-
       donationId: id,
     });
 
+    logger.info(`[WhatsApp] Media ID: ${sendResult.success ? "present" : "absent"}`);
+    logger.info(`[WhatsApp] Document message started`);
     if (!sendResult.success) {
       const errorMessage = sendResult.message || sendResult.error || "Unable to send receipt on WhatsApp. Please try again.";
       const status = sendResult.code === "TEMPLATE_REQUIRED"
@@ -273,16 +290,20 @@ router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-
       res.status(status).json({
         success: false,
         configured: sendResult.configured !== false,
-        code: sendResult.code || "WHATSAPP_SEND_FAILED",
-        error: errorMessage,
+        code: sendResult.metaError?.code ?? sendResult.code ?? "WHATSAPP_SEND_FAILED",
+        stage: sendResult.stage || (sendResult.code === "MEDIA_UPLOAD_FAILED" ? "media_upload" : "message_send"),
+        error: "WhatsApp API error",
         message: errorMessage,
         metaError: sendResult.metaError,
+        metaType: sendResult.metaError?.type,
+        metaSubcode: sendResult.metaError?.error_subcode ?? sendResult.metaError?.subcode,
         metaCode: sendResult.metaError?.code,
         httpStatus: sendResult.httpStatus,
       });
       return;
     }
 
+    logger.info(`[WhatsApp] Document message response: success`);
     res.json({
       success: true,
       configured: true,
@@ -293,7 +314,7 @@ router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-
       whatsappMessageId: sendResult.messageId,
     });
   } catch (err: any) {
-    logger.error({ err, donationId: req.params.id }, "WhatsApp receipt delivery failed");
+    logger.error({ err: err?.message || err, donationId: req.params.id, stage: "unknown" }, "WhatsApp failure");
     res.status(500).json({
       success: false,
       code: "INTERNAL_ERROR",

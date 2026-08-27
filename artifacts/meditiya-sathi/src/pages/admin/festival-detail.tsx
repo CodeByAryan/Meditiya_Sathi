@@ -797,7 +797,8 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
       const data = await res.json();
       if (!res.ok || !data.success) {
         const detail = data.message || data.error || 'Failed to send via WhatsApp Business API';
-        toast.error(`WhatsApp: ${detail}`, { duration: 7000 });
+        const stage = data.stage ? `\nStage: ${data.stage}` : '';
+        toast.error(`WhatsApp failed: ${detail}${stage}`, { duration: 7000 });
         return;
       }
       toast.success(data.message || `Receipt sent successfully on WhatsApp${data.whatsappMessageId ? ` (Message ID: ${data.whatsappMessageId})` : ''}`);
@@ -1289,7 +1290,8 @@ export default function AdminFestivalDetail() {
         return;
       }
 
-      throw new Error(`WhatsApp: ${cloudData.message || cloudData.error || 'Failed to send WhatsApp message'}`);
+      const stage = cloudData.stage ? `\nStage: ${cloudData.stage}` : '';
+      throw new Error(`WhatsApp failed: ${cloudData.message || cloudData.error || 'Failed to send WhatsApp message'}${stage}`);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to process WhatsApp receipt delivery');
     } finally {

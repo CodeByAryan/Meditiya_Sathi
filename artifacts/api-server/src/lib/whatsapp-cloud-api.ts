@@ -29,6 +29,7 @@ export interface WhatsAppSendResult {
   metaError?: MetaErrorPayload;
   configured?: boolean;
   httpStatus?: number;
+  stage?: "configuration" | "recipient_validation" | "media_upload" | "message_send";
 }
 
 /**
@@ -373,7 +374,7 @@ export async function sendWhatsAppDocument(
   if (!config.isConfigured) {
     const message = `Missing WhatsApp configuration: ${missingConfiguration.join(", ")}`;
     logger.error({ missing: getMissingConfiguration(config) }, "WhatsApp Cloud API configuration is incomplete");
-    return { success: false, configured: false, code: "CONFIG_ERROR", error: message, message };
+    return { success: false, configured: false, code: "CONFIG_ERROR", stage: "configuration", error: message, message };
   }
 
   const phoneNorm = normalizePhoneNumber(options.to);
@@ -382,6 +383,7 @@ export async function sendWhatsAppDocument(
       success: false,
       configured: true,
       code: "INVALID_RECIPIENT",
+      stage: "recipient_validation",
       error: phoneNorm.error || "Invalid mobile number for WhatsApp delivery.",
       message: phoneNorm.error || "Invalid mobile number for WhatsApp delivery.",
     };
@@ -461,6 +463,7 @@ export async function sendWhatsAppDocument(
             success: false,
             configured: true,
             code: classified.code,
+            stage: "media_upload",
             error: metaResponseMessage(errorObj, classified.message),
             message: metaResponseMessage(errorObj, classified.message),
             httpStatus: uploadRes.status,
@@ -482,6 +485,7 @@ export async function sendWhatsAppDocument(
           success: false,
           configured: true,
           code: "MEDIA_NETWORK_ERROR",
+          stage: "media_upload",
           error: "Unable to upload receipt PDF to WhatsApp media server.",
           message: "Unable to upload receipt PDF to WhatsApp media server.",
         };
@@ -493,6 +497,7 @@ export async function sendWhatsAppDocument(
         success: false,
         configured: true,
         code: "MEDIA_ATTACH_ERROR",
+        stage: "media_upload",
         error: "Unable to attach generated PDF receipt to WhatsApp.",
         message: "Unable to attach generated PDF receipt to WhatsApp.",
       };
@@ -558,6 +563,7 @@ export async function sendWhatsAppDocument(
         success: false,
         configured: true,
         code: classified.code,
+        stage: "message_send",
         error: metaResponseMessage(errorObj, classified.message),
         message: metaResponseMessage(errorObj, classified.message),
         httpStatus: sendRes.status,
@@ -615,7 +621,7 @@ export async function sendWhatsAppTextMessage(options: {
   if (!config.isConfigured) {
     const message = `Missing WhatsApp configuration: ${getMissingConfiguration(config).join(", ")}`;
     logger.error({ missing: getMissingConfiguration(config) }, "WhatsApp Cloud API configuration is incomplete");
-    return { success: false, configured: false, code: "CONFIG_ERROR", error: message, message };
+    return { success: false, configured: false, code: "CONFIG_ERROR", stage: "configuration", error: message, message };
   }
 
   const phoneNorm = normalizePhoneNumber(options.to);
@@ -624,6 +630,7 @@ export async function sendWhatsAppTextMessage(options: {
       success: false,
       configured: true,
       code: "INVALID_RECIPIENT",
+      stage: "recipient_validation",
       error: phoneNorm.error || "Invalid mobile number for WhatsApp delivery.",
       message: phoneNorm.error || "Invalid mobile number for WhatsApp delivery.",
     };
