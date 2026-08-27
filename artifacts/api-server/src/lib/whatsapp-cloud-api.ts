@@ -13,6 +13,7 @@ export interface WhatsAppSendDocumentOptions {
 export interface MetaErrorPayload {
   code?: number;
   subcode?: number;
+  error_subcode?: number;
   type?: string;
   message?: string;
   error_data?: any;
@@ -27,6 +28,7 @@ export interface WhatsAppSendResult {
   code?: string;
   metaError?: MetaErrorPayload;
   configured?: boolean;
+  httpStatus?: number;
 }
 
 /**
@@ -120,7 +122,7 @@ export function getWhatsAppConfig() {
     apiVersion = `v${apiVersion}`;
   }
 
-  const isConfigured = Boolean(token && phoneId && businessAccountId && apiVersion);
+  const isConfigured = Boolean(token && phoneId && businessAccountId && process.env.WHATSAPP_API_VERSION?.trim());
 
   return {
     token,
@@ -134,8 +136,78 @@ export function getWhatsAppConfig() {
 /**
  * Checks if WhatsApp Cloud API credentials are configured server-side.
  */
+export function getWhatsAppConfigurationStatus() {
+  const config = getWhatsAppConfig();
+  return {
+    configured: config.isConfigured,
+    tokenConfigured: Boolean(config.token),
+    phoneNumberIdConfigured: Boolean(config.phoneId),
+    businessAccountIdConfigured: Boolean(config.businessAccountId),
+    apiVersionConfigured: Boolean(process.env.WHATSAPP_API_VERSION?.trim()),
+    phoneNumberId: config.phoneId,
+    businessAccountId: config.businessAccountId,
+    apiVersion: config.apiVersion,
+  };
+}
+
 export function isWhatsAppCloudApiConfigured(): boolean {
   return getWhatsAppConfig().isConfigured;
+}
+
+function metaErrorDetails(errorObj: any): MetaErrorPayload {
+  return {
+    code: errorObj?.code,
+    subcode: errorObj?.error_subcode,
+    error_subcode: errorObj?.error_subcode,
+    type: errorObj?.type,
+    message: errorObj?.message,
+    error_data: errorObj?.error_data,
+    fbtrace_id: errorObj?.fbtrace_id,
+  };
+}
+
+function metaResponseMessage(errorObj: any, classifiedMessage: string): string {
+  // Meta's message is the useful diagnostic. It is safe here because it is
+  // response data from Graph API and never contains our access token.
+  return typeof errorObj?.message === "string" && errorObj.message.trim()
+    ? errorObj.message.trim()
+    : classifiedMessage;
+}
+
+function getMissingConfiguration(config: ReturnType<typeof getWhatsAppConfig>): string[] {
+  const missing: string[] = [];
+  if (!config.token) missing.push("WHATSAPP_ACCESS_TOKEN");
+  if (!config.phoneId) missing.push("WHATSAPP_PHONE_NUMBER_ID");
+  if (!config.businessAccountId) missing.push("WHATSAPP_BUSINESS_ACCOUNT_ID");
+  if (!process.env.WHATSAPP_API_VERSION?.trim()) missing.push("WHATSAPP_API_VERSION");
+  return missing;
+}
+
+export async function diagnoseWhatsAppConfiguration(): Promise<WhatsAppSendResult & { details?: any }> {
+  const config = getWhatsAppConfig();
+  const missing = getMissingConfiguration(config);
+  if (missing.length) {
+    logger.error({ missing }, "WhatsApp Cloud API configuration is incomplete");
+    return { success: false, configured: false, code: "CONFIG_ERROR", error: `Missing WhatsApp configuration: ${missing.join(", ")}`, message: `Missing WhatsApp configuration: ${missing.join(", ")}` };
+  }
+  const endpoint = `https://graph.facebook.com/${config.apiVersion}/${config.phoneId}?fields=id,display_phone_number,verified_name,whatsapp_business_account`;
+  try {
+    const response = await fetch(endpoint, { headers: { Authorization: `Bearer ${config.token}` } });
+    const data: any = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const errorObj = data?.error || {};
+      const classified = classifyMetaError(errorObj, "send", config.phoneId);
+      logger.error({ endpoint, httpStatus: response.status, metaErrorCode: errorObj.code, metaErrorType: errorObj.type, metaErrorMessage: errorObj.message, metaErrorSubcode: errorObj.error_subcode, metaErrorData: errorObj.error_data }, "WhatsApp configuration diagnostic failed");
+      return { success: false, configured: true, code: classified.code, httpStatus: response.status, error: metaResponseMessage(errorObj, classified.message), message: metaResponseMessage(errorObj, classified.message), metaError: metaErrorDetails(errorObj) };
+    }
+    const accountId = data?.whatsapp_business_account?.id;
+    if (accountId && accountId !== config.businessAccountId) {
+      return { success: false, configured: true, code: "WRONG_BUSINESS_ACCOUNT", error: "Configured Phone Number ID belongs to a different WhatsApp Business Account.", message: "Configured Phone Number ID belongs to a different WhatsApp Business Account.", details: { phoneNumberId: config.phoneId, businessAccountId: config.businessAccountId, actualBusinessAccountId: accountId } };
+    }
+    return { success: true, configured: true, message: "WhatsApp Phone Number ID and token are accessible.", details: { phoneNumberId: config.phoneId, businessAccountId: accountId || config.businessAccountId } };
+  } catch (err: any) {
+    return { success: false, configured: true, code: "NETWORK_ERROR", error: err?.message || "Unable to verify WhatsApp configuration.", message: err?.message || "Unable to verify WhatsApp configuration." };
+  }
 }
 
 /**
@@ -280,15 +352,19 @@ export async function sendWhatsAppDocument(
   options: WhatsAppSendDocumentOptions
 ): Promise<WhatsAppSendResult> {
   const config = getWhatsAppConfig();
+  const missingConfiguration = getMissingConfiguration(config);
+  logger.info({
+    "WHATSAPP_PHONE_NUMBER_ID configured": Boolean(config.phoneId),
+    "WHATSAPP_BUSINESS_ACCOUNT_ID configured": Boolean(config.businessAccountId),
+    "WHATSAPP_API_VERSION configured": Boolean(process.env.WHATSAPP_API_VERSION?.trim()),
+    "WHATSAPP_ACCESS_TOKEN configured": Boolean(config.token),
+    donationId: options.donationId,
+  }, "WhatsApp Cloud API configuration status before request");
 
   if (!config.isConfigured) {
-    return {
-      success: false,
-      configured: false,
-      code: "CONFIG_ERROR",
-      error: "WhatsApp Cloud API is not configured. Please configure WhatsApp Business API credentials.",
-      message: "WhatsApp Cloud API is not configured. Please configure WhatsApp Business API credentials.",
-    };
+    const message = `Missing WhatsApp configuration: ${missingConfiguration.join(", ")}`;
+    logger.error({ missing: getMissingConfiguration(config) }, "WhatsApp Cloud API configuration is incomplete");
+    return { success: false, configured: false, code: "CONFIG_ERROR", error: message, message };
   }
 
   const phoneNorm = normalizePhoneNumber(options.to);
@@ -376,16 +452,10 @@ export async function sendWhatsAppDocument(
             success: false,
             configured: true,
             code: classified.code,
-            error: classified.message,
-            message: classified.message,
-            metaError: {
-              code: errorObj.code,
-              subcode: errorObj.error_subcode,
-              type: errorObj.type,
-              message: errorObj.message,
-              error_data: errorObj.error_data,
-              fbtrace_id: errorObj.fbtrace_id,
-            },
+            error: metaResponseMessage(errorObj, classified.message),
+            message: metaResponseMessage(errorObj, classified.message),
+            httpStatus: uploadRes.status,
+            metaError: metaErrorDetails(errorObj),
           };
         }
       } catch (uploadErr: any) {
@@ -479,16 +549,10 @@ export async function sendWhatsAppDocument(
         success: false,
         configured: true,
         code: classified.code,
-        error: classified.message,
-        message: classified.message,
-        metaError: {
-          code: errorObj.code,
-          subcode: errorObj.error_subcode,
-          type: errorObj.type,
-          message: errorObj.message,
-          error_data: errorObj.error_data,
-          fbtrace_id: errorObj.fbtrace_id,
-        },
+        error: metaResponseMessage(errorObj, classified.message),
+        message: metaResponseMessage(errorObj, classified.message),
+        httpStatus: sendRes.status,
+        metaError: metaErrorDetails(errorObj),
       };
     }
 
@@ -540,13 +604,9 @@ export async function sendWhatsAppTextMessage(options: {
   const config = getWhatsAppConfig();
 
   if (!config.isConfigured) {
-    return {
-      success: false,
-      configured: false,
-      code: "CONFIG_ERROR",
-      error: "WhatsApp Cloud API is not configured. Please configure WhatsApp Business API credentials.",
-      message: "WhatsApp Cloud API is not configured. Please configure WhatsApp Business API credentials.",
-    };
+    const message = `Missing WhatsApp configuration: ${getMissingConfiguration(config).join(", ")}`;
+    logger.error({ missing: getMissingConfiguration(config) }, "WhatsApp Cloud API configuration is incomplete");
+    return { success: false, configured: false, code: "CONFIG_ERROR", error: message, message };
   }
 
   const phoneNorm = normalizePhoneNumber(options.to);

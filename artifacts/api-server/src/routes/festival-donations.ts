@@ -8,6 +8,8 @@ import {
   sendWhatsAppDocument,
   normalizePhoneNumber,
   buildVarganiCaption,
+  getWhatsAppConfigurationStatus,
+  diagnoseWhatsAppConfiguration,
 } from "../lib/whatsapp-cloud-api";
 import { pdfRateLimiter } from "../middlewares/rateLimiter";
 import { logger } from "../lib/logger";
@@ -137,9 +139,19 @@ router.all(["/admin/festival-donations/:id/vargani-pdf", "/admin/festival-donati
 // ── GET /api/admin/whatsapp/status ──────────────────────────────────────────
 // Checks if WhatsApp Cloud API is configured on server
 router.get("/admin/whatsapp/status", requireRole("Super Admin", "Admin", "Volunteer"), async (_req, res): Promise<void> => {
-  res.json({
-    configured: isWhatsAppCloudApiConfigured(),
-  });
+  const status = getWhatsAppConfigurationStatus();
+  logger.info({
+    "WHATSAPP_PHONE_NUMBER_ID configured": status.phoneNumberIdConfigured,
+    "WHATSAPP_BUSINESS_ACCOUNT_ID configured": status.businessAccountIdConfigured,
+    "WHATSAPP_API_VERSION configured": status.apiVersionConfigured,
+    "WHATSAPP_ACCESS_TOKEN configured": status.tokenConfigured,
+  }, "WhatsApp Cloud API configuration status");
+  res.json({ configured: status.configured });
+});
+
+router.get("/admin/whatsapp/diagnostic", requireRole("Super Admin", "Admin"), async (_req, res): Promise<void> => {
+  const result = await diagnoseWhatsAppConfiguration();
+  res.status(result.success ? 200 : result.httpStatus || 503).json(result);
 });
 
 // ── POST /api/admin/festival-donations/:id/send-whatsapp ───────────────────
@@ -228,7 +240,11 @@ router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-
     }
 
     const pdf = await generateFreshVarganiReceipt(row, admin);
-
+    if (!Buffer.isBuffer(pdf) || pdf.length === 0) {
+      res.status(500).json({ success: false, code: "PDF_GENERATION_FAILED", error: "Generated Vargani PDF is empty.", message: "Generated Vargani PDF is empty." });
+      return;
+    }
+    logger.info({ donationId: id, receiptNumber: row.receipt_number, pdfBytes: pdf.length }, "Vargani PDF generated for WhatsApp");
     logger.info({ donationId: id, receiptNumber: row.receipt_number }, "Uploading receipt to WhatsApp");
     const caption = buildVarganiCaption({
       receiptNumber: row.receipt_number,
@@ -261,7 +277,8 @@ router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-
         error: errorMessage,
         message: errorMessage,
         metaError: sendResult.metaError,
-        recipient: phoneNorm.normalized,
+        metaCode: sendResult.metaError?.code,
+        httpStatus: sendResult.httpStatus,
       });
       return;
     }
