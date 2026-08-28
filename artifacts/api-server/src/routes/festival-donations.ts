@@ -239,7 +239,6 @@ router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-
         stage: "configuration",
         error: "WhatsApp Cloud API is not configured. Please configure WhatsApp Business API credentials.",
         message: "WhatsApp Cloud API is not configured. Please configure WhatsApp Business API credentials.",
-        recipient: phoneNorm.normalized,
       });
       return;
     }
@@ -309,7 +308,6 @@ router.post(["/admin/festival-donations/:id/vargani-whatsapp", "/admin/festival-
       configured: true,
       message: "WhatsApp receipt sent successfully.",
       receiptNumber: row.receipt_number,
-      recipient: phoneNorm.normalized,
       filename,
       whatsappMessageId: sendResult.messageId,
     });

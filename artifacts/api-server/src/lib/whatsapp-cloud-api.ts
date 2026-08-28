@@ -116,14 +116,18 @@ export function normalizePhoneNumber(raw: string | null | undefined): {
  */
 export function getWhatsAppConfig() {
   const token = process.env.WHATSAPP_ACCESS_TOKEN?.trim() || "";
+  // WHATSAPP_PHONE_NUMBER_ID is deliberately separate from the WABA ID. The
+  // former is the Graph API node used for both /media and /messages.
   const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim() || "";
-  const businessAccountId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID?.trim() || "";
-  let apiVersion = process.env.WHATSAPP_API_VERSION?.trim() || "v21.0";
+  const businessAccountId =
+    process.env.WHATSAPP_BUSINESS_ACCOUNT_ID?.trim() || process.env.WABA_ID?.trim() || "";
+  let apiVersion =
+    process.env.WHATSAPP_API_VERSION?.trim() || process.env.META_GRAPH_API_VERSION?.trim() || "v26.0";
   if (!apiVersion.startsWith("v")) {
     apiVersion = `v${apiVersion}`;
   }
 
-  const isConfigured = Boolean(token && phoneId && businessAccountId && process.env.WHATSAPP_API_VERSION?.trim());
+  const isConfigured = Boolean(token && phoneId && businessAccountId && apiVersion);
 
   return {
     token,
@@ -144,7 +148,7 @@ export function getWhatsAppConfigurationStatus() {
     tokenConfigured: Boolean(config.token),
     phoneNumberIdConfigured: Boolean(config.phoneId),
     businessAccountIdConfigured: Boolean(config.businessAccountId),
-    apiVersionConfigured: Boolean(process.env.WHATSAPP_API_VERSION?.trim()),
+    apiVersionConfigured: Boolean(config.apiVersion),
     phoneNumberId: config.phoneId,
     businessAccountId: config.businessAccountId,
     apiVersion: config.apiVersion,
@@ -155,24 +159,26 @@ export function isWhatsAppCloudApiConfigured(): boolean {
   return getWhatsAppConfig().isConfigured;
 }
 
-function metaErrorDetails(errorObj: any): MetaErrorPayload {
+function redactToken(value: unknown, token = ""): unknown {
+  return typeof value === "string" && token ? value.replaceAll(token, "[REDACTED]") : value;
+}
+
+function metaErrorDetails(errorObj: any, token = ""): MetaErrorPayload {
   return {
     code: errorObj?.code,
     subcode: errorObj?.error_subcode,
     error_subcode: errorObj?.error_subcode,
     type: errorObj?.type,
-    message: errorObj?.message,
-    error_data: errorObj?.error_data,
+    message: redactToken(errorObj?.message, token) as string | undefined,
     fbtrace_id: errorObj?.fbtrace_id,
   };
 }
 
-function metaResponseMessage(errorObj: any, classifiedMessage: string): string {
-  // Meta's message is the useful diagnostic. It is safe here because it is
-  // response data from Graph API and never contains our access token.
-  return typeof errorObj?.message === "string" && errorObj.message.trim()
+function metaResponseMessage(errorObj: any, classifiedMessage: string, token = ""): string {
+  const message = typeof errorObj?.message === "string" && errorObj.message.trim()
     ? errorObj.message.trim()
     : classifiedMessage;
+  return redactToken(message, token) as string;
 }
 
 function getMissingConfiguration(config: ReturnType<typeof getWhatsAppConfig>): string[] {
@@ -180,8 +186,54 @@ function getMissingConfiguration(config: ReturnType<typeof getWhatsAppConfig>): 
   if (!config.token) missing.push("WHATSAPP_ACCESS_TOKEN");
   if (!config.phoneId) missing.push("WHATSAPP_PHONE_NUMBER_ID");
   if (!config.businessAccountId) missing.push("WHATSAPP_BUSINESS_ACCOUNT_ID");
-  if (!process.env.WHATSAPP_API_VERSION?.trim()) missing.push("WHATSAPP_API_VERSION");
+  if (!config.apiVersion) missing.push("META_GRAPH_API_VERSION");
   return missing;
+}
+
+function safeMetaResponse(value: unknown, token: string): unknown {
+  if (typeof value === "string") return redactToken(value, token);
+  if (Array.isArray(value)) return value.map((item) => safeMetaResponse(item, token));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, safeMetaResponse(item, token)]));
+  }
+  return value;
+}
+
+async function uploadWhatsAppMedia(
+  uploadUrl: string,
+  token: string,
+  pdfBuffer: Buffer,
+  filename: string,
+): Promise<{ response: Response; data: any }> {
+  const formData = new FormData();
+  const blob = new Blob([new Uint8Array(pdfBuffer)], { type: "application/pdf" });
+  formData.append("file", blob, filename);
+  formData.append("messaging_product", "whatsapp");
+
+  const response = await fetch(uploadUrl, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  const data = await response.json().catch(() => ({}));
+  return { response, data };
+}
+
+async function registerWhatsAppPhoneNumber(
+  registerUrl: string,
+  token: string,
+  pin: string,
+): Promise<{ response: Response; data: any }> {
+  const response = await fetch(registerUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ messaging_product: "whatsapp", pin }),
+  });
+  const data = await response.json().catch(() => ({}));
+  return { response, data };
 }
 
 export async function diagnoseWhatsAppConfiguration(): Promise<WhatsAppSendResult & { details?: any }> {
@@ -191,7 +243,7 @@ export async function diagnoseWhatsAppConfiguration(): Promise<WhatsAppSendResul
     tokenConfigured: Boolean(config.token),
     phoneNumberIdConfigured: Boolean(config.phoneId),
     businessAccountIdConfigured: Boolean(config.businessAccountId),
-    apiVersionConfigured: Boolean(process.env.WHATSAPP_API_VERSION?.trim()),
+    apiVersionConfigured: Boolean(config.apiVersion),
     phoneNumberId: config.phoneId || undefined,
     businessAccountId: config.businessAccountId || undefined,
     apiVersion: config.apiVersion || undefined,
@@ -207,8 +259,8 @@ export async function diagnoseWhatsAppConfiguration(): Promise<WhatsAppSendResul
     if (!response.ok) {
       const errorObj = data?.error || {};
       const classified = classifyMetaError(errorObj, "send", config.phoneId);
-      logger.error({ endpoint, httpStatus: response.status, metaErrorCode: errorObj.code, metaErrorType: errorObj.type, metaErrorMessage: errorObj.message, metaErrorSubcode: errorObj.error_subcode, metaErrorData: errorObj.error_data }, "WhatsApp configuration diagnostic failed");
-      return { success: false, configured: true, code: classified.code, httpStatus: response.status, error: metaResponseMessage(errorObj, classified.message), message: metaResponseMessage(errorObj, classified.message), metaError: metaErrorDetails(errorObj), details: safeConfiguration };
+      logger.error({ endpoint, httpStatus: response.status, metaErrorCode: errorObj.code, metaErrorType: errorObj.type, metaErrorMessage: redactToken(errorObj.message, config.token), metaErrorSubcode: errorObj.error_subcode }, "WhatsApp configuration diagnostic failed");
+      return { success: false, configured: true, code: classified.code, httpStatus: response.status, error: metaResponseMessage(errorObj, classified.message, config.token), message: metaResponseMessage(errorObj, classified.message, config.token), metaError: metaErrorDetails(errorObj, config.token), details: safeConfiguration };
     }
     const accountId = data?.whatsapp_business_account?.id;
     if (accountId && accountId !== config.businessAccountId) {
@@ -366,7 +418,7 @@ export async function sendWhatsAppDocument(
   logger.info({
     "WHATSAPP_PHONE_NUMBER_ID configured": Boolean(config.phoneId),
     "WHATSAPP_BUSINESS_ACCOUNT_ID configured": Boolean(config.businessAccountId),
-    "WHATSAPP_API_VERSION configured": Boolean(process.env.WHATSAPP_API_VERSION?.trim()),
+    "WHATSAPP_API_VERSION configured": Boolean(config.apiVersion),
     "WHATSAPP_ACCESS_TOKEN configured": Boolean(config.token),
     donationId: options.donationId,
   }, "WhatsApp Cloud API configuration status before request");
@@ -405,25 +457,35 @@ export async function sendWhatsAppDocument(
       const uploadUrl = `https://graph.facebook.com/${apiVersion}/${phoneId}/media`;
 
       try {
-        const formData = new FormData();
-        const blob = new Blob([new Uint8Array(options.pdfBuffer)], { type: "application/pdf" });
-        formData.append("file", blob, filename);
-        formData.append("type", "application/pdf");
-        formData.append("messaging_product", "whatsapp");
+        let { response: uploadRes, data: uploadData } = await uploadWhatsAppMedia(
+          uploadUrl,
+          token,
+          options.pdfBuffer,
+          filename,
+        );
 
-        const uploadRes = await fetch(uploadUrl, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        });
-
-        let uploadData: any = null;
-        try {
-          uploadData = await uploadRes.json();
-        } catch {
-          // Non-JSON response
+        // Meta error 133010 means this Cloud API phone node is not registered.
+        // Registration is retried once only when the server has the phone's
+        // existing two-step verification PIN; no PIN is ever logged or returned.
+        if (!uploadRes.ok && uploadData?.error?.code === 133010) {
+          const registrationPin = process.env.WHATSAPP_PHONE_NUMBER_PIN?.trim() || "";
+          const registerUrl = `https://graph.facebook.com/${apiVersion}/${phoneId}/register`;
+          if (registrationPin) {
+            logger.warn({ donationId: options.donationId, phoneId, endpoint: registerUrl }, "WhatsApp phone registration required; attempting registration");
+            const registration = await registerWhatsAppPhoneNumber(registerUrl, token, registrationPin);
+            const registrationError = registration.data?.error;
+            if (!registration.response.ok) {
+              logger.error({ donationId: options.donationId, phoneId, endpoint: registerUrl, httpStatus: registration.response.status, metaErrorResponse: safeMetaResponse(registration.data, token) }, "WhatsApp phone registration failed");
+            } else {
+              logger.info({ donationId: options.donationId, phoneId, endpoint: registerUrl }, "WhatsApp phone registration succeeded; retrying media upload");
+              ({ response: uploadRes, data: uploadData } = await uploadWhatsAppMedia(uploadUrl, token, options.pdfBuffer, filename));
+            }
+            if (registrationError && !registration.response.ok) {
+              uploadData = registration.data;
+            }
+          } else {
+            logger.error({ donationId: options.donationId, phoneId, endpoint: uploadUrl, metaErrorResponse: safeMetaResponse(uploadData, token), registrationRequired: true, registrationPinConfigured: false }, "WhatsApp phone is not registered; registration PIN is not configured");
+          }
         }
 
         if (uploadRes.ok && uploadData?.id) {
@@ -452,9 +514,9 @@ export async function sendWhatsAppDocument(
               metaErrorCode: errorObj.code,
               metaErrorSubcode: errorObj.error_subcode,
               metaErrorType: errorObj.type,
-              metaErrorMessage: errorObj.message,
-              metaErrorData: errorObj.error_data,
+              metaErrorMessage: redactToken(errorObj.message, token),
               fbtraceId: errorObj.fbtrace_id,
+              metaErrorResponse: safeMetaResponse(uploadData, token),
             },
             "[WhatsApp Cloud API] Media upload failed"
           );
@@ -464,10 +526,10 @@ export async function sendWhatsAppDocument(
             configured: true,
             code: classified.code,
             stage: "media_upload",
-            error: metaResponseMessage(errorObj, classified.message),
-            message: metaResponseMessage(errorObj, classified.message),
+            error: metaResponseMessage(errorObj, classified.message, config.token),
+            message: metaResponseMessage(errorObj, classified.message, config.token),
             httpStatus: uploadRes.status,
-            metaError: metaErrorDetails(errorObj),
+            metaError: metaErrorDetails(errorObj, config.token),
           };
         }
       } catch (uploadErr: any) {
@@ -564,10 +626,10 @@ export async function sendWhatsAppDocument(
         configured: true,
         code: classified.code,
         stage: "message_send",
-        error: metaResponseMessage(errorObj, classified.message),
-        message: metaResponseMessage(errorObj, classified.message),
+        error: metaResponseMessage(errorObj, classified.message, config.token),
+        message: metaResponseMessage(errorObj, classified.message, config.token),
         httpStatus: sendRes.status,
-        metaError: metaErrorDetails(errorObj),
+        metaError: metaErrorDetails(errorObj, config.token),
       };
     }
 
