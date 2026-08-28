@@ -170,6 +170,7 @@ function metaErrorDetails(errorObj: any, token = ""): MetaErrorPayload {
     error_subcode: errorObj?.error_subcode,
     type: errorObj?.type,
     message: redactToken(errorObj?.message, token) as string | undefined,
+    error_data: safeMetaResponse(errorObj?.error_data, token),
     fbtrace_id: errorObj?.fbtrace_id,
   };
 }
@@ -214,23 +215,6 @@ async function uploadWhatsAppMedia(
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     body: formData,
-  });
-  const data = await response.json().catch(() => ({}));
-  return { response, data };
-}
-
-async function registerWhatsAppPhoneNumber(
-  registerUrl: string,
-  token: string,
-  pin: string,
-): Promise<{ response: Response; data: any }> {
-  const response = await fetch(registerUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ messaging_product: "whatsapp", pin }),
   });
   const data = await response.json().catch(() => ({}));
   return { response, data };
@@ -457,36 +441,12 @@ export async function sendWhatsAppDocument(
       const uploadUrl = `https://graph.facebook.com/${apiVersion}/${phoneId}/media`;
 
       try {
-        let { response: uploadRes, data: uploadData } = await uploadWhatsAppMedia(
+        const { response: uploadRes, data: uploadData } = await uploadWhatsAppMedia(
           uploadUrl,
           token,
           options.pdfBuffer,
           filename,
         );
-
-        // Meta error 133010 means this Cloud API phone node is not registered.
-        // Registration is retried once only when the server has the phone's
-        // existing two-step verification PIN; no PIN is ever logged or returned.
-        if (!uploadRes.ok && uploadData?.error?.code === 133010) {
-          const registrationPin = process.env.WHATSAPP_PHONE_NUMBER_PIN?.trim() || "";
-          const registerUrl = `https://graph.facebook.com/${apiVersion}/${phoneId}/register`;
-          if (registrationPin) {
-            logger.warn({ donationId: options.donationId, phoneId, endpoint: registerUrl }, "WhatsApp phone registration required; attempting registration");
-            const registration = await registerWhatsAppPhoneNumber(registerUrl, token, registrationPin);
-            const registrationError = registration.data?.error;
-            if (!registration.response.ok) {
-              logger.error({ donationId: options.donationId, phoneId, endpoint: registerUrl, httpStatus: registration.response.status, metaErrorResponse: safeMetaResponse(registration.data, token) }, "WhatsApp phone registration failed");
-            } else {
-              logger.info({ donationId: options.donationId, phoneId, endpoint: registerUrl }, "WhatsApp phone registration succeeded; retrying media upload");
-              ({ response: uploadRes, data: uploadData } = await uploadWhatsAppMedia(uploadUrl, token, options.pdfBuffer, filename));
-            }
-            if (registrationError && !registration.response.ok) {
-              uploadData = registration.data;
-            }
-          } else {
-            logger.error({ donationId: options.donationId, phoneId, endpoint: uploadUrl, metaErrorResponse: safeMetaResponse(uploadData, token), registrationRequired: true, registrationPinConfigured: false }, "WhatsApp phone is not registered; registration PIN is not configured");
-          }
-        }
 
         if (uploadRes.ok && uploadData?.id) {
           mediaId = uploadData.id;
