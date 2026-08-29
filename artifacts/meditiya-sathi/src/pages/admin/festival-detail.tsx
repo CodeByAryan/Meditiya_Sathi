@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn, getApiUrl } from '@/lib/utils';
 import { PENDING_REASONS } from '@/lib/pending-reasons';
-import { downloadPDF, openWhatsAppChat, getDonationPdfFilename } from '@/lib/pdf-generator';
+import { downloadPDF, openWhatsAppChat, getDonationPdfFilename, isValidPdfBlob } from '@/lib/pdf-generator';
 import { useAdminAuth } from '@/lib/AdminAuthContext';
 
 
@@ -128,15 +128,36 @@ const paymentMethodLabels: Record<string, string> = {
 const paymentMethodIcons: Record<string, any> = { cash: Banknote, upi: CreditCard, bank_transfer: Wallet, cheque: Receipt };
 
 async function fetchReceiptPdfBlob(donationId: number): Promise<Blob> {
-  const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donationId}/vargani-pdf`, {
+  // Match the working Download button: request JSON metadata first, then fetch
+  // the server-provided download URL as the actual binary response.
+  const metadataRes = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donationId}/vargani-pdf`, {
     method: 'POST',
+    headers: { ...authHeaders(), Accept: 'application/json', 'Cache-Control': 'no-cache' },
+  });
+  const metadata = await metadataRes.json().catch(() => ({}));
+  if (!metadataRes.ok || !metadata.success || !metadata.downloadUrl) {
+    throw new Error(metadata.error || metadata.message || 'Failed to generate receipt PDF');
+  }
+
+  const pdfRes = await fetch(metadata.downloadUrl, {
     headers: { ...authHeaders(), Accept: 'application/pdf', 'Cache-Control': 'no-cache' },
   });
-  if (!res.ok) {
-    const result = await res.json().catch(() => ({}));
-    throw new Error(result.error || 'Failed to generate receipt PDF');
+  const contentType = pdfRes.headers.get('content-type') || '';
+  if (!pdfRes.ok || !contentType.includes('application/pdf')) {
+    let message = 'Failed to download receipt PDF';
+    try {
+      const text = await pdfRes.text();
+      const parsed = JSON.parse(text);
+      message = parsed.error || parsed.message || message;
+    } catch {
+      // Response wasn't JSON, keep default message
+    }
+    throw new Error(message);
   }
-  return res.blob();
+
+  const blob = await pdfRes.blob();
+  if (!(await isValidPdfBlob(blob))) throw new Error('Received invalid PDF data from server');
+  return blob;
 }
 
 // Config for the date-wise payment method summary (amber-centric colors only)

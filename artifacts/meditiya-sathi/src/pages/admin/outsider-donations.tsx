@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { cn, getApiUrl } from '@/lib/utils';
 import { PENDING_REASONS } from '@/lib/pending-reasons';
 import { getPublicAppBaseUrl, getReceiptPdfUrl, getReceiptShareUrl } from '@/lib/app-url';
-import { sendWhatsApp, formatWhatsAppPhone, buildReceiptMessage } from '@/lib/whatsapp-service';
+import { downloadPDF, openWhatsAppChat, getDonationPdfFilename, isValidPdfBlob } from '@/lib/pdf-generator';
 
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -145,11 +145,35 @@ function buildWhatsAppReceipt(d: OutsiderDonation, pdfUrl?: string): string {
   return lines.join('\n');
 }
 
-function openWhatsApp(mobile: string, message: string) {
-  const ok = sendWhatsApp(mobile, message);
-  if (!ok) {
-    toast.error('Invalid mobile number for WhatsApp');
+async function fetchOutsiderReceiptPdf(donationId: number): Promise<Blob> {
+  const metadataRes = await fetch(`${getApiUrl()}/api/admin/outsider-donations/${donationId}/vargani-pdf`, {
+    method: 'POST',
+    headers: { ...authHeaders(), Accept: 'application/json', 'Cache-Control': 'no-cache' },
+  });
+  const metadata = await metadataRes.json().catch(() => ({}));
+  if (!metadataRes.ok || !metadata.success || !metadata.downloadUrl) {
+    throw new Error(metadata.error || metadata.message || 'Failed to generate receipt PDF');
   }
+
+  const pdfRes = await fetch(metadata.downloadUrl, {
+    headers: { ...authHeaders(), Accept: 'application/pdf', 'Cache-Control': 'no-cache' },
+  });
+  const contentType = pdfRes.headers.get('content-type') || '';
+  if (!pdfRes.ok || !contentType.includes('application/pdf')) {
+    let message = 'Failed to download receipt PDF';
+    try {
+      const text = await pdfRes.text();
+      const parsed = JSON.parse(text);
+      message = parsed.error || parsed.message || message;
+    } catch {
+      // Response wasn't JSON, keep default message
+    }
+    throw new Error(message);
+  }
+
+  const blob = await pdfRes.blob();
+  if (!(await isValidPdfBlob(blob))) throw new Error('Received invalid PDF data from server');
+  return blob;
 }
 
 // ── Stats Card ──────────────────────────────────────────────────────────────
@@ -266,6 +290,28 @@ const [stats, setStats] = useState<Stats | null>(null);
     }
   };
 
+  const handleSendToWhatsApp = async (donation: OutsiderDonation) => {
+    setIsSendingCloudWhatsApp(true);
+    try {
+      toast.info('Downloading donation slip PDF...');
+      const blob = await fetchOutsiderReceiptPdf(donation.id);
+      const filename = getDonationPdfFilename(donation.fullName, donation.receiptNumber);
+      downloadPDF(blob, filename);
+      toast.success(`Donation slip downloaded as ${filename}`);
+      setTimeout(() => {
+        if (openWhatsAppChat(donation.mobile)) {
+          toast.success(`Opening WhatsApp chat with ${donation.fullName || 'donor'}... Please attach the downloaded slip.`);
+        } else {
+          toast.error(`Could not open WhatsApp chat: missing or invalid phone number for ${donation.fullName || 'donor'}.`);
+        }
+      }, 300);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to prepare donation slip');
+    } finally {
+      setIsSendingCloudWhatsApp(false);
+    }
+  };
+
   const handleSendWhatsAppCloudApi = async (donation: OutsiderDonation) => {
     setIsSendingCloudWhatsApp(true);
     try {
@@ -316,7 +362,7 @@ const [stats, setStats] = useState<Stats | null>(null);
 
       const targetMobile = freshDonation.mobile || donation.mobile;
       const msg = buildWhatsAppReceipt(freshDonation, data.pdfUrl);
-      openWhatsApp(targetMobile, msg);
+      openWhatsAppChat(targetMobile);
       toast.success('WhatsApp opened with receipt link!');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to open WhatsApp');
@@ -347,6 +393,11 @@ const [stats, setStats] = useState<Stats | null>(null);
   };
 
   const handleSendWhatsAppReceipt = async (donation: OutsiderDonation) => {
+    return handleSendToWhatsApp(donation);
+  };
+
+  /* Legacy Cloud API handler retained for non-UI compatibility. */
+  const handleSendWhatsAppReceiptCloudApi = async (donation: OutsiderDonation) => {
     setSendingWhatsAppDonationId(donation.id);
     try {
       toast.info(`Sending receipt to ${donation.fullName}...`);
@@ -383,7 +434,7 @@ const [stats, setStats] = useState<Stats | null>(null);
 
         const targetMobile = freshDonation.mobile || donation.mobile;
         const msg = buildWhatsAppReceipt(freshDonation, data.pdfUrl);
-        openWhatsApp(targetMobile, msg);
+        openWhatsAppChat(targetMobile);
         toast.info('Cloud API not configured. WhatsApp opened with receipt link!');
       } else {
         throw new Error(cloudData.message || cloudData.error || 'Failed to send WhatsApp message');
@@ -1009,17 +1060,17 @@ const fetchStats = useCallback(async () => {
 
                   <button
                     type="button"
-                    onClick={() => handleSendWhatsAppCloudApi(viewDonation)}
+                    onClick={() => handleSendToWhatsApp(viewDonation)}
                     disabled={isModalBusy}
                     className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-60"
                   >
                     <Send className="w-4 h-4" />
-                    {isSendingCloudWhatsApp ? 'Sending to WhatsApp...' : 'Send on WhatsApp (Cloud API)'}
+                    {isSendingCloudWhatsApp ? 'Preparing slip & WhatsApp...' : 'Send to WhatsApp'}
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => handleOpenWhatsAppFallback(viewDonation)}
+                    onClick={() => handleSendToWhatsApp(viewDonation)}
                     disabled={isModalBusy}
                     className="w-full py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-60"
                   >
