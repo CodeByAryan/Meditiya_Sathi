@@ -107,7 +107,19 @@ router.all(["/admin/festival-donations/:id/vargani-pdf", "/admin/festival-donati
       return;
     }
 
-    const pdf = await generateFreshVarganiReceipt(row, admin);
+    let pdf: Buffer;
+    try {
+      pdf = await generateFreshVarganiReceipt(row, admin);
+    } catch (err: any) {
+      console.error(`[Vargani PDF] Generation failed for donation ID ${id}:`, err?.message || err, err?.stack || 'No stack trace available');
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: `PDF generation failed: ${err?.message || 'Unknown PDF generation error'}`,
+          donationId: id,
+        });
+      }
+      return;
+    }
 
     // Always generate from the freshly queried row. For JSON clients, expose the
     // canonical API URL; the binary response remains the default contract.
@@ -131,9 +143,13 @@ router.all(["/admin/festival-donations/:id/vargani-pdf", "/admin/festival-donati
     res.setHeader("Surrogate-Control", "no-store");
     res.end(pdf);
   } catch (err: any) {
+    console.error(`[Vargani PDF] Request failed for donation ID ${req.params.id}:`, err?.message || err, err?.stack || 'No stack trace available');
     logger.error({ err, donationId: req.params.id, festivalId: (err as any)?.festivalId, receiptNumber: (err as any)?.receiptNumber }, "Festival donation Vargani PDF request failed");
     if (!res.headersSent) {
-      res.status(500).json({ error: "Unable to generate donation receipt" });
+      res.status(500).json({
+        error: `PDF generation failed: ${err?.message || 'Unable to generate donation receipt'}`,
+        donationId: req.params.id,
+      });
     }
   }
 });

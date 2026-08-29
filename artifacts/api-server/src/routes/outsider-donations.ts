@@ -568,20 +568,29 @@ router.all(["/admin/outsider-donations/:id/vargani-pdf", "/admin/outsider-donati
     const admin = (req as any).admin;
     const collectedBy = row.collected_by_admin_name || admin?.fullName || admin?.username || "Authorized Signatory";
 
-    const pdf = await generateVarganiPdf({
-      receiptNumber: row.receipt_number,
-      donationDate: row.payment_date || row.created_at,
-      name: row.full_name,
-      mobile: row.mobile,
-      building: null,
-      wing: null,
-      flat: null,
-      amount: Number(row.amount),
-      paymentMethod: row.payment_method || "cash",
-      festivalName: row.festival_name,
-      festivalYear: Number(row.festival_year),
-      collectedBy,
-    });
+    let pdf: Buffer;
+    try {
+      pdf = await generateVarganiPdf({
+        receiptNumber: row.receipt_number,
+        donationDate: row.payment_date || row.created_at,
+        name: row.full_name,
+        mobile: row.mobile,
+        building: null,
+        wing: null,
+        flat: null,
+        amount: Number(row.amount),
+        paymentMethod: row.payment_method || "cash",
+        festivalName: row.festival_name,
+        festivalYear: Number(row.festival_year),
+        collectedBy,
+      });
+    } catch (err: any) {
+      console.error(`[Vargani PDF] Generation failed for outsider donation ID ${id}:`, err?.message || err, err?.stack || 'No stack trace available');
+      if (!res.headersSent) {
+        res.status(500).json({ error: `PDF generation failed: ${err?.message || 'Unknown PDF generation error'}`, donationId: id });
+      }
+      return;
+    }
 
     const isDownload = req.path.endsWith("/download") || req.query.download === "true";
     const wantsJson = req.method === "POST" && (req.headers.accept?.includes("application/json") || req.is("json"));
@@ -625,9 +634,12 @@ router.all(["/admin/outsider-donations/:id/vargani-pdf", "/admin/outsider-donati
     res.setHeader("Surrogate-Control", "no-store");
     res.end(pdf);
   } catch (err: any) {
-    console.error("Outsider Vargani PDF generation failed:", err?.stack || err);
+    console.error(`[Vargani PDF] Request failed for outsider donation ID ${req.params.id}:`, err?.message || err, err?.stack || 'No stack trace available');
     if (!res.headersSent) {
-      res.status(500).json({ error: "Unable to generate donation receipt" });
+      res.status(500).json({
+        error: `PDF generation failed: ${err?.message || 'Unable to generate donation receipt'}`,
+        donationId: req.params.id,
+      });
     }
   }
 });
@@ -717,20 +729,29 @@ router.post("/admin/outsider-donations/:id/send-whatsapp", requireRole("Super Ad
 
     const admin = (req as any).admin;
     const collectedBy = row.collected_by_admin_name || admin?.fullName || admin?.username || "Authorized Signatory";
-    const pdf = await generateVarganiPdf({
-      receiptNumber: row.receipt_number,
-      donationDate: row.payment_date || row.created_at,
-      name: row.full_name,
-      mobile: row.mobile,
-      building: null,
-      wing: null,
-      flat: null,
-      amount: Number(row.amount),
-      paymentMethod: row.payment_method || "cash",
-      festivalName: row.festival_name,
-      festivalYear: Number(row.festival_year),
-      collectedBy,
-    });
+    let pdf: Buffer;
+    try {
+      pdf = await generateVarganiPdf({
+        receiptNumber: row.receipt_number,
+        donationDate: row.payment_date || row.created_at,
+        name: row.full_name,
+        mobile: row.mobile,
+        building: null,
+        wing: null,
+        flat: null,
+        amount: Number(row.amount),
+        paymentMethod: row.payment_method || "cash",
+        festivalName: row.festival_name,
+        festivalYear: Number(row.festival_year),
+        collectedBy,
+      });
+    } catch (err: any) {
+      console.error(`[Vargani PDF] Generation failed for outsider donation ID ${id}:`, err?.message || err, err?.stack || 'No stack trace available');
+      if (!res.headersSent) {
+        res.status(500).json({ error: `PDF generation failed: ${err?.message || 'Unknown PDF generation error'}`, donationId: id });
+      }
+      return;
+    }
 
     const caption = buildVarganiCaption({
       receiptNumber: row.receipt_number,
