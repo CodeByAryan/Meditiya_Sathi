@@ -301,6 +301,16 @@ export function getDonationPdfFilename(donorName: string | null | undefined, fal
   return 'Donation_Slip.pdf';
 }
 
+export async function isValidPdfBlob(blob: Blob): Promise<boolean> {
+  try {
+    const headerBytes = await blob.slice(0, 5).arrayBuffer();
+    const header = new TextDecoder().decode(headerBytes);
+    return header.startsWith('%PDF');
+  } catch {
+    return false;
+  }
+}
+
 export function downloadPDF(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
