@@ -355,6 +355,13 @@ function fitText(
 /* MAIN PDF                                                */
 /* ------------------------------------------------------- */
 
+export function isValidPdfBuffer(buffer: Buffer): boolean {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 8) return false;
+  const header = buffer.subarray(0, 4).toString("ascii");
+  const tail = buffer.toString("ascii").trimEnd();
+  return header === "%PDF" && tail.endsWith("%%EOF");
+}
+
 export async function generateVarganiPdf(
   data: VarganiPdfData
 ): Promise<Buffer> {

@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, outsiderDonationsTable, festivalsTable, festivalDonationsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
-import { generateVarganiPdf } from "../lib/vargani-pdf";
+import { generateVarganiPdf, isValidPdfBuffer } from "../lib/vargani-pdf";
 import { getPublicAppBaseUrl, getReceiptPdfUrl, getReceiptShareUrl } from "../lib/app-url";
 import {
   isWhatsAppCloudApiConfigured,
@@ -621,6 +621,12 @@ router.all(["/admin/outsider-donations/:id/vargani-pdf", "/admin/outsider-donati
           collectedByAdminName: collectedBy,
         },
       });
+      return;
+    }
+
+    if (!isValidPdfBuffer(pdf)) {
+      console.error(`[Vargani PDF] Invalid PDF buffer for outsider donation ID ${id}: missing %PDF header or %%EOF trailer`);
+      res.status(500).json({ error: "PDF generation failed: generator returned an invalid PDF buffer", donationId: id });
       return;
     }
 
