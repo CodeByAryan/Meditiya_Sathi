@@ -284,7 +284,22 @@ function buildPendingNoticeHTML(data: PendingNoticeData): string {
   `;
 }
 
-// ── Download / Open PDF helper ───────────────────────────────────────────────
+// ── Download / Open / WhatsApp Chat helpers ─────────────────────────────────
+
+export function getDonationPdfFilename(donorName: string | null | undefined, fallbackReceiptNumber?: string | null): string {
+  const sanitized = (donorName || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9\s_-]/g, '')
+    .replace(/\s+/g, '_');
+
+  if (sanitized) {
+    return `${sanitized}_Donation_Slip.pdf`;
+  }
+  if (fallbackReceiptNumber) {
+    return `Vargani-${fallbackReceiptNumber.replace(/[^a-zA-Z0-9_-]/g, '-')}.pdf`;
+  }
+  return 'Donation_Slip.pdf';
+}
 
 export function downloadPDF(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -298,25 +313,31 @@ export function downloadPDF(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
-/** Shares a receipt through the device share sheet, with a file-download fallback. */
-export async function sharePDF(blob: Blob, filename: string): Promise<'shared' | 'downloaded'> {
-  const file = new File([blob], filename, { type: 'application/pdf' });
-  const canShareFiles = typeof navigator !== 'undefined'
-    && typeof navigator.share === 'function'
-    && typeof navigator.canShare === 'function'
-    && navigator.canShare({ files: [file] });
+export function openWhatsAppChat(phoneNumber: string | null | undefined): boolean {
+  if (!phoneNumber) return false;
+  let cleanNumber = String(phoneNumber).replace(/[^0-9]/g, '');
+  if (!cleanNumber) return false;
 
-  if (canShareFiles) {
-    await navigator.share({
-      files: [file],
-      title: 'Donation Slip',
-      text: 'Here is your donation receipt.',
-    });
-    return 'shared';
+  // Normalise Indian numbers to 91XXXXXXXXXX
+  if (cleanNumber.startsWith('9191') && cleanNumber.length === 14) {
+    cleanNumber = cleanNumber.slice(2);
+  }
+  if (cleanNumber.length === 10) {
+    cleanNumber = `91${cleanNumber}`;
+  } else if (cleanNumber.length === 11 && cleanNumber.startsWith('0')) {
+    cleanNumber = `91${cleanNumber.slice(1)}`;
+  } else if (cleanNumber.length > 12 && cleanNumber.startsWith('91')) {
+    cleanNumber = `91${cleanNumber.slice(-10)}`;
+  } else if (cleanNumber.length > 10 && !cleanNumber.startsWith('91')) {
+    cleanNumber = `91${cleanNumber.slice(-10)}`;
   }
 
-  downloadPDF(blob, filename);
-  return 'downloaded';
+  if (cleanNumber.length < 10) {
+    return false;
+  }
+
+  window.open(`https://wa.me/${cleanNumber}`, '_blank');
+  return true;
 }
 
 export function openPDFInNewTab(blob: Blob) {
