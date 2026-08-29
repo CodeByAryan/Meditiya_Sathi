@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn, getApiUrl } from '@/lib/utils';
 import { PENDING_REASONS } from '@/lib/pending-reasons';
-import { sharePDF } from '@/lib/pdf-generator';
+import { downloadPDF, openWhatsAppChat, getDonationPdfFilename } from '@/lib/pdf-generator';
 import { useAdminAuth } from '@/lib/AdminAuthContext';
 
 
@@ -127,7 +127,7 @@ const paymentMethodLabels: Record<string, string> = {
 
 const paymentMethodIcons: Record<string, any> = { cash: Banknote, upi: CreditCard, bank_transfer: Wallet, cheque: Receipt };
 
-async function fetchReceiptPdf(donationId: number, receiptNumber: string): Promise<{ blob: Blob; filename: string }> {
+async function fetchReceiptPdfBlob(donationId: number): Promise<Blob> {
   const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donationId}/vargani-pdf`, {
     method: 'POST',
     headers: { ...authHeaders(), Accept: 'application/pdf', 'Cache-Control': 'no-cache' },
@@ -136,10 +136,7 @@ async function fetchReceiptPdf(donationId: number, receiptNumber: string): Promi
     const result = await res.json().catch(() => ({}));
     throw new Error(result.error || 'Failed to generate receipt PDF');
   }
-  return {
-    blob: await res.blob(),
-    filename: `Vargani-${receiptNumber}.pdf`,
-  };
+  return res.blob();
 }
 
 // Config for the date-wise payment method summary (amber-centric colors only)
@@ -801,17 +798,25 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
     }
   };
 
-  const handleShareWhatsApp = async () => {
+  const handleSendToWhatsApp = async () => {
     setIsSharingWhatsApp(true);
     try {
-      toast.info('Preparing receipt for sharing...');
-      const { blob, filename } = await fetchReceiptPdf(donation.id, donation.receiptNumber!);
-      const result = await sharePDF(blob, filename);
-      toast.success(result === 'shared'
-        ? 'Receipt ready in the share sheet. Choose WhatsApp to send it.'
-        : 'Receipt sharing is unavailable here, so the PDF was downloaded.');
+      toast.info('Downloading donation slip PDF...');
+      const blob = await fetchReceiptPdfBlob(donation.id);
+      const filename = getDonationPdfFilename(donation.residentName, donation.receiptNumber);
+      downloadPDF(blob, filename);
+      toast.success(`Donation slip downloaded as ${filename}`);
+
+      setTimeout(() => {
+        const opened = openWhatsAppChat(donation.residentMobile);
+        if (opened) {
+          toast.success(`Opening WhatsApp chat with ${donation.residentName || 'donor'}... Please attach the downloaded slip.`);
+        } else {
+          toast.error(`Could not open WhatsApp chat: missing or invalid phone number for ${donation.residentName || 'resident'}.`);
+        }
+      }, 300);
     } catch (err: any) {
-      if (err?.name !== 'AbortError') toast.error(err?.message || 'Failed to share receipt PDF');
+      toast.error(err?.message || 'Failed to prepare donation slip');
     } finally {
       setIsSharingWhatsApp(false);
     }
@@ -893,17 +898,17 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
 
               <button
                 type="button"
-                onClick={() => { void handleShareWhatsApp(); }}
+                onClick={() => { void handleSendToWhatsApp(); }}
                 disabled={isBusy}
                 className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 <Send className="w-4 h-4" />
-                {isSharingWhatsApp ? 'Preparing to Share...' : 'Send to WhatsApp'}
+                {isSharingWhatsApp ? 'Preparing slip & WhatsApp...' : 'Send to WhatsApp'}
               </button>
 
               <button
                 type="button"
-                onClick={() => { void handleShareWhatsApp(); }}
+                onClick={() => { void handleSendToWhatsApp(); }}
                 disabled={isBusy}
                 className="hidden w-full py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-60"
               >
@@ -1281,14 +1286,22 @@ export default function AdminFestivalDetail() {
     if (!d.receiptNumber) return;
     setSendingWhatsAppDonationId(d.id);
     try {
-      toast.info(`Preparing receipt for ${d.residentName}...`);
-      const { blob, filename } = await fetchReceiptPdf(d.id, d.receiptNumber);
-      const result = await sharePDF(blob, filename);
-      toast.success(result === 'shared'
-        ? `Receipt ready in the share sheet. Choose WhatsApp to send it to ${d.residentName}.`
-        : `Receipt for ${d.residentName} was downloaded because native sharing is unavailable.`);
+      toast.info(`Preparing donation slip for ${d.residentName}...`);
+      const blob = await fetchReceiptPdfBlob(d.id);
+      const filename = getDonationPdfFilename(d.residentName, d.receiptNumber);
+      downloadPDF(blob, filename);
+      toast.success(`Donation slip downloaded as ${filename}`);
+
+      setTimeout(() => {
+        const opened = openWhatsAppChat(d.residentMobile);
+        if (opened) {
+          toast.success(`Opening WhatsApp chat with ${d.residentName}... Please attach the downloaded slip.`);
+        } else {
+          toast.error(`Could not open WhatsApp chat: missing or invalid phone number for ${d.residentName}.`);
+        }
+      }, 300);
     } catch (err: any) {
-      if (err?.name !== 'AbortError') toast.error(err?.message || 'Failed to share receipt PDF');
+      toast.error(err?.message || 'Failed to prepare donation slip');
     } finally {
       setSendingWhatsAppDonationId(null);
     }
