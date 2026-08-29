@@ -21,8 +21,9 @@ import {
   Hash,
   Filter,
   MapPin,
-  Sparkles,
+  Sparkles, Download, FileSpreadsheet,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { cn, getApiUrl } from '@/lib/utils';
 
@@ -849,6 +850,18 @@ export default function AdminResidentsList() {
     useState<Resident | null>(null);
 
   const [isDeleting, setIsDeleting] = useState(false);
+  const [exporting, setExporting] = useState<'excel' | 'csv' | null>(null);
+  const exportResidents = async (format: 'excel' | 'csv') => {
+    setExporting(format);
+    try {
+      const q = new URLSearchParams(); if (search) q.set('search', search); if (filterBuildingId) q.set('buildingId', String(filterBuildingId)); if (filterWingId) q.set('wingId', String(filterWingId)); if (filterStatus) q.set('status', filterStatus);
+      const response = await fetch(getApiUrl() + '/api/admin/residents/export?' + q.toString(), { headers: authHeaders() }); if (!response.ok) throw new Error('Failed to export residents');
+      const data = await response.json(); const rows = (data.residents || []).map((r: Resident) => ({ Name: r.fullName, Mobile: r.mobile, Building: r.buildingName || '', Wing: r.wingName || '', Flat: r.flatNo, Address: r.address || '', Status: r.status, 'Created Date': formatDate(r.createdAt) })); const ws = XLSX.utils.json_to_sheet(rows);
+      if (format === 'excel') { const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Residents'); XLSX.writeFile(wb, 'residents.xlsx'); } else { const blob = new Blob(['﻿' + XLSX.utils.sheet_to_csv(ws)], { type: 'text/csv;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'residents.csv'; a.click(); URL.revokeObjectURL(a.href); }
+      toast.success((format === 'excel' ? 'Excel' : 'CSV') + ' downloaded successfully');
+    } catch (err: any) { toast.error(err?.message || 'Failed to export residents'); } finally { setExporting(null); }
+  };
+
 
   /* ============================================================
      BUILDINGS
@@ -1173,6 +1186,11 @@ export default function AdminResidentsList() {
               <p className="mt-2 text-sm text-white/40">
                 Manage and organize all registered residents.
               </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => exportResidents('excel')} disabled={!!exporting} className="inline-flex items-center gap-2 rounded-full border-amber-300/30 px-4 py-3 text-sm font-semibold text-amber-200 disabled:opacity-50"><FileSpreadsheet className="h-4 w-4" />{exporting === 'excel' ? 'Downloading…' : 'Download Excel'}</button>
+              <button onClick={() => exportResidents('csv')} disabled={!!exporting} className="inline-flex items-center gap-2 rounded-full border-white/15 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"><Download className="h-4 w-4" />{exporting === 'csv' ? 'Downloading…' : 'Download CSV'}</button>
             </div>
 
             <Link

@@ -211,6 +211,11 @@ router.get("/admin/tshirt-registrations/export", requireRole("Super Admin", "Adm
           ORDER BY t.created_at DESC`
     );
 
+    if (req.query.format === "json") {
+      res.json({ registrations: (rows.rows || []).map(mapRow) });
+      return;
+    }
+
     const headers = [
       "Festival", "Name", "Mobile Number", "Building", "Wing",
 "T-Shirt Size", "Numeric Size", "Quantity", "T-Shirt Price", "Total Amount", "Chest Size", "Paid To", "Payment Mode",

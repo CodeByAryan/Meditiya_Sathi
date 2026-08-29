@@ -1401,5 +1401,34 @@ router.post("/admin/festivals/:festivalId/door-to-door/collect", requireRole("Su
   }
 });
 
-export default router;
+
+// Dedicated unpaginated donation export. Authorization and festival access match the list route.
+router.get("/admin/festival-donations/export", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+  try {
+    const festivalId = parseInt(req.query.festivalId as string, 10);
+    if (!Number.isInteger(festivalId) || festivalId <= 0) { res.status(400).json({ error: "Invalid festival ID" }); return; }
+    const admin = (req as any).admin;
+    if (!(await canAccessFestival(admin.role, admin.id, festivalId))) { res.status(403).json({ error: "Forbidden" }); return; }
+    const conditions: ReturnType<typeof sql>[] = [sql`fd.festival_id = ${festivalId}`];
+    const search = (req.query.search as string)?.trim() || "";
+    const status = req.query.donationStatus as string | undefined;
+    const method = req.query.paymentMethod as string | undefined;
+    const buildingId = parseInt(req.query.buildingId as string, 10);
+    const wingId = parseInt(req.query.wingId as string, 10);
+    if (status === "paid") conditions.push(sql`fd.payment_method != 'pending'`); else if (status === "pending") conditions.push(sql`fd.payment_method = 'pending'`);
+    if (method && ["pending", "cash", "upi", "bank_transfer", "cheque"].includes(method)) conditions.push(sql`fd.payment_method = ${method}`);
+    if (Number.isInteger(buildingId) && buildingId > 0) conditions.push(sql`r.building_id = ${buildingId}`);
+    if (Number.isInteger(wingId) && wingId > 0) conditions.push(sql`r.wing_id = ${wingId}`);
+    if (req.query.flatNo) conditions.push(sql`LOWER(r.flat_no) = LOWER(${String(req.query.flatNo).slice(0, 30)})`);
+    if (req.query.pendingReason) conditions.push(sql`fd.pending_reason = ${String(req.query.pendingReason).slice(0, 100)}`);
+    if (req.query.adminId) conditions.push(sql`fd.collected_by_admin_id = ${String(req.query.adminId).slice(0, 60)}`);
+    if (req.query.dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.dateFrom))) conditions.push(sql`fd.payment_date >= ${String(req.query.dateFrom)}`);
+    if (req.query.dateTo && /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.dateTo))) conditions.push(sql`fd.payment_date <= ${String(req.query.dateTo)}`);
+    if (req.query.amountMin && !isNaN(Number(req.query.amountMin))) conditions.push(sql`fd.amount >= ${Number(req.query.amountMin)}`);
+    if (req.query.amountMax && !isNaN(Number(req.query.amountMax))) conditions.push(sql`fd.amount <= ${Number(req.query.amountMax)}`);
+    if (search) { const q = `%${search.slice(0, 100)}%`; conditions.push(sql`(LOWER(r.full_name) LIKE LOWER(${q}) OR r.mobile LIKE ${q} OR LOWER(r.flat_no) LIKE LOWER(${q}) OR LOWER(b.building_name) LIKE LOWER(${q}) OR LOWER(COALESCE(w.wing_name, '')) LIKE LOWER(${q}) OR LOWER(COALESCE(fd.receipt_number, '')) LIKE LOWER(${q}) OR LOWER(COALESCE(fd.notes, '')) LIKE LOWER(${q}) OR LOWER(COALESCE(fd.collected_by_admin_name, '')) LIKE LOWER(${q}))`); }
+    const rows = await db.execute(sql`SELECT fd.id, fd.festival_id, fd.resident_id, fd.payment_method, fd.amount, fd.payment_date, fd.receipt_number, fd.pending_reason, fd.notes, fd.collected_by_admin_id, fd.collected_by_admin_name, fd.created_at, r.full_name AS resident_name, r.mobile AS resident_mobile, r.flat_no, b.building_name, w.wing_name FROM festival_donations fd LEFT JOIN residents r ON fd.resident_id = r.id LEFT JOIN buildings b ON r.building_id = b.id LEFT JOIN wings w ON r.wing_id = w.id WHERE ${sql.join(conditions, sql` AND `)} ORDER BY fd.created_at DESC`);
+    res.json({ donations: rows.rows || [] });
+  } catch (err: any) { console.error("Error exporting festival donations:", err); res.status(500).json({ error: err?.message || "Failed to export donations" }); }
+});export default router;
 

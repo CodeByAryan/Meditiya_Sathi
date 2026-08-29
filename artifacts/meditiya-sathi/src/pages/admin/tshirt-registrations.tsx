@@ -637,9 +637,9 @@ const clearForm = () => {
       if (filterQuantity) sp.set('quantity', filterQuantity);
       if (filterPaymentMode) sp.set('payment_mode', filterPaymentMode);
       if (filterPaidTo) sp.set('paid_to', filterPaidTo);
-      sp.set('limit', '100000');
 
-      const res = await fetch(`${getApiUrl()}/api/admin/tshirt-registrations?${sp.toString()}`, {
+
+      const res = await fetch(`${getApiUrl()}/api/admin/tshirt-registrations/export?${sp.toString()}&format=json`, {
         headers: { ...authHeaders(), 'Cache-Control': 'no-cache' },
       });
       if (!res.ok) throw new Error('Failed to export');

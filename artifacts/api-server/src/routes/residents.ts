@@ -815,6 +815,22 @@ router.get("/admin/residents", requireRole("Super Admin", "Admin"), async (req, 
 // ── GET /api/admin/residents/:id ─────────────────────────────────────────────
 // Get a single resident with building/wing details
 
+// Dedicated unpaginated resident export; list pagination remains unchanged.
+router.get("/admin/residents/export", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
+  try {
+    const search = (req.query.search as string)?.trim() || "";
+    const conditions: ReturnType<typeof sql>[] = [];
+    const buildingId = parseInt(req.query.buildingId as string, 10);
+    const wingId = parseInt(req.query.wingId as string, 10);
+    const status = req.query.status as string | undefined;
+    if (status === "active" || status === "inactive") conditions.push(eq(residentsTable.status, status));
+    if (Number.isInteger(buildingId) && buildingId > 0) conditions.push(eq(residentsTable.buildingId, buildingId));
+    if (Number.isInteger(wingId) && wingId > 0) conditions.push(eq(residentsTable.wingId, wingId));
+    if (search) conditions.push(sql`(LOWER(${residentsTable.fullName}) LIKE LOWER(${'%' + search + '%'}) OR ${residentsTable.mobile} LIKE ${'%' + search + '%'} OR LOWER(${residentsTable.flatNo}) LIKE LOWER(${'%' + search + '%'}))`);
+    const rows = await db.select({ id: residentsTable.id, fullName: residentsTable.fullName, mobile: residentsTable.mobile, buildingId: residentsTable.buildingId, wingId: residentsTable.wingId, flatNo: residentsTable.flatNo, address: residentsTable.address, status: residentsTable.status, createdAt: residentsTable.createdAt, updatedAt: residentsTable.updatedAt, buildingName: buildingsTable.buildingName, wingName: wingsTable.wingName }).from(residentsTable).leftJoin(buildingsTable, eq(residentsTable.buildingId, buildingsTable.id)).leftJoin(wingsTable, eq(residentsTable.wingId, wingsTable.id)).where(conditions.length ? and(...conditions) : undefined).orderBy(residentsTable.createdAt);
+    res.json({ residents: rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString() })) });
+  } catch (err: any) { res.status(500).json({ error: err?.message || "Failed to export residents" }); }
+});
 router.get("/admin/residents/:id", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const residentId = parseInt(req.params.id as string, 10);
@@ -991,5 +1007,6 @@ router.delete("/admin/residents/:id", requireRole("Super Admin"), async (req, re
   }
 });
 
-export default router;
 
+
+export default router;

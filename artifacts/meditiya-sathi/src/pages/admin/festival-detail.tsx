@@ -7,6 +7,7 @@ import { cn, getApiUrl } from '@/lib/utils';
 import { PENDING_REASONS } from '@/lib/pending-reasons';
 import { downloadPDF, openWhatsAppChat, getDonationPdfFilename, isValidPdfBlob } from '@/lib/pdf-generator';
 import { useAdminAuth } from '@/lib/AdminAuthContext';
+import * as XLSX from 'xlsx';
 
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -1431,6 +1432,18 @@ const fetchStats = useCallback(async () => {
     if (festivalId && collectionDate) { fetchCollectionSummary(collectionDate); }
   }, [festivalId, collectionDate, fetchCollectionSummary]);
 
+  const [exportingDonations, setExportingDonations] = useState<'excel' | 'csv' | null>(null);
+  const exportDonations = async (format: 'excel' | 'csv') => {
+    if (!festivalId) return; setExportingDonations(format);
+    try {
+      const q = new URLSearchParams({ festivalId: String(festivalId) }); if (donationSearch) q.set('search', donationSearch); if (filterDonationStatus) q.set('donationStatus', filterDonationStatus); if (filterBuildingId) q.set('buildingId', filterBuildingId); if (filterWingId) q.set('wingId', filterWingId); if (filterPaymentMethod) q.set('paymentMethod', filterPaymentMethod); if (filterPendingReason) q.set('pendingReason', filterPendingReason); if (filterDateFrom) q.set('dateFrom', filterDateFrom); if (filterDateTo) q.set('dateTo', filterDateTo); if (filterAmountMin) q.set('amountMin', filterAmountMin); if (filterAmountMax) q.set('amountMax', filterAmountMax); if (filterAdminId) q.set('adminId', filterAdminId);
+      const response = await fetch(getApiUrl() + '/api/admin/festival-donations/export?' + q.toString(), { headers: authHeaders() }); if (!response.ok) throw new Error('Failed to export donations'); const data = await response.json();
+      const rows = (data.donations || []).map((d: any) => ({ Name: d.resident_name || '', Mobile: d.resident_mobile || '', Building: d.building_name || '', Wing: d.wing_name || '', Flat: d.flat_no || '', Amount: d.amount ?? '', 'Payment Method': d.payment_method || '', 'Receipt Number': d.receipt_number || '', 'Pending Reason': d.pending_reason || '', Notes: d.notes || '', 'Donation Date': d.payment_date || d.created_at || '', 'Collected By': d.collected_by_admin_name || '' })); const ws = XLSX.utils.json_to_sheet(rows); const safe = ((festival?.name || 'festival') + '-' + (festival?.year || '')).replace(/[^a-zA-Z0-9_-]/g, '_');
+      if (format === 'excel') { const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Donations'); XLSX.writeFile(wb, 'Donations-' + safe + '.xlsx'); } else { const blob = new Blob(['﻿' + XLSX.utils.sheet_to_csv(ws)], { type: 'text/csv;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Donations-' + safe + '.csv'; a.click(); URL.revokeObjectURL(a.href); }
+      toast.success((format === 'excel' ? 'Excel' : 'CSV') + ' downloaded successfully');
+    } catch (err: any) { toast.error(err?.message || 'Failed to export donations'); } finally { setExportingDonations(null); }
+  };
+
   const handleDonationSearch = () => {
     setDonationPagination(p => ({ ...p, page: 1 }));
     setDonationSearch(donationSearchInput);
@@ -1654,6 +1667,8 @@ const fetchStats = useCallback(async () => {
         </div>
 
 <div className="flex gap-2 mb-6 flex-wrap">
+          <button onClick={() => exportDonations('excel')} disabled={!!exportingDonations} className="flex items-center gap-2 px-4 py-2 rounded-xl border-amber-300/40 text-amber-200 font-semibold text-sm disabled:opacity-50"><Download className="w-4 h-4" /> {exportingDonations === 'excel' ? 'Downloading…' : 'Download Excel'}</button>
+          <button onClick={() => exportDonations('csv')} disabled={!!exportingDonations} className="flex items-center gap-2 px-4 py-2 rounded-xl border-white/15 text-white font-semibold text-sm disabled:opacity-50"><Download className="w-4 h-4" /> {exportingDonations === 'csv' ? 'Downloading…' : 'Download CSV'}</button>
           <button onClick={() => setShowAddDonation(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary/90 transition-all shadow-lg">
             <Plus className="w-4 h-4" /> Add Donation
           </button>
