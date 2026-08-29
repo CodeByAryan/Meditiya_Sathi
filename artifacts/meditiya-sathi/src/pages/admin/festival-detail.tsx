@@ -835,7 +835,7 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
         } else {
           toast.error(`Could not open WhatsApp chat: missing or invalid phone number for ${donation.residentName || 'resident'}.`);
         }
-      }, 300);
+      }, 900);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to prepare donation slip');
     } finally {
@@ -1320,7 +1320,7 @@ export default function AdminFestivalDetail() {
         } else {
           toast.error(`Could not open WhatsApp chat: missing or invalid phone number for ${d.residentName}.`);
         }
-      }, 300);
+      }, 900);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to prepare donation slip');
     } finally {

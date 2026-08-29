@@ -346,7 +346,9 @@ export function openWhatsAppChat(phoneNumber: string | null | undefined): boolea
     return false;
   }
 
-  window.open(`https://wa.me/${cleanNumber}`, '_blank');
+  const whatsappUrl = `https://wa.me/${cleanNumber}`;
+  console.debug('[WhatsApp chat] Opening:', whatsappUrl);
+  window.location.href = whatsappUrl;
   return true;
 }
 

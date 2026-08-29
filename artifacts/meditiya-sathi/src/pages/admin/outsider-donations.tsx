@@ -304,7 +304,7 @@ const [stats, setStats] = useState<Stats | null>(null);
         } else {
           toast.error(`Could not open WhatsApp chat: missing or invalid phone number for ${donation.fullName || 'donor'}.`);
         }
-      }, 300);
+      }, 900);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to prepare donation slip');
     } finally {
