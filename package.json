@@ -7,6 +7,7 @@
     "dev:api": "pnpm --filter @workspace/api-server run dev",
     "dev:web": "pnpm --filter @workspace/meditiya-sathi run dev",
     "db:push": "pnpm --filter @workspace/db run push",
+    "whatsapp:register": "node ./scripts/register-whatsapp-phone.mjs",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --if-present run typecheck"

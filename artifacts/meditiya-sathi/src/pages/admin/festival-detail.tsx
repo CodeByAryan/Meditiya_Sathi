@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn, getApiUrl } from '@/lib/utils';
 import { PENDING_REASONS } from '@/lib/pending-reasons';
-import { formatWhatsAppPhone, buildReceiptMessage } from '@/lib/whatsapp-service';
+import { sharePDF } from '@/lib/pdf-generator';
 import { useAdminAuth } from '@/lib/AdminAuthContext';
 
 
@@ -126,6 +126,21 @@ const paymentMethodLabels: Record<string, string> = {
 };
 
 const paymentMethodIcons: Record<string, any> = { cash: Banknote, upi: CreditCard, bank_transfer: Wallet, cheque: Receipt };
+
+async function fetchReceiptPdf(donationId: number, receiptNumber: string): Promise<{ blob: Blob; filename: string }> {
+  const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donationId}/vargani-pdf`, {
+    method: 'POST',
+    headers: { ...authHeaders(), Accept: 'application/pdf', 'Cache-Control': 'no-cache' },
+  });
+  if (!res.ok) {
+    const result = await res.json().catch(() => ({}));
+    throw new Error(result.error || 'Failed to generate receipt PDF');
+  }
+  return {
+    blob: await res.blob(),
+    filename: `Vargani-${receiptNumber}.pdf`,
+  };
+}
 
 // Config for the date-wise payment method summary (amber-centric colors only)
 const collectionMethodConfig: Record<string, { label: string; icon: any; color: string; bar: string }> = {
@@ -741,8 +756,8 @@ function DeleteDonationDialog({ donation, onConfirm, onCancel, isLoading }: {
 function ViewDonationModal({ donation, festivalName, onClose }: { donation: Donation; festivalName: string; onClose: () => void }) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
-  const [isSendingCloudWhatsApp, setIsSendingCloudWhatsApp] = useState(false);
-  const isBusy = isDownloading || isPreviewing || isSendingCloudWhatsApp;
+  const [isSharingWhatsApp, setIsSharingWhatsApp] = useState(false);
+  const isBusy = isDownloading || isPreviewing || isSharingWhatsApp;
 
   const handleDownloadPdf = async () => {
     setIsDownloading(true);
@@ -786,31 +801,20 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
     }
   };
 
-  const handleSendWhatsAppCloudApi = async () => {
-    setIsSendingCloudWhatsApp(true);
+  const handleShareWhatsApp = async () => {
+    setIsSharingWhatsApp(true);
     try {
-      toast.info('Generating fresh receipt & sending via WhatsApp Business API...');
-      const res = await fetch(`${getApiUrl()}/api/admin/festival-donations/${donation.id}/send-whatsapp`, {
-        method: 'POST',
-        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        const detail = data.message || data.error || 'Failed to send via WhatsApp Business API';
-        const stage = data.stage ? `\nStage: ${data.stage}` : '';
-        toast.error(`WhatsApp failed: ${detail}${stage}`, { duration: 7000 });
-        return;
-      }
-      toast.success(data.message || `Receipt sent successfully on WhatsApp${data.whatsappMessageId ? ` (Message ID: ${data.whatsappMessageId})` : ''}`);
+      toast.info('Preparing receipt for sharing...');
+      const { blob, filename } = await fetchReceiptPdf(donation.id, donation.receiptNumber!);
+      const result = await sharePDF(blob, filename);
+      toast.success(result === 'shared'
+        ? 'Receipt ready in the share sheet. Choose WhatsApp to send it.'
+        : 'Receipt sharing is unavailable here, so the PDF was downloaded.');
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to send WhatsApp document');
+      if (err?.name !== 'AbortError') toast.error(err?.message || 'Failed to share receipt PDF');
     } finally {
-      setIsSendingCloudWhatsApp(false);
+      setIsSharingWhatsApp(false);
     }
-  };
-
-  const handleOpenWhatsAppFallback = async () => {
-    toast.error('WhatsApp Business API is required to send receipt documents.');
   };
 
   const PayIcon = paymentMethodIcons[donation.paymentMethod || ''] || Banknote;
@@ -889,17 +893,17 @@ function ViewDonationModal({ donation, festivalName, onClose }: { donation: Dona
 
               <button
                 type="button"
-                onClick={() => { void handleSendWhatsAppCloudApi(); }}
+                onClick={() => { void handleShareWhatsApp(); }}
                 disabled={isBusy}
                 className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 <Send className="w-4 h-4" />
-                {isSendingCloudWhatsApp ? 'Generating & Sending...' : 'Send Receipt on WhatsApp'}
+                {isSharingWhatsApp ? 'Preparing to Share...' : 'Send to WhatsApp'}
               </button>
 
               <button
                 type="button"
-                onClick={() => { void handleOpenWhatsAppFallback(); }}
+                onClick={() => { void handleShareWhatsApp(); }}
                 disabled={isBusy}
                 className="hidden w-full py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-60"
               >
@@ -1274,26 +1278,17 @@ export default function AdminFestivalDetail() {
   };
 
   const handleSendRowWhatsApp = async (d: Donation) => {
-    if (!festival) return;
+    if (!d.receiptNumber) return;
     setSendingWhatsAppDonationId(d.id);
     try {
-      toast.info(`Sending receipt to ${d.residentName}...`);
-      // 1. Try sending via WhatsApp Business Cloud API
-      const cloudRes = await fetch(`${getApiUrl()}/api/admin/festival-donations/${d.id}/send-whatsapp`, {
-        method: 'POST',
-        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-      });
-
-      const cloudData = await cloudRes.json();
-      if (cloudRes.ok && cloudData.success) {
-        toast.success(cloudData.message || `Receipt document sent to ${d.residentName} via WhatsApp Business API!`);
-        return;
-      }
-
-      const stage = cloudData.stage ? `\nStage: ${cloudData.stage}` : '';
-      throw new Error(`WhatsApp failed: ${cloudData.message || cloudData.error || 'Failed to send WhatsApp message'}${stage}`);
+      toast.info(`Preparing receipt for ${d.residentName}...`);
+      const { blob, filename } = await fetchReceiptPdf(d.id, d.receiptNumber);
+      const result = await sharePDF(blob, filename);
+      toast.success(result === 'shared'
+        ? `Receipt ready in the share sheet. Choose WhatsApp to send it to ${d.residentName}.`
+        : `Receipt for ${d.residentName} was downloaded because native sharing is unavailable.`);
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to process WhatsApp receipt delivery');
+      if (err?.name !== 'AbortError') toast.error(err?.message || 'Failed to share receipt PDF');
     } finally {
       setSendingWhatsAppDonationId(null);
     }
@@ -1827,7 +1822,7 @@ const fetchStats = useCallback(async () => {
                                     onClick={() => handleSendRowWhatsApp(d)}
                                     disabled={sendingWhatsAppDonationId === d.id}
                                     className="p-1.5 rounded-lg hover:bg-white/[0.04] transition-colors text-emerald-400 disabled:opacity-50"
-                                    title="Send WhatsApp Receipt"
+                                    title="Send receipt using device share sheet"
                                   >
                                     {sendingWhatsAppDonationId === d.id ? (
                                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />

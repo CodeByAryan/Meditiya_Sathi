@@ -45,7 +45,7 @@ function formatCurrency(amount: number): string {
 
 export function generateReceiptPDF(data: DonationReceiptData): { blob: Blob; url: string; filename: string } {
   const { jsPDF } = (window as any).jspdf || {};
-  
+
   // Use simple HTML-to-PDF approach (works everywhere without additional libs)
   const receiptHTML = buildReceiptHTML(data);
   return generatePDFFromHTML(receiptHTML, `receipt-${data.receiptNumber.replace(/[^a-zA-Z0-9]/g, '-')}.pdf`);
@@ -177,7 +177,7 @@ function generatePDFFromHTML(html: string, filename: string): { blob: Blob; url:
       }
     </style>
   `;
-  
+
   const fullHTML = `<!DOCTYPE html>
 <html>
 <head>
@@ -195,7 +195,7 @@ function generatePDFFromHTML(html: string, filename: string): { blob: Blob; url:
   // we create an HTML blob that can be printed as PDF
   const pdfBlob = new Blob([fullHTML], { type: 'text/html' });
   const url = URL.createObjectURL(pdfBlob);
-  
+
   return { blob: pdfBlob, url, filename: filename.replace('.pdf', '.html') };
 }
 
@@ -216,7 +216,7 @@ function buildReceiptHTML(data: DonationReceiptData): string {
         <h1>${data.societyName || 'Meditiya Sathi'}</h1>
         <div class="subtitle">Donation Receipt</div>
       </div>
-      
+
       <div class="title-row">
         <h2>🎉 ${data.festivalName} Donation</h2>
       </div>
@@ -251,7 +251,7 @@ function buildPendingNoticeHTML(data: PendingNoticeData): string {
         <h1>${data.societyName || 'Meditiya Sathi'}</h1>
         <div class="subtitle">Pending Donation Notice</div>
       </div>
-      
+
       <div class="title-row">
         <h2>⏳ ${data.festivalName} - Reminder</h2>
       </div>
@@ -296,6 +296,27 @@ export function downloadPDF(blob: Blob, filename: string) {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+/** Shares a receipt through the device share sheet, with a file-download fallback. */
+export async function sharePDF(blob: Blob, filename: string): Promise<'shared' | 'downloaded'> {
+  const file = new File([blob], filename, { type: 'application/pdf' });
+  const canShareFiles = typeof navigator !== 'undefined'
+    && typeof navigator.share === 'function'
+    && typeof navigator.canShare === 'function'
+    && navigator.canShare({ files: [file] });
+
+  if (canShareFiles) {
+    await navigator.share({
+      files: [file],
+      title: 'Donation Slip',
+      text: 'Here is your donation receipt.',
+    });
+    return 'shared';
+  }
+
+  downloadPDF(blob, filename);
+  return 'downloaded';
 }
 
 export function openPDFInNewTab(blob: Blob) {
