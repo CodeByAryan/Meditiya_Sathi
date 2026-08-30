@@ -662,12 +662,12 @@ router.get("/admin/residents/search", requireRole("Super Admin", "Admin", "Volun
       const fid = parseInt(festivalIdParam, 10);
       if (!isNaN(fid) && residents.length > 0) {
         const residentIds = residents.map(r => r.id);
-        // Use PostgreSQL ARRAY[] syntax so ANY() receives a single array argument
+        // Bind the dynamic list as one parameter and match the integer column type.
         const historyResult = await db.execute(
           sql`SELECT fd.resident_id, f.name as festival_name, f.year, fd.payment_method, fd.amount, fd.receipt_number
               FROM festival_donations fd
               JOIN festivals f ON fd.festival_id = f.id
-              WHERE fd.resident_id = ANY(ARRAY[${sql.join(residentIds, sql`, `)}])
+              WHERE fd.resident_id = ANY(${residentIds}::integer[])
                 AND fd.festival_id != ${fid}
               ORDER BY f.year DESC, f.name`
         );
