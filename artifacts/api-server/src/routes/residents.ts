@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, buildingsTable, wingsTable, residentsTable, festivalsTable } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { db, buildingsTable, wingsTable, residentsTable, festivalsTable, festivalDonationsTable } from "@workspace/db";
+import { eq, and, inArray, ne, desc, sql } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
@@ -662,23 +662,30 @@ router.get("/admin/residents/search", requireRole("Super Admin", "Admin", "Volun
       const fid = parseInt(festivalIdParam, 10);
       if (!isNaN(fid) && residents.length > 0) {
         const residentIds = residents.map(r => r.id);
-        // Bind the dynamic list as one parameter and match the integer column type.
-        const historyResult = await db.execute(
-          sql`SELECT fd.resident_id, f.name as festival_name, f.year, fd.payment_method, fd.amount, fd.receipt_number
-              FROM festival_donations fd
-              JOIN festivals f ON fd.festival_id = f.id
-              WHERE fd.resident_id = ANY(${residentIds}::integer[])
-                AND fd.festival_id != ${fid}
-              ORDER BY f.year DESC, f.name`
-        );
-        for (const row of (historyResult.rows || []) as any[]) {
-          if (!festivalHistory[row.resident_id]) festivalHistory[row.resident_id] = [];
-          festivalHistory[row.resident_id].push({
-            festivalName: row.festival_name,
+        const historyRows = await db
+          .select({
+            residentId: festivalDonationsTable.residentId,
+            festivalName: festivalsTable.name,
+            year: festivalsTable.year,
+            paymentMethod: festivalDonationsTable.paymentMethod,
+            amount: festivalDonationsTable.amount,
+            receiptNumber: festivalDonationsTable.receiptNumber,
+          })
+          .from(festivalDonationsTable)
+          .innerJoin(festivalsTable, eq(festivalDonationsTable.festivalId, festivalsTable.id))
+          .where(and(
+            inArray(festivalDonationsTable.residentId, residentIds),
+            ne(festivalDonationsTable.festivalId, fid),
+          ))
+          .orderBy(desc(festivalsTable.year), festivalsTable.name);
+        for (const row of historyRows) {
+          if (!festivalHistory[row.residentId]) festivalHistory[row.residentId] = [];
+          festivalHistory[row.residentId].push({
+            festivalName: row.festivalName,
             year: row.year,
-            paymentMethod: row.payment_method,
+            paymentMethod: row.paymentMethod,
             amount: row.amount ? parseFloat(String(row.amount)) : null,
-            receiptNumber: row.receipt_number,
+            receiptNumber: row.receiptNumber,
           });
         }
       }
