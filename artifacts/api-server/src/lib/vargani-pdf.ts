@@ -1,9 +1,11 @@
 import PDFDocument from "pdfkit";
+import QRCode from "qrcode";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { logger } from "./logger";
 import { VARGANI_RECEIPT_CONFIG as CONFIG } from "./vargani-receipt-config";
+import { getPublicAppBaseUrl } from "./app-url";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -44,34 +46,34 @@ function resolveAsset(
   const candidates =
     type === "font"
       ? [
-          path.resolve(currentDir, "fonts", assetName),
-          path.resolve(currentDir, assetName),
-          path.resolve(
-            process.cwd(),
-            "artifacts/api-server/dist/fonts",
-            assetName
-          ),
-          path.resolve(
-            process.cwd(),
-            "artifacts/api-server/fonts",
-            assetName
-          ),
-          path.resolve(process.cwd(), "fonts", assetName),
-        ]
+        path.resolve(currentDir, "fonts", assetName),
+        path.resolve(currentDir, assetName),
+        path.resolve(
+          process.cwd(),
+          "artifacts/api-server/dist/fonts",
+          assetName
+        ),
+        path.resolve(
+          process.cwd(),
+          "artifacts/api-server/fonts",
+          assetName
+        ),
+        path.resolve(process.cwd(), "fonts", assetName),
+      ]
       : [
-          path.resolve(currentDir, assetName),
-          path.resolve(
-            process.cwd(),
-            "artifacts/api-server/dist",
-            assetName
-          ),
-          path.resolve(
-            process.cwd(),
-            "artifacts/meditiya-sathi/public",
-            assetName
-          ),
-          path.resolve(process.cwd(), "public", assetName),
-        ];
+        path.resolve(currentDir, assetName),
+        path.resolve(
+          process.cwd(),
+          "artifacts/api-server/dist",
+          assetName
+        ),
+        path.resolve(
+          process.cwd(),
+          "artifacts/meditiya-sathi/public",
+          assetName
+        ),
+        path.resolve(process.cwd(), "public", assetName),
+      ];
 
   const found = candidates.find((p) => existsSync(p));
 
@@ -371,7 +373,13 @@ export async function generateVarganiPdf(
 
   const fontRegular = resolveAsset("Mukta-Regular.ttf", "font");
   const fontBold = resolveAsset("Mukta-Bold.ttf", "font");
-  const logoPath = resolveAsset("logo.png", "image");
+  const leaderboardUrl = `${getPublicAppBaseUrl()}/donation-showcase`;
+  const leaderboardQr = await QRCode.toBuffer(leaderboardUrl, {
+    type: "png",
+    width: 180,
+    margin: 2,
+    errorCorrectionLevel: "M",
+  });
 
   const receiptNumber = clean(
     data.receiptNumber,
@@ -437,7 +445,7 @@ export async function generateVarganiPdf(
       const CONTENT_X = CARD_X + CONTENT_PADDING; // 42
       const CONTENT_WIDTH = CARD_WIDTH - CONTENT_PADDING * 2; // 511.28
 
-      const SECTION_GAP = 18;
+      const SECTION_GAP = 14;
 
       const doc = new PDFDocument({
         size: "A4",
@@ -507,7 +515,7 @@ export async function generateVarganiPdf(
       /* 1. HEADER (Dark Banner)                          */
       /* ------------------------------------------------ */
 
-      const headerH = 126;
+      const headerH = 108;
       const headerY = CARD_Y;
 
       doc.rect(CARD_X, headerY, CARD_WIDTH, headerH).fill(BLACK);
@@ -515,88 +523,55 @@ export async function generateVarganiPdf(
       doc.rect(CARD_X, headerY + headerH - 2.5, CARD_WIDTH, 2.5).fill(GOLD);
       doc.rect(CARD_X, headerY + headerH, CARD_WIDTH, 1.5).fill(SAFFRON);
 
-      // Logo on Left - vertically centered
-      const logoSize = 80;
-      const logoX = CARD_X + 16;
-      const logoY = headerY + (headerH - logoSize) / 2;
-
-      if (existsSync(logoPath)) {
-        doc.image(logoPath, logoX, logoY, {
-          fit: [logoSize, logoSize],
-          align: "center",
-          valign: "center",
-        });
-      }
-
-      // Text block centered in remaining header area
-      const headerTextX = logoX + logoSize + 12;
-      const headerTextW = CARD_X + CARD_WIDTH - 16 - headerTextX;
-      const headerTextCenterX = headerTextX + headerTextW / 2;
+      // The organization name is the sole header mark; no logo is used.
+      const headerTextX = CARD_X + 16;
+      const headerTextW = CARD_WIDTH - 32;
+      const headerTextCenterX = CARD_X + CARD_WIDTH / 2;
 
       // 1. Marathi Mandal Name
       doc
         .font(fontBold)
-        .fontSize(21)
+        .fontSize(50)
         .fillColor("#FFF9EA")
-        .text(CONFIG.mandalNameMarathi, headerTextX, headerY + 12, {
+        .text(CONFIG.mandalNameMarathi, headerTextX, headerY + 11, {
           width: headerTextW,
           align: "center",
         });
 
-      // Symmetrical decorative line & diamonds
-      const headerDecY = headerY + 38;
+      // 2. English Mandal Name, positioned below the enlarged Marathi header.
+      doc
+        .font(fontBold)
+        .fontSize(12)
+        .fillColor("#F5D173")
+        .text(CONFIG.mandalNameEnglish.toUpperCase(), headerTextX, headerY + 70, {
+          width: headerTextW,
+          align: "center",
+          characterSpacing: 1.5,
+        });
+
+      // Symmetrical decorative line & diamonds below both organization names.
+      const headerDecY = headerY + 94;
       goldLine(doc, headerTextCenterX - 110, headerDecY, headerTextCenterX - 15, 1, GOLD);
       diamond(doc, headerTextCenterX - 8, headerDecY, 2.5, GOLD);
       diamond(doc, headerTextCenterX, headerDecY, 3.5, SAFFRON);
       diamond(doc, headerTextCenterX + 8, headerDecY, 2.5, GOLD);
       goldLine(doc, headerTextCenterX + 15, headerDecY, headerTextCenterX + 110, 1, GOLD);
 
-      // 2. English Mandal Name
-      doc
-        .font(fontBold)
-        .fontSize(9.5)
-        .fillColor("#F5D173")
-        .text(CONFIG.mandalNameEnglish.toUpperCase(), headerTextX, headerY + 45, {
-          width: headerTextW,
-          align: "center",
-          characterSpacing: 1.5,
-        });
+      // The header intentionally contains only the organization identity.
+      // Address and establishment details are kept together in the footer.
 
-      // 3. Exact Address (natural wrapping, fixed width, no overlap)
-      const headerAddress =
-        "Omkareshwar Mandir, Medtiya Nagar, Opp. Seven Square School,\nDeepak Hospital Lane, Mira Road, Mumbai, Maharashtra 401107";
-
-      doc
-        .font(fontRegular)
-        .fontSize(8)
-        .fillColor("#E5E7EB")
-        .text(headerAddress, headerTextX, headerY + 62, {
-          width: headerTextW,
-          align: "center",
-          lineGap: 2,
-        });
-
-      // 4. Establishment / Subtitle
-      doc
-        .font(fontBold)
-        .fontSize(8.5)
-        .fillColor("#EA9A4E")
-        .text(CONFIG.subtagMarathi, headerTextX, headerY + 98, {
-          width: headerTextW,
-          align: "center",
-        });
 
       /* ------------------------------------------------ */
       /* 2. "पावती" TITLE SECTION                          */
       /* ------------------------------------------------ */
 
-      const titleY = headerY + headerH + SECTION_GAP;
+      const titleY = headerY + headerH + 14;
       const titleH = 46;
 
       // Marathi Title
       doc
         .font(fontBold)
-        .fontSize(23)
+        .fontSize(26)
         .fillColor(TEXT)
         .text(CONFIG.receiptTitleMarathi, CARD_X, titleY, {
           width: CARD_WIDTH,
@@ -623,7 +598,7 @@ export async function generateVarganiPdf(
       // English Title
       doc
         .font(fontBold)
-        .fontSize(10.5)
+        .fontSize(12)
         .fillColor(SAFFRON)
         .text(CONFIG.receiptTitleEnglish, CARD_X, titleY + 29, {
           width: CARD_WIDTH,
@@ -635,7 +610,7 @@ export async function generateVarganiPdf(
       /* 3. RECEIPT METADATA (3 Equal Columns)            */
       /* ------------------------------------------------ */
 
-      const metaY = titleY + titleH + SECTION_GAP;
+      const metaY = titleY + titleH + 14;
       const metaH = 52;
 
       roundedBox(
@@ -656,14 +631,14 @@ export async function generateVarganiPdf(
       const col0X = CONTENT_X;
       doc
         .font(fontBold)
-        .fontSize(7.5)
+        .fontSize(8.5)
         .fillColor(MUTED)
         .text("पावती क्रमांक / RECEIPT NO.", col0X + 12, metaY + 10, {
           width: metaColWidth - 24,
           lineBreak: false,
         });
 
-      doc.font(fontBold).fontSize(10.5).fillColor(TEXT);
+      doc.font(fontBold).fontSize(11.5).fillColor(TEXT);
       const fittedReceiptNo = fitText(doc, receiptNumber, metaColWidth - 24);
       doc.text(fittedReceiptNo, col0X + 12, metaY + 26, { lineBreak: false });
 
@@ -679,14 +654,14 @@ export async function generateVarganiPdf(
       const col1X = CONTENT_X + metaColWidth;
       doc
         .font(fontBold)
-        .fontSize(7.5)
+        .fontSize(8.5)
         .fillColor(MUTED)
         .text("दिनांक / DATE", col1X + 12, metaY + 10, {
           width: metaColWidth - 24,
           lineBreak: false,
         });
 
-      doc.font(fontBold).fontSize(10.5).fillColor(TEXT);
+      doc.font(fontBold).fontSize(11.5).fillColor(TEXT);
       const fittedDate = fitText(doc, donationDate, metaColWidth - 24);
       doc.text(fittedDate, col1X + 12, metaY + 26, { lineBreak: false });
 
@@ -703,14 +678,14 @@ export async function generateVarganiPdf(
       const festivalText = `${festivalName} ${festivalYear}`;
       doc
         .font(fontBold)
-        .fontSize(7.5)
+        .fontSize(8.5)
         .fillColor(MUTED)
         .text("उत्सव / FESTIVAL", col2X + 12, metaY + 10, {
           width: metaColWidth - 24,
           lineBreak: false,
         });
 
-      doc.font(fontBold).fontSize(10).fillColor("#D97706");
+      doc.font(fontBold).fontSize(11).fillColor("#D97706");
       const fittedFestival = fitText(doc, festivalText, metaColWidth - 24);
       doc.text(fittedFestival, col2X + 12, metaY + 26, { lineBreak: false });
 
@@ -718,7 +693,7 @@ export async function generateVarganiPdf(
       /* 4. DONOR INFORMATION                             */
       /* ------------------------------------------------ */
 
-      const donorY = metaY + metaH + SECTION_GAP;
+      const donorY = metaY + metaH + 14;
       const donorH = 130;
 
       roundedBox(
@@ -752,7 +727,7 @@ export async function generateVarganiPdf(
       // Row 1: Name & Mobile (perfect baseline alignment)
       doc
         .font(fontBold)
-        .fontSize(7.5)
+        .fontSize(8.5)
         .fillColor(MUTED)
         .text("दात्याचे नाव / Donor Name", donorLeftX, donorY + 31, {
           width: donorColW,
@@ -765,7 +740,7 @@ export async function generateVarganiPdf(
 
       doc
         .font(fontBold)
-        .fontSize(7.5)
+        .fontSize(8.5)
         .fillColor(MUTED)
         .text("मोबाईल क्रमांक / Mobile No.", donorRightX, donorY + 31, {
           width: donorColW,
@@ -795,27 +770,27 @@ export async function generateVarganiPdf(
 
       doc
         .font(fontBold)
-        .fontSize(7.5)
+        .fontSize(8.5)
         .fillColor(MUTED)
         .text("इमारत व विंग / Building & Wing", donorLeftX, donorY + 80, {
           width: donorColW,
           lineBreak: false,
         });
 
-      doc.font(fontBold).fontSize(10.5).fillColor(TEXT);
+      doc.font(fontBold).fontSize(11.5).fillColor(TEXT);
       const fittedBuilding = fitText(doc, buildingWing, donorColW);
       doc.text(fittedBuilding, donorLeftX, donorY + 94, { lineBreak: false });
 
       doc
         .font(fontBold)
-        .fontSize(7.5)
+        .fontSize(8.5)
         .fillColor(MUTED)
         .text("फ्लॅट क्रमांक / Flat No.", donorRightX, donorY + 80, {
           width: donorColW,
           lineBreak: false,
         });
 
-      doc.font(fontBold).fontSize(10.5).fillColor(TEXT);
+      doc.font(fontBold).fontSize(11.5).fillColor(TEXT);
       const fittedFlat = fitText(doc, flat, donorColW);
       doc.text(fittedFlat, donorRightX, donorY + 94, { lineBreak: false });
 
@@ -823,7 +798,7 @@ export async function generateVarganiPdf(
       /* 5. DONATION DETAILS                              */
       /* ------------------------------------------------ */
 
-      const donationY = donorY + donorH + SECTION_GAP;
+      const donationY = donorY + donorH + 14;
       const donationH = 168;
 
       roundedBox(
@@ -853,7 +828,7 @@ export async function generateVarganiPdf(
       // Amount Header & Value (Centered relative to the entire donation details box)
       doc
         .font(fontBold)
-        .fontSize(9.5)
+        .fontSize(10.5)
         .fillColor(SAFFRON)
         .text("देणगी रक्कम / Donation Amount", CONTENT_X, donationY + 28, {
           width: CONTENT_WIDTH,
@@ -863,7 +838,7 @@ export async function generateVarganiPdf(
       const formattedAmount = `₹ ${Number(amount).toLocaleString("en-IN")}/-`;
       doc
         .font(fontBold)
-        .fontSize(29)
+        .fontSize(33)
         .fillColor(TEXT)
         .text(formattedAmount, CONTENT_X, donationY + 44, {
           width: CONTENT_WIDTH,
@@ -893,7 +868,7 @@ export async function generateVarganiPdf(
       const wordsEng = amountInWords(amount);
       const wordsCombined = `रक्कमेचे शब्दांत / Amount in Words : ${wordsMar} (${wordsEng})`;
 
-      doc.font(fontRegular).fontSize(8.5).fillColor(TEXT);
+      doc.font(fontRegular).fontSize(9).fillColor(TEXT);
       const fittedWords = fitText(doc, wordsCombined, wordsBoxW - 12);
       doc.text(fittedWords, wordsBoxX + 6, wordsBoxY + 6.5, {
         width: wordsBoxW - 12,
@@ -918,7 +893,7 @@ export async function generateVarganiPdf(
       // Left column: Payment Method
       doc
         .font(fontBold)
-        .fontSize(7.5)
+        .fontSize(8.5)
         .fillColor(MUTED)
         .text("पेमेंट पद्धत / Method:", payLeftX, donationY + 137, { lineBreak: false });
 
@@ -948,7 +923,7 @@ export async function generateVarganiPdf(
       // Right column: Payment Date
       doc
         .font(fontBold)
-        .fontSize(7.5)
+        .fontSize(8.5)
         .fillColor(MUTED)
         .text("पेमेंट दिनांक / Date:", payRightX, donationY + 137, { lineBreak: false });
 
@@ -960,8 +935,8 @@ export async function generateVarganiPdf(
       /* 6. THANK YOU SECTION                             */
       /* ------------------------------------------------ */
 
-      const thankY = donationY + donationH + SECTION_GAP;
-      const thankH = 84;
+      const thankY = donationY + donationH + 14;
+      const thankH = 96;
 
       roundedBox(
         doc,
@@ -975,8 +950,9 @@ export async function generateVarganiPdf(
         1
       );
 
-      const recW = 160;
-      const thankW = CONTENT_WIDTH - recW;
+      const qrW = 126;
+      const recW = 130;
+      const thankW = CONTENT_WIDTH - qrW - recW;
 
       // Left Section: Thank-you message
       const thankLeftX = CONTENT_X + 14;
@@ -984,65 +960,72 @@ export async function generateVarganiPdf(
 
       doc
         .font(fontBold)
-        .fontSize(9.5)
+        .fontSize(11)
         .fillColor(SAFFRON)
-        .text(CONFIG.thankYouMarathi, thankLeftX, thankY + 13, {
+        .text(CONFIG.thankYouMarathi, thankLeftX, thankY + 15, {
           width: thankContentW,
           ellipsis: true,
         });
 
       doc
         .font(fontRegular)
-        .fontSize(8)
+        .fontSize(9)
         .fillColor("#64748B")
-        .text(CONFIG.thankYouEnglish, thankLeftX, thankY + 31, {
+        .text(CONFIG.thankYouEnglish, thankLeftX, thankY + 40, {
           width: thankContentW,
           ellipsis: true,
         });
 
       doc
         .font(fontBold)
-        .fontSize(9)
+        .fontSize(10)
         .fillColor(AMBER_DARK)
-        .text(CONFIG.blessingMarathi, thankLeftX, thankY + 51, {
+        .text(CONFIG.blessingMarathi, thankLeftX, thankY + 68, {
           width: thankContentW,
           ellipsis: true,
         });
 
-      // Vertical Divider
+      // Vertical dividers separate the thank-you, receipt, and QR blocks.
       const thankDivX = CONTENT_X + thankW;
+      const qrDivX = thankDivX + recW;
       doc
         .moveTo(thankDivX, thankY + 8)
         .lineTo(thankDivX, thankY + thankH - 8)
         .strokeColor("#EAE2D3")
         .lineWidth(0.8)
         .stroke();
+      doc
+        .moveTo(qrDivX, thankY + 8)
+        .lineTo(qrDivX, thankY + thankH - 8)
+        .strokeColor("#EAE2D3")
+        .lineWidth(0.8)
+        .stroke();
 
-      // Right Section: Received By & Verified Badge
+      // Middle Section: Received By & Verified Badge
       const recX = thankDivX;
       const recContentW = recW;
 
       doc
         .font(fontBold)
-        .fontSize(7.5)
+        .fontSize(8.5)
         .fillColor(MUTED)
-        .text("प्राप्तकर्ता / RECEIVED BY", recX, thankY + 12, {
+        .text("प्राप्तकर्ता / RECEIVED BY", recX, thankY + 15, {
           width: recContentW,
           align: "center",
         });
 
       doc.font(fontBold).fontSize(9.5).fillColor(TEXT);
       const fittedCollector = fitText(doc, collectedBy, recContentW - 16);
-      doc.text(fittedCollector, recX + 8, thankY + 28, {
+      doc.text(fittedCollector, recX + 8, thankY + 37, {
         width: recContentW - 16,
         align: "center",
         lineBreak: false,
       });
 
-      const stampW = 112;
+      const stampW = 108;
       const stampH = 18;
       const stampX = recX + (recContentW - stampW) / 2;
-      const stampY = thankY + 50;
+      const stampY = thankY + 65;
 
       roundedBox(
         doc,
@@ -1065,6 +1048,34 @@ export async function generateVarganiPdf(
           align: "center",
         });
 
+      // Right Section: compact public leaderboard QR, not a payment QR.
+      const qrBoxX = qrDivX + 5;
+      const qrBoxY = thankY + 6;
+      const qrBoxH = thankH - 12;
+      roundedBox(doc, qrBoxX, qrBoxY, qrW - 10, qrBoxH, 4, "#FFFFFF", GOLD, 1);
+      doc
+        .font(fontBold)
+        .fontSize(6.2)
+        .fillColor("#6B1B1B")
+        .text("CHECK YOUR NEIGHBOUR", qrBoxX + 4, qrBoxY + 5, {
+          width: qrW - 18,
+          align: "center",
+          lineBreak: false,
+        });
+      const qrSize = 43;
+      doc.image(leaderboardQr, qrBoxX + (qrW - 10 - qrSize) / 2, qrBoxY + 18, {
+        fit: [qrSize, qrSize],
+      });
+      doc
+        .font(fontRegular)
+        .fontSize(5.7)
+        .fillColor(TEXT)
+        .text("Scan to see the Festival Leaderboard", qrBoxX + 4, qrBoxY + 65, {
+          width: qrW - 18,
+          align: "center",
+          lineBreak: false,
+        });
+
       /* ------------------------------------------------ */
       /* 7. FOOTER (Fixed to Bottom of Card)              */
       /* ------------------------------------------------ */
@@ -1076,40 +1087,41 @@ export async function generateVarganiPdf(
       doc.rect(CARD_X, footerY, CARD_WIDTH, 2).fill(GOLD);
       doc.rect(CARD_X, footerY - 2, CARD_WIDTH, 1.5).fill(SAFFRON);
 
-      // "मेड़तियाचा राजा" with flanking symmetric diamonds
-      const rajaText = CONFIG.footerRajaMarathi;
+      // Footer identity and contact block. Contact information is intentionally
+      // kept out of the header so the organization name remains the focal point.
       doc
         .font(fontBold)
-        .fontSize(17)
+        .fontSize(11)
         .fillColor("#F5D173")
-        .text(rajaText, CARD_X, footerY + 15, {
-          width: CARD_WIDTH,
+        .text(CONFIG.mandalNameEnglish.toUpperCase(), CARD_X + 18, footerY + 8, {
+          width: CARD_WIDTH - 36,
           align: "center",
-          characterSpacing: 1,
+          characterSpacing: 0.7,
         });
-
-      const rajaTextW = doc.widthOfString(rajaText);
-      const rajaCenterX = CARD_X + CARD_WIDTH / 2;
-      diamond(doc, rajaCenterX - rajaTextW / 2 - 14, footerY + 23, 3.5, "#F5D173");
-      diamond(doc, rajaCenterX + rajaTextW / 2 + 14, footerY + 23, 3.5, "#F5D173");
-
-      // Subtitle
       doc
         .font(fontRegular)
-        .fontSize(8.5)
+        .fontSize(7.5)
         .fillColor("#D1D5DB")
-        .text(CONFIG.footerSubtext, CARD_X, footerY + 39, {
-          width: CARD_WIDTH,
+        .text(`${CONFIG.addressLine1}\n${CONFIG.addressLine2}`, CARD_X + 18, footerY + 25, {
+          width: CARD_WIDTH - 36,
+          align: "center",
+          lineGap: 0,
+        });
+      doc
+        .font(fontBold)
+        .fontSize(8)
+        .fillColor("#EA9A4E")
+        .text(CONFIG.subtagMarathi, CARD_X + 18, footerY + 48, {
+          width: CARD_WIDTH - 36,
           align: "center",
         });
-
-      // Official note
+      goldLine(doc, CARD_X + 32, footerY + 62, CARD_X + CARD_WIDTH - 32, 0.6, "#7A6240");
       doc
         .font(fontRegular)
-        .fontSize(7)
+        .fontSize(6.8)
         .fillColor("#9CA3AF")
-        .text(CONFIG.computerGeneratedNote, CARD_X, footerY + 56, {
-          width: CARD_WIDTH,
+        .text(CONFIG.computerGeneratedNote, CARD_X + 18, footerY + 67, {
+          width: CARD_WIDTH - 36,
           align: "center",
         });
 
