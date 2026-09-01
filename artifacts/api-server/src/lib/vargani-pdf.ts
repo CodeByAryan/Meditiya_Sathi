@@ -5,9 +5,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { logger } from "./logger";
 import { VARGANI_RECEIPT_CONFIG as CONFIG } from "./vargani-receipt-config";
-import { getPublicAppBaseUrl } from "./app-url";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const DONATION_SHOWCASE_URL = "https://meditiya-sathi.vercel.app/donation-showcase";
 
 export interface VarganiPdfData {
   receiptNumber: string;
@@ -373,8 +373,7 @@ export async function generateVarganiPdf(
 
   const fontRegular = resolveAsset("Mukta-Regular.ttf", "font");
   const fontBold = resolveAsset("Mukta-Bold.ttf", "font");
-  const leaderboardUrl = `${getPublicAppBaseUrl()}/donation-showcase`;
-  const leaderboardQr = await QRCode.toBuffer(leaderboardUrl, {
+  const leaderboardQr = await QRCode.toBuffer(DONATION_SHOWCASE_URL, {
     type: "png",
     width: 180,
     margin: 2,
