@@ -10,8 +10,7 @@ import {
   PartyPopper,
 } from "lucide-react";
 
-import { useGetUpcomingEventsSummary } from "@workspace/api-client-react";
-import { getActiveFestival } from "@/lib/festival-countdown";
+import { getApiUrl } from "@/lib/utils";
 
 function useTimer(targetDate: Date | null) {
   const [now, setNow] = useState(Date.now());
@@ -78,22 +77,10 @@ function CountdownUnits({ targetDate }: { targetDate: Date | null }) {
 }
 
 export default function CountdownPage() {
-  const { data: events } = useGetUpcomingEventsSummary();
+  const [countdown, setCountdown] = useState<{ name: string; targetAt: string; description: string | null } | null>(null);
+  useEffect(() => { fetch(`${getApiUrl()}/api/festival-countdowns/active`).then((response) => response.ok ? response.json() : null).then((data) => setCountdown(data?.countdown || null)).catch(() => undefined); }, []);
 
-  const nextEvent = events?.[0] || null;
-  const fallback = getActiveFestival();
-
-  const event = nextEvent
-    ? {
-        title: nextEvent.title,
-        date: new Date(nextEvent.date),
-      }
-    : fallback
-      ? {
-          title: fallback.name,
-          date: new Date(fallback.date),
-        }
-      : null;
+  const event = countdown ? { title: countdown.name, date: new Date(countdown.targetAt), description: countdown.description } : null;
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">

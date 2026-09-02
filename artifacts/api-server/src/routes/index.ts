@@ -27,7 +27,7 @@ import tshirtRegistrationsRouter from "./tshirt-registrations";
 import tshirtCollectionRouter from "./tshirt-collection";
 import uploadsRouter from "./uploads";
 import donationShowcaseRouter from "./donation-showcase";
-
+import festivalCountdownsRouter from "./festival-countdowns";
 
 const router: IRouter = Router();
 
@@ -59,6 +59,6 @@ router.use(tshirtRegistrationsRouter);
 router.use(tshirtCollectionRouter);
 router.use(uploadsRouter);
 router.use(donationShowcaseRouter);
-
+router.use(festivalCountdownsRouter);
 
 export default router;

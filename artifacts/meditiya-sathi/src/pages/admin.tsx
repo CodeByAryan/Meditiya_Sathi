@@ -25,7 +25,8 @@ import {
   Activity,
   ArrowLeft,
   Wallet,
- } from 'lucide-react';
+  Timer,
+  } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAdminAuth } from '@/lib/AdminAuthContext';
@@ -182,6 +183,12 @@ export default function Admin() {
             description: 'Manage festivals and collections',
             icon: MapPin,
             href: '/admin/festivals',
+          },
+          {
+            name: 'Festival Countdown',
+            description: 'Schedule public festival countdowns',
+            icon: Timer,
+            href: '/admin/festival-countdowns',
           },
           {
             name: 'Festival Expenses',

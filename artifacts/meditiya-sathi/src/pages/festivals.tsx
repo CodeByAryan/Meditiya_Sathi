@@ -1,7 +1,9 @@
 import { useListFestivals } from '@workspace/api-client-react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { CalendarDays, ArrowRight } from 'lucide-react';
 import { Link } from 'wouter';
+
 
 export default function Festivals() {
   const { data: festivals, isLoading } = useListFestivals();
@@ -27,16 +29,16 @@ export default function Festivals() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,var(--tw-gradient-stops))] from-primary/40 via-secondary to-slate-950 opacity-90"></div>
           <div className="absolute inset-0 bg-pattern opacity-30"></div>
         </div>
-        
+
         <div className="container relative z-10 mx-auto px-4 text-center">
-          <motion.h1 
+          <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-5xl md:text-7xl font-serif font-bold text-white mb-6 tracking-tight drop-shadow-md"
           >
             Festivals of<br className="md:hidden"/> Meditiya
           </motion.h1>
-          <motion.p 
+          <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
@@ -60,7 +62,8 @@ export default function Festivals() {
             <div className="text-center py-20 text-muted-foreground">No festivals found.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {festivals?.map((festival, idx) => (
+              {festivals?.map((festival, idx) => {
+                return (
                 <motion.div
                   key={festival.id}
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -81,7 +84,7 @@ export default function Festivals() {
                         <div className="absolute inset-0 bg-pattern mix-blend-overlay opacity-50"></div>
                       </div>
                     )}
-                    
+
                     {/* Content */}
                     <div className="relative z-10 text-white transform group-hover:-translate-y-2 transition-transform duration-300">
                       {festival.isActive && (
@@ -94,17 +97,17 @@ export default function Festivals() {
                         <CalendarDays className="w-4 h-4" />
                         {festival.year}
                       </div>
-                      <p className="text-white/90 line-clamp-2 mb-6 max-w-md drop-shadow-sm">
+                      <p className="text-white/90 line-clamp-2 mb-4 max-w-md drop-shadow-sm">
                         {festival.description}
                       </p>
-                      
                       <div className="flex items-center text-white font-bold group-hover:text-gold transition-colors">
                         Explore Festival <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-2 transition-transform" />
                       </div>
                     </div>
                   </div>
                 </motion.div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

@@ -12,6 +12,7 @@
     "push-force": "node ./scripts/push-db.mjs",
     "migrate:events-management": "node ./scripts/migrate-events-management.mjs",
     "migrate:festival-expenses": "node ./scripts/migrate-festival-expenses.mjs",
+    "migrate:festival-countdowns": "node ./scripts/migrate-festival-countdowns.mjs",
     "migrate:volunteer-assignments": "node ./scripts/migrate-volunteer-assignments.mjs",
     "verify:volunteer-assignments": "node ./scripts/verify-volunteer-assignments.mjs"
   },

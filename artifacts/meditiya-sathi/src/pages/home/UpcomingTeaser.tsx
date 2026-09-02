@@ -3,21 +3,18 @@ import { motion } from "framer-motion";
 import { ArrowRight, CalendarDays, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import { useGetUpcomingEventsSummary } from "@workspace/api-client-react";
-import { getActiveFestival } from "@/lib/festival-countdown";
+import FestivalCountdown from "@/components/FestivalCountdown";
+import { getApiUrl } from "@/lib/utils";
 
 export default function UpcomingTeaser() {
   const { data: events } = useGetUpcomingEventsSummary();
+  const [managed, setManaged] = React.useState<any>(null);
+  React.useEffect(() => { fetch(`${getApiUrl()}/api/festival-countdowns/active`).then((response) => response.ok ? response.json() : null).then((data) => setManaged(data?.countdown || null)).catch(() => undefined); }, []);
 
-  const nextEvent = events?.[0] || null;
-  const fallback = getActiveFestival();
+  const nextEvent = managed || events?.[0] || null;
+  const title = managed?.name || nextEvent?.title || null;
 
-  const title = nextEvent?.title || fallback?.name || null;
-
-  const eventDate = nextEvent
-    ? new Date(nextEvent.date)
-    : fallback
-      ? new Date(fallback.date)
-      : null;
+  const eventDate = managed ? new Date(managed.targetAt) : nextEvent ? new Date(nextEvent.date) : null;
 
   const date = eventDate
     ? eventDate.toLocaleDateString("en-IN", {
@@ -151,6 +148,7 @@ export default function UpcomingTeaser() {
                         {date}
                       </p>
                     </div>
+                    {managed && <FestivalCountdown targetAt={managed.targetAt} className="mt-4 max-w-md" />}
                   </div>
                 </div>
 

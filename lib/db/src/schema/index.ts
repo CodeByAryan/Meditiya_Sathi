@@ -1,6 +1,7 @@
 export * from "./admins";
 export * from "./users";
 export * from "./festivals";
+export * from "./festivalCountdowns";
 export * from "./festivalDonations";
 export * from "./festivalExpenses";
 export * from "./outsiderDonations";
