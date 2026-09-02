@@ -9,7 +9,7 @@ import { getApiUrl } from "@/lib/utils";
 export default function UpcomingTeaser() {
   const { data: events } = useGetUpcomingEventsSummary();
   const [managed, setManaged] = React.useState<any>(null);
-  React.useEffect(() => { fetch(`${getApiUrl()}/api/festival-countdowns/active`).then((response) => response.ok ? response.json() : null).then((data) => setManaged(data?.countdown || null)).catch(() => undefined); }, []);
+  React.useEffect(() => { fetch(`${getApiUrl()}/api/festival-countdowns/homepage`).then((response) => response.ok ? response.json() : null).then((data) => setManaged(data?.countdown || null)).catch(() => undefined); }, []);
 
   const nextEvent = managed || events?.[0] || null;
   const title = managed?.name || nextEvent?.title || null;
@@ -148,7 +148,7 @@ export default function UpcomingTeaser() {
                         {date}
                       </p>
                     </div>
-                    {managed && <FestivalCountdown targetAt={managed.targetAt} className="mt-4 max-w-md" />}
+                    {managed && <FestivalCountdown targetAt={managed.targetAt} endAt={managed.endAt} className="mt-4 max-w-md" />}
                   </div>
                 </div>
 

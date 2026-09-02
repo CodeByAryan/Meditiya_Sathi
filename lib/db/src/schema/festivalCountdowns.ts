@@ -4,6 +4,7 @@ export const festivalCountdownsTable = pgTable("festival_countdowns", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   targetAt: timestamp("target_at", { withTimezone: true }).notNull(),
+  endAt: timestamp("end_at", { withTimezone: true }).notNull(),
   description: text("description"),
   enabled: boolean("enabled").notNull().default(true),
   displayOnHomepage: boolean("display_on_homepage").notNull().default(false),

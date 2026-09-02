@@ -12,44 +12,42 @@ import {
 
 import { getApiUrl } from "@/lib/utils";
 
-function useTimer(targetDate: Date | null) {
+function useTimer(targetDate: Date | null, endDate: Date | null) {
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    if (!targetDate) return;
+    if (!targetDate || !endDate) return;
 
     const timer = setInterval(() => {
       setNow(Date.now());
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [targetDate]);
+  }, [targetDate, endDate]);
 
-  if (!targetDate) return null;
+  if (!targetDate || !endDate) return null;
 
-  const diff = Math.max(0, targetDate.getTime() - now);
+  const nowMs = now;
+  const diff = Math.max(0, targetDate.getTime() - nowMs);
+  const state = nowMs < targetDate.getTime() ? "UPCOMING" : nowMs < endDate.getTime() ? "LIVE" : "COMPLETED";
 
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
   const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
   const minutes = Math.floor((diff / (1000 * 60)) % 60);
   const seconds = Math.floor((diff / 1000) % 60);
 
-  return {
-    days,
-    hours,
-    minutes,
-    seconds,
-    isComplete: diff <= 0,
-  };
+  return { days, hours, minutes, seconds, state };
 }
 
 function pad(value: number) {
   return String(value).padStart(2, "0");
 }
 
-function CountdownUnits({ targetDate }: { targetDate: Date | null }) {
-  const timer = useTimer(targetDate);
-  if (!timer) return <div className="py-10 text-center text-sm text-white/35">No upcoming event available.</div>;
+function CountdownUnits({ targetDate, endDate }: { targetDate: Date | null; endDate: Date | null }) {
+  const timer = useTimer(targetDate, endDate);
+  if (!timer) return <div className="py-10 text-center text-sm text-white/35">No countdown available.</div>;
+  if (timer.state === "LIVE") return <div className="py-10 text-center text-2xl font-semibold text-amber-300">🎉 It's Live!</div>;
+  if (timer.state === "COMPLETED") return <div className="py-10 text-center text-2xl font-semibold text-white/60">Completed</div>;
 
   const timeUnits = [
     { label: "Days", value: timer.days, icon: CalendarDays },
@@ -77,10 +75,10 @@ function CountdownUnits({ targetDate }: { targetDate: Date | null }) {
 }
 
 export default function CountdownPage() {
-  const [countdown, setCountdown] = useState<{ name: string; targetAt: string; description: string | null } | null>(null);
+  const [countdown, setCountdown] = useState<{ name: string; targetAt: string; endAt: string; description: string | null } | null>(null);
   useEffect(() => { fetch(`${getApiUrl()}/api/festival-countdowns/active`).then((response) => response.ok ? response.json() : null).then((data) => setCountdown(data?.countdown || null)).catch(() => undefined); }, []);
 
-  const event = countdown ? { title: countdown.name, date: new Date(countdown.targetAt), description: countdown.description } : null;
+  const event = countdown ? { title: countdown.name, date: new Date(countdown.targetAt), endDate: new Date(countdown.endAt), description: countdown.description } : null;
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
@@ -282,7 +280,7 @@ export default function CountdownPage() {
                   COUNTDOWN
               ================================================== */}
 
-              <CountdownUnits targetDate={event?.date || null} />
+              <CountdownUnits targetDate={event?.date || null} endDate={event?.endDate || null} />
 
               {/* =================================================
                   MESSAGE

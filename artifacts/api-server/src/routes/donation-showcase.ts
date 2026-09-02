@@ -249,6 +249,25 @@ async function getFestivalConfirmedDonations(festivalId: number): Promise<{
   };
 }
 
+async function isPublicShowcaseFestival(festivalId: number): Promise<boolean> {
+  const [festival] = await db.select({ slug: festivalsTable.slug }).from(festivalsTable).where(eq(festivalsTable.id, festivalId)).limit(1);
+  return Boolean(festival && CURRENT_PUBLIC_SHOWCASE_FESTIVAL_SLUGS.includes(festival.slug));
+}
+
+// ── GET /api/donation-showcase/:festivalId/search-contributor ───────────────────
+router.get("/donation-showcase/:festivalId/search-contributor", async (req, res): Promise<void> => {
+  try {
+    const festivalId = parseInt(String(req.params.festivalId), 10);
+    if (isNaN(festivalId) || festivalId <= 0) { res.status(400).json({ error: "Invalid festival ID" }); return; }
+    const query = ((req.query.q as string) || "").trim().toLowerCase();
+    if (!query) { res.json({ results: [] }); return; }
+    if (!(await isPublicShowcaseFestival(festivalId))) { res.status(404).json({ error: "Festival showcase not found" }); return; }
+    const data = await getFestivalConfirmedDonations(festivalId);
+    const results = data.allDonors.filter(d => d.donorName.toLowerCase().includes(query) || d.flatNo?.toLowerCase().includes(query) || d.buildingName?.toLowerCase().includes(query) || d.wingName?.toLowerCase().includes(query));
+    res.json({ results: results.slice(0, 10) });
+  } catch (err) { console.error("Error searching contributors:", err); res.status(500).json({ error: "Failed to search contributors" }); }
+});
+
 // ── GET /api/donation-showcase/:festivalId ─────────────────────────────────────
 // Full festival donation showcase with top 3, filtered donations, buildings (NO TOTAL COLLECTION)
 router.get("/donation-showcase/:festivalId", async (req, res): Promise<void> => {
@@ -256,6 +275,10 @@ router.get("/donation-showcase/:festivalId", async (req, res): Promise<void> => 
     const festivalId = parseInt(String(req.params.festivalId), 10);
     if (isNaN(festivalId) || festivalId <= 0) {
       res.status(400).json({ error: "Invalid festival ID" });
+      return;
+    }
+    if (!(await isPublicShowcaseFestival(festivalId))) {
+      res.status(404).json({ error: "Festival showcase not found" });
       return;
     }
 
@@ -351,39 +374,6 @@ router.get("/donation-showcase/:festivalId", async (req, res): Promise<void> => 
     }
     console.error("Error fetching festival donation showcase:", err);
     res.status(500).json({ error: "Failed to fetch festival donation showcase" });
-  }
-});
-
-// ── GET /api/donation-showcase/:festivalId/search-contributor ───────────────────
-// Search specifically for "Find My Contribution"
-router.get("/donation-showcase/:festivalId/search-contributor", async (req, res): Promise<void> => {
-  try {
-    const festivalId = parseInt(String(req.params.festivalId), 10);
-    if (isNaN(festivalId) || festivalId <= 0) {
-      res.status(400).json({ error: "Invalid festival ID" });
-      return;
-    }
-
-    const query = ((req.query.q as string) || "").trim().toLowerCase();
-    if (!query) {
-      res.json({ results: [] });
-      return;
-    }
-
-    const data = await getFestivalConfirmedDonations(festivalId);
-
-    const results = data.allDonors.filter(d => {
-      const nameMatch = d.donorName.toLowerCase().includes(query);
-      const flatMatch = d.flatNo?.toLowerCase().includes(query) || false;
-      const bldMatch = d.buildingName?.toLowerCase().includes(query) || false;
-      const wingMatch = d.wingName?.toLowerCase().includes(query) || false;
-      return nameMatch || flatMatch || bldMatch || wingMatch;
-    });
-
-    res.json({ results: results.slice(0, 10) });
-  } catch (err: any) {
-    console.error("Error searching contributors:", err);
-    res.status(500).json({ error: "Failed to search contributors" });
   }
 });
 

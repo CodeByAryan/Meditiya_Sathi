@@ -7,7 +7,10 @@ const router: IRouter = Router();
 const INDIA_OFFSET = "+05:30";
 
 function shape(row: any) {
-  return { id: row.id, name: row.name, targetAt: row.targetAt, description: row.description, enabled: row.enabled, displayOnHomepage: row.displayOnHomepage, displayOnPublicPage: row.displayOnPublicPage };
+  return { id: row.id, name: row.name, targetAt: row.targetAt, endAt: row.endAt, description: row.description, enabled: row.enabled, displayOnHomepage: row.displayOnHomepage, displayOnPublicPage: row.displayOnPublicPage };
+}
+function publicShape(row: any) {
+  return { id: row.id, name: row.name, targetAt: row.targetAt, endAt: row.endAt, description: row.description };
 }
 function targetAt(date: unknown, time?: unknown) {
   if (typeof date !== "string") return null;
@@ -30,9 +33,10 @@ router.post("/admin/festival-countdowns", requireRole("Super Admin", "Admin"), a
     const body = req.body || {};
     const name = typeof body.name === "string" ? body.name.trim() : "";
     const at = body.targetAt ? targetAt(body.targetAt) : targetAt(body.targetDate, body.targetTime);
-    if (!name || !at) { res.status(400).json({ error: "Countdown name, target date and target time are required" }); return; }
+    const endAt = body.endAt ? targetAt(body.endAt) : at ? new Date(at.getTime() + 24 * 60 * 60 * 1000) : null;
+    if (!name || !at || !endAt || endAt <= at) { res.status(400).json({ error: "Countdown name, target time, and a later end time are required" }); return; }
     if (body.displayOnHomepage === true) await clearHomepage();
-    const [created] = await db.insert(festivalCountdownsTable).values({ name, targetAt: at, description: typeof body.description === "string" ? body.description.trim() || null : null, enabled: body.enabled !== false, displayOnHomepage: body.displayOnHomepage === true, displayOnPublicPage: body.displayOnPublicPage === true }).returning();
+    const [created] = await db.insert(festivalCountdownsTable).values({ name, targetAt: at, endAt, description: typeof body.description === "string" ? body.description.trim() || null : null, enabled: body.enabled !== false, displayOnHomepage: body.displayOnHomepage === true, displayOnPublicPage: body.displayOnPublicPage === true }).returning();
     res.status(201).json(shape(created));
   } catch (error: any) { res.status(500).json({ error: error?.message || "Failed to create countdown" }); }
 });
@@ -48,6 +52,14 @@ router.patch("/admin/festival-countdowns/:id", requireRole("Super Admin", "Admin
       const at = body.targetAt ? targetAt(body.targetAt) : targetAt(body.targetDate || current.targetAt.toISOString().slice(0, 10), body.targetTime || current.targetAt.toISOString().slice(11, 16));
       if (!at) { res.status(400).json({ error: "Target date and time are invalid" }); return; } update.targetAt = at;
     }
+    if (body.endAt !== undefined) {
+      const endAt = targetAt(body.endAt);
+      if (!endAt) { res.status(400).json({ error: "End time is invalid" }); return; }
+      update.endAt = endAt;
+    }
+    const effectiveTargetAt = (update.targetAt as Date | undefined) || current.targetAt;
+    const effectiveEndAt = (update.endAt as Date | undefined) || current.endAt;
+    if (effectiveEndAt <= effectiveTargetAt) { res.status(400).json({ error: "End time must be later than target time" }); return; }
     for (const field of ["description", "enabled", "displayOnHomepage", "displayOnPublicPage"] as const) if (body[field] !== undefined) update[field] = typeof body[field] === "string" ? body[field].trim() || null : body[field];
     if (body.displayOnHomepage === true) await clearHomepage(id);
     const [updated] = await db.update(festivalCountdownsTable).set(update).where(eq(festivalCountdownsTable.id, id)).returning();
@@ -60,22 +72,22 @@ router.delete("/admin/festival-countdowns/:id", requireRole("Super Admin"), asyn
   if (!deleted) { res.status(404).json({ error: "Countdown not found" }); return; } res.status(204).end();
 });
 
-const active = async (_req: any, res: any): Promise<void> => {
-  try {
-    const [row] = await db.select().from(festivalCountdownsTable).where(and(eq(festivalCountdownsTable.enabled, true), eq(festivalCountdownsTable.displayOnHomepage, true))).orderBy(asc(festivalCountdownsTable.targetAt)).limit(1);
-    if (row) {
-      res.json({ countdown: { id: row.id, name: row.name, targetAt: row.targetAt, description: row.description } });
-    } else {
-      res.json({ countdown: null });
-    }
-  } catch (error: any) { res.status(500).json({ error: error?.message || "Failed to load active countdown" }); }
-};
-router.get("/festival-countdowns/active", active);
-router.get("/festival-countdown/active", active);
+function activeCountdown(visibility: "homepage" | "public") {
+  return async (_req: any, res: any): Promise<void> => {
+    try {
+      const visibilityColumn = visibility === "homepage" ? festivalCountdownsTable.displayOnHomepage : festivalCountdownsTable.displayOnPublicPage;
+      const [row] = await db.select().from(festivalCountdownsTable).where(and(eq(festivalCountdownsTable.enabled, true), eq(visibilityColumn, true))).orderBy(asc(festivalCountdownsTable.targetAt)).limit(1);
+      res.json({ countdown: row ? publicShape(row) : null });
+    } catch (error: any) { res.status(500).json({ error: error?.message || "Failed to load active countdown" }); }
+  };
+}
+router.get("/festival-countdowns/homepage", activeCountdown("homepage"));
+router.get("/festival-countdowns/active", activeCountdown("public"));
+router.get("/festival-countdown/active", activeCountdown("homepage"));
 
 router.get("/festival-countdown/festival-pages", async (_req, res): Promise<void> => {
   const rows = await db.select().from(festivalCountdownsTable).where(and(eq(festivalCountdownsTable.enabled, true), eq(festivalCountdownsTable.displayOnPublicPage, true))).orderBy(asc(festivalCountdownsTable.targetAt));
-  res.json(rows.map(shape));
+  res.json(rows.map(publicShape));
 });
 
 export default router;
