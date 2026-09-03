@@ -1,12 +1,74 @@
+import React, { useState } from 'react';
 import { MapPin, Mail, Phone, Clock, MessageCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { getWhatsAppClickToChatUrl } from '@/config/whatsapp';
+import { toast } from 'sonner';
+import {
+  getWhatsAppClickToChatUrl,
+  WHATSAPP_CONTACT_NUMBER,
+  normalizeWhatsAppNumber,
+} from '@/config/whatsapp';
 
 export default function Contact() {
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    flat: '',
+    email: '',
+    subject: '',
+    message: '',
+  });
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { id, value } = e.target;
+    setFormData((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const name = formData.name.trim();
+    if (!name) {
+      toast.error('Please enter your full name.');
+      return;
+    }
+
+    const cleanPhone = formData.phone.replace(/\D/g, '');
+    if (!cleanPhone) {
+      toast.error('Please enter your phone number.');
+      return;
+    }
+    if (cleanPhone.length < 10) {
+      toast.error('Please enter a valid 10-digit phone number.');
+      return;
+    }
+
+    const message = formData.message.trim();
+    if (!message) {
+      toast.error('Please enter your message.');
+      return;
+    }
+
+    // Build the pre-filled WhatsApp message:
+    // Hello Meditiya Sathi Team,
+    //
+    // Name: [name]
+    // Phone: [phone]
+    // Message: [message]
+    const messageText = `Hello Meditiya Sathi Team,\n\nName: ${name}\nPhone: ${formData.phone.trim()}\nMessage: ${message}`;
+
+    const targetNumber = normalizeWhatsAppNumber(WHATSAPP_CONTACT_NUMBER);
+    const encodedMessage = encodeURIComponent(messageText);
+    const whatsappUrl = `https://wa.me/${targetNumber}?text=${encodedMessage}`;
+
+    toast.success('Redirecting to WhatsApp...');
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+  };
   return (
     <div className="w-full min-h-screen bg-background pb-20">
       <section className="bg-secondary text-secondary-foreground pt-16 pb-32 px-4 relative overflow-hidden">
@@ -26,30 +88,81 @@ export default function Contact() {
             <Card className="shadow-xl border-border bg-card h-full">
               <CardContent className="p-8 md:p-10">
                 <h2 className="text-2xl font-serif font-bold text-foreground mb-6">Send us a message</h2>
-                <form className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-6" noValidate>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <Label htmlFor="name">Full Name</Label>
-                      <Input id="name" placeholder="John Doe" className="bg-muted/50" />
+                      <Input
+                        id="name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        placeholder="John Doe"
+                        className="bg-muted/50"
+                        required
+                      />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="flat">Flat Number</Label>
-                      <Input id="flat" placeholder="e.g. A-101" className="bg-muted/50" />
+                      <Label htmlFor="phone">Phone Number</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        placeholder="e.g. 9876543210"
+                        className="bg-muted/50"
+                        required
+                      />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input id="email" type="email" placeholder="john@example.com" className="bg-muted/50" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="flat">Flat Number</Label>
+                      <Input
+                        id="flat"
+                        value={formData.flat}
+                        onChange={handleChange}
+                        placeholder="e.g. A-101"
+                        className="bg-muted/50"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email Address</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        placeholder="john@example.com"
+                        className="bg-muted/50"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="subject">Subject</Label>
-                    <Input id="subject" placeholder="What is this regarding?" className="bg-muted/50" />
+                    <Input
+                      id="subject"
+                      value={formData.subject}
+                      onChange={handleChange}
+                      placeholder="What is this regarding?"
+                      className="bg-muted/50"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="message">Message</Label>
-                    <Textarea id="message" placeholder="Type your message here..." rows={6} className="bg-muted/50 resize-none" />
+                    <Textarea
+                      id="message"
+                      value={formData.message}
+                      onChange={handleChange}
+                      placeholder="Type your message here..."
+                      rows={6}
+                      className="bg-muted/50 resize-none"
+                      required
+                    />
                   </div>
-                  <Button className="w-full md:w-auto px-8 font-bold bg-primary text-primary-foreground hover:bg-primary/90">
+                  <Button
+                    type="submit"
+                    className="w-full md:w-auto px-8 font-bold bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
                     Send Message
                   </Button>
                 </form>
@@ -65,7 +178,7 @@ export default function Contact() {
                     <MapPin className="w-6 h-6" />
                   </div>
                   <h3 className="font-bold text-foreground text-lg mb-2">Location</h3>
-                  <p className="text-muted-foreground">Meditiya Nagar Society,<br/>Sector 4, Charkop,<br/>Kandivali West, Mumbai,<br/>Maharashtra 400067</p>
+                  <p className="text-muted-foreground">Omkareshwar Mandir,<br/>Meditiya Nagar Society,<br/> Opp. Seven Square School, Deepak Hospital Lane,,<br/>Mira Road,Mumbai, Maharashtra 401107</p>
                 </div>
 
                 <div>
@@ -73,18 +186,17 @@ export default function Contact() {
                     <Mail className="w-6 h-6" />
                   </div>
                   <h3 className="font-bold text-foreground text-lg mb-2">Email</h3>
-                  <p className="text-muted-foreground">committee@meditiyanagar.com</p>
-                  <p className="text-muted-foreground">support@meditiyanagar.com</p>
-                </div>
+                  <p className="text-muted-foreground">medtiyasathi@gmail.com</p>
+                  </div>
 
-                <div>
+                {/* <div>
                   <div className="w-12 h-12 bg-accent/20 text-accent-foreground rounded-xl flex items-center justify-center mb-4">
                     <Phone className="w-6 h-6" />
                   </div>
                   <h3 className="font-bold text-foreground text-lg mb-2">Phone</h3>
                   <p className="text-muted-foreground">Security Gate: 022-2867-XXXX</p>
                   <p className="text-muted-foreground">Society Office: 022-2867-YYYY</p>
-                </div>
+                </div> */}
 
                 <div>
                   <div className="w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-xl flex items-center justify-center mb-4">
@@ -106,28 +218,7 @@ export default function Contact() {
               </CardContent>
             </Card>
 
-            <Card className="shadow-lg border-border bg-card">
-              <CardContent className="p-8">
-                <div className="flex items-center gap-3 mb-4 text-foreground">
-                  <Clock className="w-5 h-5 text-primary" />
-                  <h3 className="font-bold text-lg">Office Hours</h3>
-                </div>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <div className="flex justify-between">
-                    <span>Monday - Saturday:</span>
-                    <span className="font-medium text-foreground">10:00 AM - 1:00 PM</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Evening:</span>
-                    <span className="font-medium text-foreground">6:00 PM - 8:00 PM</span>
-                  </div>
-                  <div className="flex justify-between text-destructive mt-2 pt-2 border-t border-border">
-                    <span>Sunday:</span>
-                    <span className="font-medium">Closed</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            
           </div>
 
         </div>

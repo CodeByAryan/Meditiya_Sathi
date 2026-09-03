@@ -190,12 +190,12 @@ export default function Admin() {
             icon: Timer,
             href: '/admin/festival-countdowns',
           },
-          {
-            name: 'Festival Expenses',
-            description: 'Track money out and festival balances',
-            icon: Wallet,
-            href: '/admin/festival-expenses',
-          },
+          // {
+          //   name: 'Festival Expenses',
+          //   description: 'Track money out and festival balances',
+          //   icon: Wallet,
+          //   href: '/admin/festival-expenses',
+          // },
         ]
       : []),
 
@@ -219,55 +219,55 @@ export default function Admin() {
 
     ...(canManageFestivals
       ? [
-          {
-            name: 'Add Donation',
-            description: 'Record a new donation',
-            icon: Heart,
-            href: '/admin/donations/add',
-          },
+          // {
+          //   name: 'Add Donation',
+          //   description: 'Record a new donation',
+          //   icon: Heart,
+          //   href: '/admin/donations/add',
+          // },
           {
             name: 'Outsider Donations',
             description: 'Manage outsider contributions',
             icon: HeartHandshake,
             href: '/admin/outsider-donations',
           },
-          {
-            name: 'T-Shirt Registration',
-            description: 'Manage T-shirt registrations',
-            icon: Shirt,
-            href: '/admin/tshirt-registrations',
-          },
-          {
-            name: 'T-Shirt Distribution',
-            description: 'Scan QR & verify T-shirt handover',
-            icon: QrCode,
-            href: '/tshirt-distribution',
-          },
+          // {
+          //   name: 'T-Shirt Registration',
+          //   description: 'Manage T-shirt registrations',
+          //   icon: Shirt,
+          //   href: '/admin/tshirt-registrations',
+          // },
+          // {
+          //   name: 'T-Shirt Distribution',
+          //   description: 'Scan QR & verify T-shirt handover',
+          //   icon: QrCode,
+          //   href: '/tshirt-distribution',
+          // },
         ]
       : []),
 
-    ...(isVolunteer
-      ? [
-          {
-            name: 'T-Shirt Registration',
-            description: 'Manage assigned registrations',
-            icon: Shirt,
-            href: '/admin/tshirt-registrations',
-          },
-          {
-            name: 'T-Shirt Distribution',
-            description: 'Scan QR & verify T-shirt handover',
-            icon: QrCode,
-            href: '/tshirt-distribution',
-          },
-          {
-            name: 'Collection Tasks',
-            description: 'View your collection tasks',
-            icon: ClipboardList,
-            href: '/admin/festivals',
-          },
-        ]
-      : []),
+    // ...(isVolunteer
+    //   ? [
+    //       {
+    //         name: 'T-Shirt Registration',
+    //         description: 'Manage assigned registrations',
+    //         icon: Shirt,
+    //         href: '/admin/tshirt-registrations',
+    //       },
+    //       {
+    //         name: 'T-Shirt Distribution',
+    //         description: 'Scan QR & verify T-shirt handover',
+    //         icon: QrCode,
+    //         href: '/tshirt-distribution',
+    //       },
+    //       {
+    //         name: 'Collection Tasks',
+    //         description: 'View your collection tasks',
+    //         icon: ClipboardList,
+    //         href: '/admin/festivals',
+    //       },
+    //     ]
+    //   : []),
 
     ...(!isVolunteer
       ? [
@@ -283,12 +283,12 @@ export default function Admin() {
             icon: Bell,
             href: '/admin/notices',
           },
-          {
-            name: 'Committee Members',
-            description: 'Manage committee members',
-            icon: Shield,
-            href: '/admin/committee',
-          },
+          // {
+          //   name: 'Committee Members',
+          //   description: 'Manage committee members',
+          //   icon: Shield,
+          //   href: '/admin/committee',
+          // },
         ]
       : []),
 
@@ -311,24 +311,24 @@ export default function Admin() {
             icon: Trophy,
              href: '/admin/competitions',
           },
-          {
-            name: 'Complaints',
-            description: 'Review resident complaints',
-            icon: Wrench,
-            href: null,
-          },
-          {
-            name: 'Marketplace',
-            description: 'Manage community marketplace',
-            icon: ShoppingBag,
-            href: null,
-          },
-          {
-            name: 'Lost & Found',
-            description: 'Manage lost and found items',
-            icon: Package,
-            href: null,
-          },
+          // {
+          //   name: 'Complaints',
+          //   description: 'Review resident complaints',
+          //   icon: Wrench,
+          //   href: null,
+          // },
+          // {
+          //   name: 'Marketplace',
+          //   description: 'Manage community marketplace',
+          //   icon: ShoppingBag,
+          //   href: null,
+          // },
+          // {
+          //   name: 'Lost & Found',
+          //   description: 'Manage lost and found items',
+          //   icon: Package,
+          //   href: null,
+          // },
         ]
       : []),
   ];
@@ -921,104 +921,7 @@ export default function Admin() {
           </div>
         </motion.div>
 
-        {/* =================================================
-            SEARCH BUILDING
-            ================================================= */}
-
-        {canManageBuildings && (
-          <motion.div
-            variants={heroVariants}
-            initial="hidden"
-            animate="visible"
-            className="relative mb-8"
-          >
-            <Link href="/admin/buildings" className="block">
-              <motion.div
-                whileHover={{ y: -3 }}
-                className="
-                  group relative
-                  overflow-hidden
-                  rounded-2xl
-                  border border-amber-300/15
-                  bg-gradient-to-r
-                  from-amber-300/[0.08]
-                  via-white/[0.025]
-                  to-orange-400/[0.04]
-                  p-5
-                  backdrop-blur-2xl
-                  transition-all duration-300
-                  hover:border-amber-300/30
-                  hover:shadow-[0_20px_60px_rgba(245,158,11,0.08)]
-                "
-              >
-                {/* Glow */}
-                <div
-                  className="
-                    pointer-events-none absolute
-                    -right-16 -top-16
-                    h-40 w-40
-                    rounded-full
-                    bg-amber-300/[0.08]
-                    blur-3xl
-                    transition-all duration-500
-                    group-hover:bg-amber-300/[0.15]
-                  "
-                />
-
-                <div className="relative flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div
-                      className="
-                        flex h-12 w-12
-                        items-center justify-center
-                        rounded-xl
-                        border border-amber-300/20
-                        bg-amber-300/10
-                        text-amber-300
-                        shadow-[0_0_30px_rgba(251,191,36,0.08)]
-                        transition-all duration-300
-                        group-hover:scale-105
-                        group-hover:bg-amber-300
-                        group-hover:text-black
-                      "
-                    >
-                      <Search className="h-5 w-5" />
-                    </div>
-
-                    <div>
-                      <h3
-                        className="
-                          text-sm
-                          font-semibold
-                          text-white
-                          transition-colors
-                          group-hover:text-amber-200
-                          sm:text-base
-                        "
-                      >
-                        Search Building
-                      </h3>
-
-                      <p className="mt-1 text-xs text-white/35 sm:text-sm">
-                        Quickly find and manage a building or wing.
-                      </p>
-                    </div>
-                  </div>
-
-                  <ChevronRight
-                    className="
-                      h-5 w-5
-                      text-white/25
-                      transition-all duration-300
-                      group-hover:translate-x-1
-                      group-hover:text-amber-300
-                    "
-                  />
-                </div>
-              </motion.div>
-            </Link>
-          </motion.div>
-        )}
+        
 
         {/* =================================================
             MODULE GRID
@@ -1040,227 +943,7 @@ export default function Admin() {
           {sections.map(renderModuleCard)}
         </motion.div>
 
-        {/* =================================================
-            QUICK ACTIONS
-            ================================================= */}
-
-        {!isVolunteer && (
-          <motion.section
-            variants={heroVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.15 }}
-            className="relative mt-8"
-          >
-            <Card className="rounded-2xl border-white/8 bg-white/[0.025] p-5 backdrop-blur-2xl">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-white">WhatsApp API Diagnostic</h2>
-                  <p className="mt-1 text-sm text-white/40">Check the configured Cloud API connection securely.</p>
-                </div>
-                <button type="button" onClick={runWhatsAppDiagnostic} disabled={diagnosticLoading} className="rounded-xl border-amber-300/25 bg-amber-300/10 px-4 py-2.5 text-sm font-semibold text-amber-200 transition hover:bg-amber-300/20 disabled:cursor-wait disabled:opacity-50">
-                  {diagnosticLoading ? 'Checking...' : 'Run diagnostic'}
-                </button>
-              </div>
-              {diagnostic && (
-                <div className="mt-5 space-y-4 rounded-xl border-white/8 bg-black/20 p-4 text-sm">
-                  <div>
-                    <h3 className="mb-2 font-semibold text-white">WhatsApp Configuration</h3>
-                    <div className="grid gap-1 text-white/70 sm:grid-cols-2">
-                      <span>{diagnostic.configured !== false ? '✓' : '✗'} Access token configured</span>
-                      <span>{diagnostic.details?.phoneNumberId ? '✓' : '✗'} Phone Number ID configured</span>
-                      <span>{diagnostic.details?.businessAccountId ? '✓' : '✗'} WABA ID configured</span>
-                      <span>{diagnostic.details?.apiVersion ? '✓' : '✗'} API version configured</span>
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="mb-2 font-semibold text-white">Meta Connection</h3>
-                    <p className={diagnostic.success ? 'text-emerald-300' : 'text-red-300'}>{diagnostic.success ? '✓ Token valid, Phone Number ID accessible, WABA matches' : `✗ ${diagnostic.message || diagnostic.error || 'Meta connection failed'}`}</p>
-                  </div>
-                </div>
-              )}
-            </Card>
-          </motion.section>
-        )}
-
-        {!isVolunteer && (
-          <motion.section
-            variants={heroVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.15 }}
-            className="relative mt-14"
-          >
-            <div className="mb-5">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="h-px w-6 bg-amber-300/50" />
-
-                <p
-                  className="
-                    text-[10px]
-                    font-semibold
-                    uppercase
-                    tracking-[0.28em]
-                    text-amber-300/60
-                  "
-                >
-                  Shortcuts
-                </p>
-              </div>
-
-              <h2 className="text-xl font-semibold text-white">
-                Quick Actions
-              </h2>
-            </div>
-
-            <Card
-              className="
-                overflow-hidden
-                rounded-2xl
-                border border-white/8
-                bg-white/[0.025]
-                shadow-[0_20px_60px_rgba(0,0,0,0.3)]
-                backdrop-blur-2xl
-              "
-            >
-              <CardHeader
-                className="
-                  border-b border-white/8
-                  bg-amber-300/[0.025]
-                  px-5 py-4
-                  sm:px-6
-                "
-              >
-                <CardTitle
-                  className="
-                    flex items-center gap-2
-                    text-sm font-semibold
-                    text-white
-                  "
-                >
-                  <div
-                    className="
-                      flex h-8 w-8
-                      items-center justify-center
-                      rounded-lg
-                      border border-amber-300/15
-                      bg-amber-300/[0.07]
-                      text-amber-300
-                    "
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                  </div>
-
-                  Common Actions
-                </CardTitle>
-              </CardHeader>
-
-              <CardContent
-                className="
-                  grid grid-cols-1
-                  gap-3
-                  p-4
-                  md:grid-cols-3
-                  md:p-5
-                "
-              >
-                {/* Notice */}
-                <Link href="/admin/notices">
-                  <motion.div
-                    whileHover={{ y: -2 }}
-                    className="
-                      group cursor-pointer
-                      rounded-xl
-                      border border-white/8
-                      bg-white/[0.018]
-                      p-4
-                      text-left
-                      transition-all duration-300
-                      hover:border-amber-300/20
-                      hover:bg-amber-300/[0.035]
-                    "
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-semibold text-white transition-colors group-hover:text-amber-200">
-                          Post New Notice
-                        </h4>
-
-                        <p className="mt-1 text-xs leading-5 text-white/30">
-                          Broadcast important information to residents.
-                        </p>
-                      </div>
-
-                      <ChevronRight className="h-4 w-4 text-white/20 transition-all group-hover:translate-x-1 group-hover:text-amber-300" />
-                    </div>
-                  </motion.div>
-                </Link>
-
-                {/* Event */}
-                <Link href="/admin/events">
-                  <motion.div
-                    whileHover={{ y: -2 }}
-                    className="
-                      group cursor-pointer
-                      rounded-xl
-                      border border-white/8
-                      bg-white/[0.018]
-                      p-4
-                      text-left
-                      transition-all duration-300
-                      hover:border-amber-300/20
-                      hover:bg-amber-300/[0.035]
-                    "
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-semibold text-white transition-colors group-hover:text-amber-200">
-                          Create Event
-                        </h4>
-
-                        <p className="mt-1 text-xs leading-5 text-white/30">
-                          Schedule a new society gathering or festival.
-                        </p>
-                      </div>
-
-                      <ChevronRight className="h-4 w-4 text-white/20 transition-all group-hover:translate-x-1 group-hover:text-amber-300" />
-                    </div>
-                  </motion.div>
-                </Link>
-
-                {/* Complaints */}
-                <motion.div
-                  whileHover={{ y: -2 }}
-                  className="
-                    group cursor-pointer
-                    rounded-xl
-                    border border-white/8
-                    bg-white/[0.018]
-                    p-4
-                    text-left
-                    transition-all duration-300
-                    hover:border-amber-300/20
-                    hover:bg-amber-300/[0.035]
-                  "
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-semibold text-white transition-colors group-hover:text-amber-200">
-                        Review Complaints
-                      </h4>
-
-                      <p className="mt-1 text-xs leading-5 text-white/30">
-                        Check and update service requests.
-                      </p>
-                    </div>
-
-                    <ChevronRight className="h-4 w-4 text-white/20 transition-all group-hover:translate-x-1 group-hover:text-amber-300" />
-                  </div>
-                </motion.div>
-              </CardContent>
-            </Card>
-          </motion.section>
-        )}
+        
 
         {/* =================================================
             VOLUNTEER TASKS
