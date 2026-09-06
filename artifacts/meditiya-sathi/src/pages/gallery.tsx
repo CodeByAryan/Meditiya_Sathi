@@ -1,98 +1,48 @@
-import { useListAlbums } from '@workspace/api-client-react';
-import { useLocation } from 'wouter';
-import { motion } from 'framer-motion';
-import { Image as ImageIcon, Calendar, ArrowRight } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { useEffect, useState } from 'react';
+import { Link } from 'wouter';
+import { ChevronLeft, ChevronRight, Image as ImageIcon, X } from 'lucide-react';
+import { getApiUrl } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
+type Photo = { id: number; imageUrl: string; title?: string | null; caption?: string | null; albumSlug: string; albumName: string };
+type Album = { id: number; slug: string; title: string; photoCount?: number; photos?: Photo[]; festival?: string | null; year?: number };
+
 export default function Gallery() {
-  const { data: albums, isLoading } = useListAlbums();
-  const [, navigate] = useLocation();
+  const [albums, setAlbums] = useState<Album[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [active, setActive] = useState<number | null>(null);
+  const load = async () => { setLoading(true); setFailed(false); try { const response = await fetch(`${getApiUrl()}/api/gallery/albums`); if (!response.ok) throw new Error(); const data = await response.json() as Album[]; setAlbums(data); setPhotos(data.flatMap((album) => (album.photos || []).map((photo) => ({ ...photo, albumSlug: photo.albumSlug || album.slug, albumName: photo.albumName || album.title })))); } catch { setFailed(true); } finally { setLoading(false); } };
+  useEffect(() => { void load(); }, []);
+  const current = active === null ? null : photos[active];
 
   return (
     <div className="w-full min-h-screen bg-background pb-20">
-      <section className="pt-16 pb-12 px-4 text-center">
-        <h1 className="text-4xl md:text-5xl font-serif font-bold text-secondary dark:text-white mb-4">Memory Lane</h1>
-        <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-          Capturing the beautiful moments, vibrant festivals, and joyous celebrations of Meditiya Nagar.
-        </p>
-      </section>
+      <section className="pt-16 pb-12 px-4 text-center"><p className="text-xs font-semibold uppercase tracking-[.28em] text-primary">Gallery</p><h1 className="mt-3 text-4xl font-serif font-bold text-foreground md:text-5xl">Festival &amp; Community Moments</h1><p className="mx-auto mt-4 max-w-2xl text-muted-foreground">Capturing the beautiful moments, vibrant festivals, and joyous celebrations of Meditiya Nagar.</p></section>
 
       <div className="container mx-auto max-w-6xl px-4">
-        {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} className="space-y-3">
-                <Skeleton className="h-64 w-full rounded-2xl" />
-                <Skeleton className="h-6 w-2/3" />
-                <Skeleton className="h-4 w-1/3" />
-              </div>
-            ))}
+        {loading ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
+            {Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="aspect-square rounded-2xl" />)}
           </div>
-        ) : albums?.length === 0 ? (
+        ) : failed ? (
+          <div className="rounded-3xl border-destructive/30 bg-destructive/5 py-16 text-center"><p className="text-lg font-semibold">Unable to load gallery</p><button onClick={() => void load()} className="mt-4 rounded-lg bg-primary px-4 py-2 text-primary-foreground">Retry</button></div>
+        ) : !photos.length ? (
           <div className="text-center py-20 bg-muted/20 rounded-3xl border border-border">
             <ImageIcon className="w-16 h-16 text-muted-foreground/50 mx-auto mb-4" />
-            <h3 className="text-2xl font-serif font-bold text-foreground">No Albums Yet</h3>
+            <p className="text-lg font-semibold">No gallery photos available yet.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {albums?.map((album, idx) => {
-              const slug = album.slug;
-              if (!slug) return null;
-              return <motion.div
-                key={album.id}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: idx * 0.05 }}
-              >
-                <div className="group cursor-pointer" onClick={() => navigate(`/gallery/${encodeURIComponent(slug)}`)} role="link" tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter') navigate(`/gallery/${encodeURIComponent(slug)}`); }}>
-                  <div className="relative h-64 rounded-2xl overflow-hidden mb-4 shadow-md bg-muted border border-border">
-                    {album.coverImageUrl ? (
-                      <img
-                        src={album.coverImageUrl}
-                        alt={album.title}
-                        loading="lazy"
-                        decoding="async"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-secondary/5">
-                        <ImageIcon className="w-12 h-12 text-secondary/30" />
-                      </div>
-                    )}
-
-                    {/* Stack effect */}
-                    <div className="absolute -z-10 top-2 left-2 right-[-8px] bottom-[-8px] bg-background border border-border rounded-2xl group-hover:translate-x-1 group-hover:translate-y-1 transition-transform"></div>
-                    <div className="absolute -z-20 top-4 left-4 right-[-16px] bottom-[-16px] bg-background border border-border rounded-2xl group-hover:translate-x-2 group-hover:translate-y-2 transition-transform opacity-50"></div>
-
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-                      <span className="text-white font-medium text-sm flex items-center gap-2">
-                        View {album.photoCount || 0} Photos <ArrowRight className="w-4 h-4" />
-                      </span>
-                    </div>
-
-                    {album.festival && (
-                      <Badge className="absolute top-4 right-4 bg-primary text-primary-foreground border-none">
-                        {album.festival}
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div>
-                    <h3 className="text-xl font-bold font-serif text-foreground group-hover:text-primary transition-colors line-clamp-1">{album.title}</h3>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                      <Calendar className="w-4 h-4" /> {album.year}
-                      <span className="mx-2 text-border">•</span>
-                      <span>{album.photoCount || 0} photos</span>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>;
-            })}
+          <>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
+            {photos.map((photo, index) => <button key={photo.id} onClick={() => setActive(index)} className="group relative aspect-square overflow-hidden rounded-2xl border-border bg-muted text-left"><img src={photo.imageUrl} alt={photo.title || photo.caption || photo.albumName} loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" /><span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-3 pb-3 pt-8 text-xs font-medium text-white">{photo.albumName}</span></button>)}
           </div>
+          <div className="mt-12 flex-wrap gap-3">{albums.filter((album) => (album.photoCount || 0) > 0).map((album) => <Link key={album.id} href={`/gallery/${encodeURIComponent(album.slug)}`} className="rounded-xl border-border bg-card px-4 py-3 text-sm transition hover:border-primary">{album.title} <span className="text-muted-foreground">· {album.photoCount} photos</span></Link>)}</div>
+          </>
         )}
       </div>
+      {current && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4" onClick={() => setActive(null)}><button aria-label="Close" className="absolute right-4 top-4 rounded-full bg-white/10 p-3 text-white" onClick={() => setActive(null)}><X /></button><button aria-label="Previous" className="absolute left-2 rounded-full bg-white/10 p-3 text-white sm:left-8" onClick={(e) => { e.stopPropagation(); setActive((active! - 1 + photos.length) % photos.length); }}><ChevronLeft /></button><img src={current.imageUrl} alt={current.title || current.albumName} className="max-h-[85vh] max-w-[90vw] rounded-xl object-contain" onClick={(e) => e.stopPropagation()} /><button aria-label="Next" className="absolute right-2 rounded-full bg-white/10 p-3 text-white sm:right-8" onClick={(e) => { e.stopPropagation(); setActive((active! + 1) % photos.length); }}><ChevronRight /></button></div>}
     </div>
   );
 }

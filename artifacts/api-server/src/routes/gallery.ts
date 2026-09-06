@@ -36,7 +36,18 @@ async function publicAlbum(album: typeof albumsTable.$inferSelect, photos: Array
   const validImage = (photo: typeof galleryPhotosTable.$inferSelect | undefined) => photo?.isPublished && Boolean(photo.imageUrl?.trim()) ? photo : undefined;
   const cover = album.coverPhotoId ? validImage(photos.find((photo) => photo.id === album.coverPhotoId)) : undefined;
   const fallback = photos.map(validImage).find(Boolean);
-  return { id: album.id, title: album.title, slug: album.slug, description: album.description, coverImageUrl: cover?.imageUrl || fallback?.imageUrl || null, photoCount: photos.length, createdAt: album.createdAt, updatedAt: album.updatedAt };
+  const publicPhotos = photos.filter((photo) => photo.isPublished && Boolean(photo.imageUrl?.trim())).map((photo) => ({
+    id: photo.id,
+    imageUrl: photo.imageUrl,
+    title: photo.title,
+    description: photo.description,
+    caption: photo.caption,
+    albumId: album.id,
+    albumName: album.title,
+    albumSlug: album.slug,
+    createdAt: photo.createdAt,
+  }));
+  return { id: album.id, title: album.title, slug: album.slug, description: album.description, year: album.year, festival: album.festival, coverImageUrl: cover?.imageUrl || fallback?.imageUrl || null, photoCount: publicPhotos.length, photos: publicPhotos, createdAt: album.createdAt, updatedAt: album.updatedAt };
 }
 
 router.get("/gallery/albums", async (req, res): Promise<void> => {
@@ -66,7 +77,8 @@ router.get("/gallery/albums/:slug", async (req, res): Promise<void> => {
     const [album] = await db.select().from(albumsTable).where(and(eq(albumsTable.slug, slug), eq(albumsTable.isPublished, true)));
     if (!album) { res.status(404).json({ error: "Album not found" }); return; }
     const photos = await db.select().from(galleryPhotosTable).where(and(eq(galleryPhotosTable.albumId, album.id), eq(galleryPhotosTable.isPublished, true))).orderBy(desc(galleryPhotosTable.createdAt));
-    res.json({ album: await publicAlbum(album, photos), photos: photos.map(({ publicId: _publicId, isFeatured: _isFeatured, ...photo }) => photo) });
+    const result = await publicAlbum(album, photos);
+    res.json({ album: result, photos: result.photos });
   } catch (error) {
     console.error("[Gallery] Failed to load public album:", error);
     res.status(500).json({ error: "Unable to load gallery album" });
