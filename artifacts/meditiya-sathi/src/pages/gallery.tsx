@@ -13,7 +13,7 @@ export default function Gallery() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [active, setActive] = useState<number | null>(null);
-  const load = async () => { setLoading(true); setFailed(false); try { const response = await fetch(`${getApiUrl()}/api/gallery/albums`); if (!response.ok) throw new Error(); const data = await response.json() as Album[]; setAlbums(data); setPhotos(data.flatMap((album) => (album.photos || []).map((photo) => ({ ...photo, albumSlug: photo.albumSlug || album.slug, albumName: photo.albumName || album.title })))); } catch { setFailed(true); } finally { setLoading(false); } };
+  const load = async () => { setLoading(true); setFailed(false); try { const [albumsResponse, photosResponse] = await Promise.all([fetch(`${getApiUrl()}/api/gallery/albums`), fetch(`${getApiUrl()}/api/gallery/featured`)]); if (!albumsResponse.ok || !photosResponse.ok) throw new Error(); const albumsData = await albumsResponse.json() as Album[]; const photosData = await photosResponse.json() as Array<Photo & { albumTitle?: string | null }>; setAlbums(albumsData); setPhotos(photosData.map((photo) => ({ ...photo, albumName: photo.albumName || photo.albumTitle || 'Community moments' }))); } catch { setFailed(true); } finally { setLoading(false); } };
   useEffect(() => { void load(); }, []);
   const current = active === null ? null : photos[active];
 
