@@ -1238,7 +1238,10 @@ components:
           type: boolean
         createdAt:
           type: string
-
+        albumSlug:
+          type: string
+        albumTitle:
+          type: string
     GalleryPhotoInput:
       type: object
       required: [imageUrl]

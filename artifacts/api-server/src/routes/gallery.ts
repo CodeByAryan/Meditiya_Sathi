@@ -33,8 +33,9 @@ function slugify(value: string) {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 async function publicAlbum(album: typeof albumsTable.$inferSelect, photos: Array<typeof galleryPhotosTable.$inferSelect>) {
-  const cover = album.coverPhotoId ? photos.find((photo) => photo.id === album.coverPhotoId) : undefined;
-  const fallback = photos.find((photo) => photo.isPublished);
+  const validImage = (photo: typeof galleryPhotosTable.$inferSelect | undefined) => photo?.isPublished && Boolean(photo.imageUrl?.trim()) ? photo : undefined;
+  const cover = album.coverPhotoId ? validImage(photos.find((photo) => photo.id === album.coverPhotoId)) : undefined;
+  const fallback = photos.map(validImage).find(Boolean);
   return { id: album.id, title: album.title, slug: album.slug, description: album.description, coverImageUrl: cover?.imageUrl || fallback?.imageUrl || null, photoCount: photos.length, createdAt: album.createdAt, updatedAt: album.updatedAt };
 }
 
@@ -57,8 +58,10 @@ router.get("/gallery/albums", async (req, res): Promise<void> => {
 });
 
 router.get("/gallery/albums/:slug", async (req, res): Promise<void> => {
+  const identifier = String(req.params.slug);
+  console.info("[Gallery] GET /albums/:identifier", { identifier });
   try {
-    const slug = String(req.params.slug).trim();
+    const slug = identifier.trim();
     if (!slug || /^\d+$/.test(slug)) { res.status(404).json({ error: "Album not found" }); return; }
     const [album] = await db.select().from(albumsTable).where(and(eq(albumsTable.slug, slug), eq(albumsTable.isPublished, true)));
     if (!album) { res.status(404).json({ error: "Album not found" }); return; }
@@ -100,17 +103,20 @@ router.post("/gallery/albums", requireRole("Super Admin", "Admin"), async (req, 
 
 router.patch("/gallery/albums/:id", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || typeof req.body?.isPublished !== "boolean") { res.status(400).json({ error: "Invalid album update" }); return; }
+  if (!Number.isInteger(id)) { res.status(400).json({ error: "Invalid album id" }); return; }
   const update: Record<string, unknown> = { updatedAt: new Date() };
   if (typeof req.body?.isPublished === "boolean") update.isPublished = req.body.isPublished;
   if (typeof req.body?.title === "string") update.title = req.body.title.trim();
   if (typeof req.body?.description === "string") update.description = req.body.description.trim() || null;
-  if (typeof req.body?.coverPhotoId === "number") {
-    const [cover] = await db.select({ id: galleryPhotosTable.id, imageUrl: galleryPhotosTable.imageUrl }).from(galleryPhotosTable).where(and(eq(galleryPhotosTable.id, req.body.coverPhotoId), eq(galleryPhotosTable.albumId, id), eq(galleryPhotosTable.isPublished, true)));
-    if (!cover) { res.status(400).json({ error: "Cover photo must be a published photo in this album" }); return; }
+  const coverPhotoId = req.body?.coverPhotoId === undefined ? undefined : Number(req.body.coverPhotoId);
+  if (coverPhotoId !== undefined) {
+    if (!Number.isInteger(coverPhotoId)) { res.status(400).json({ error: "Invalid cover photo id" }); return; }
+    const [cover] = await db.select({ id: galleryPhotosTable.id, imageUrl: galleryPhotosTable.imageUrl }).from(galleryPhotosTable).where(and(eq(galleryPhotosTable.id, coverPhotoId), eq(galleryPhotosTable.albumId, id)));
+    if (!cover) { res.status(400).json({ error: "Cover photo must belong to this album" }); return; }
     update.coverPhotoId = cover.id;
     update.coverImageUrl = cover.imageUrl;
   }
+  if (Object.keys(update).length === 1) { res.status(400).json({ error: "No valid album changes supplied" }); return; }
   const [album] = await db.update(albumsTable).set(update).where(eq(albumsTable.id, id)).returning();
   if (!album) { res.status(404).json({ error: "Album not found" }); return; }
   res.json(album);
@@ -197,7 +203,7 @@ router.delete("/gallery/photos/:id", requireRole("Super Admin", "Admin"), async 
 
 router.get("/gallery/featured", async (_req, res): Promise<void> => {
   const photos = await db
-    .select({ id: galleryPhotosTable.id, albumId: galleryPhotosTable.albumId, imageUrl: galleryPhotosTable.imageUrl, caption: galleryPhotosTable.caption, createdAt: galleryPhotosTable.createdAt })
+    .select({ id: galleryPhotosTable.id, albumId: galleryPhotosTable.albumId, imageUrl: galleryPhotosTable.imageUrl, caption: galleryPhotosTable.caption, createdAt: galleryPhotosTable.createdAt, albumSlug: albumsTable.slug, albumTitle: albumsTable.title })
     .from(galleryPhotosTable)
     .innerJoin(albumsTable, eq(galleryPhotosTable.albumId, albumsTable.id))
     .where(and(eq(galleryPhotosTable.isPublished, true), eq(albumsTable.isPublished, true)))
