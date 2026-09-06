@@ -8,6 +8,8 @@
 
 export interface Album {
   id: number;
+  /** URL-safe public album identifier */
+  slug: string;
   title: string;
   /** @nullable */
   description?: string | null;

@@ -10,6 +10,7 @@ export const albumsTable = pgTable("albums", {
   year: integer("year").notNull(),
   festival: text("festival"),
   coverImageUrl: text("cover_image_url"),
+  coverPhotoId: integer("cover_photo_id"),
   isPublished: boolean("is_published").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -24,6 +25,7 @@ export const galleryPhotosTable = pgTable("gallery_photos", {
   description: text("description"),
   caption: text("caption"),
   isFeatured: boolean("is_featured").notNull().default(false),
+  isPublished: boolean("is_published").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

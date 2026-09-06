@@ -38,14 +38,15 @@ export default function Gallery() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {albums?.map((album, idx) => {
-              const slug = (album as typeof album & { slug?: string }).slug || String(album.id);
+              const slug = album.slug;
+              if (!slug) return null;
               return <motion.div
                 key={album.id}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: idx * 0.05 }}
               >
-                <div className="group cursor-pointer" onClick={() => navigate(`/gallery/${slug}`)} role="link" tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter') navigate(`/gallery/${slug}`); }}>
+                <div className="group cursor-pointer" onClick={() => navigate(`/gallery/${encodeURIComponent(slug)}`)} role="link" tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter') navigate(`/gallery/${encodeURIComponent(slug)}`); }}>
                   <div className="relative h-64 rounded-2xl overflow-hidden mb-4 shadow-md bg-muted border border-border">
                     {album.coverImageUrl ? (
                       <img

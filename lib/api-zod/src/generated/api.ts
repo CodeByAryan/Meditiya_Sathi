@@ -326,6 +326,7 @@ export const ListAlbumsQueryParams = zod.object({
 
 export const ListAlbumsResponseItem = zod.object({
   "id": zod.number(),
+  "slug": zod.string(),
   "title": zod.string(),
   "description": zod.string().nullish(),
   "year": zod.number(),

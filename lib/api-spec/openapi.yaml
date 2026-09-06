@@ -1186,10 +1186,12 @@ components:
     # ── GALLERY ─────────────────────────────────────────────────────────────
     Album:
       type: object
-      required: [id, title, year, createdAt]
+      required: [id, slug, title, year, createdAt]
       properties:
         id:
           type: integer
+        slug:
+          type: string
         title:
           type: string
         description:
