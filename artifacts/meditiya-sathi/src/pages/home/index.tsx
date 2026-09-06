@@ -8,6 +8,7 @@ import VolunteersSection from './VolunteersSection';
 import FAQSection from './FAQSection';
 import { pageFade } from './motionVariants';
 import WhatsAppFloatingButton from '@/components/WhatsAppFloatingButton';
+import GallerySection from './GallerySection';
 
 export default function HomePage() {
   return (
@@ -17,6 +18,7 @@ export default function HomePage() {
       <UpcomingTeaser />
       <FeaturesBento />
       <VolunteersSection />
+      <GallerySection />
       <FAQSection />
       <WhatsAppFloatingButton />
     </motion.div>
