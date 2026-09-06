@@ -14,6 +14,7 @@
     "migrate:festival-expenses": "node ./scripts/migrate-festival-expenses.mjs",
     "migrate:festival-countdowns": "node ./scripts/migrate-festival-countdowns.mjs",
     "migrate:volunteer-assignments": "node ./scripts/migrate-volunteer-assignments.mjs",
+    "migrate:gallery-albums": "node ./scripts/migrate-gallery-albums.mjs",
     "verify:volunteer-assignments": "node ./scripts/verify-volunteer-assignments.mjs"
   },
 

@@ -271,6 +271,13 @@ export default function Shell({
       icon: ClipboardList,
       description: 'Manage events',
       superAdminOnly: false,
+    },
+    {
+      name: 'Gallery',
+      href: '/admin/gallery',
+      icon: ImageIcon,
+      description: 'Manage society photos',
+      superAdminOnly: false,
     }] : []),
   ];
 

@@ -1,12 +1,14 @@
 import { useListAlbums } from '@workspace/api-client-react';
+import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
-import { Image as ImageIcon, Calendar } from 'lucide-react';
+import { Image as ImageIcon, Calendar, ArrowRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Gallery() {
   const { data: albums, isLoading } = useListAlbums();
+  const [, navigate] = useLocation();
 
   return (
     <div className="w-full min-h-screen bg-background pb-20">
@@ -35,19 +37,20 @@ export default function Gallery() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {albums?.map((album, idx) => (
-              <motion.div
+            {albums?.map((album, idx) => {
+              const slug = (album as typeof album & { slug?: string }).slug || String(album.id);
+              return <motion.div
                 key={album.id}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: idx * 0.05 }}
               >
-                <div className="group cursor-pointer">
+                <div className="group cursor-pointer" onClick={() => navigate(`/gallery/${slug}`)} role="link" tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter') navigate(`/gallery/${slug}`); }}>
                   <div className="relative h-64 rounded-2xl overflow-hidden mb-4 shadow-md bg-muted border border-border">
                     {album.coverImageUrl ? (
-                      <img 
-                        src={album.coverImageUrl} 
-                        alt={album.title} 
+                      <img
+                        src={album.coverImageUrl}
+                        alt={album.title}
                         loading="lazy"
                         decoding="async"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -57,24 +60,24 @@ export default function Gallery() {
                         <ImageIcon className="w-12 h-12 text-secondary/30" />
                       </div>
                     )}
-                    
+
                     {/* Stack effect */}
                     <div className="absolute -z-10 top-2 left-2 right-[-8px] bottom-[-8px] bg-background border border-border rounded-2xl group-hover:translate-x-1 group-hover:translate-y-1 transition-transform"></div>
                     <div className="absolute -z-20 top-4 left-4 right-[-16px] bottom-[-16px] bg-background border border-border rounded-2xl group-hover:translate-x-2 group-hover:translate-y-2 transition-transform opacity-50"></div>
-                    
+
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
                       <span className="text-white font-medium text-sm flex items-center gap-2">
-                        View {album.photoCount || 0} Photos <ArrowRightIcon className="w-4 h-4" />
+                        View {album.photoCount || 0} Photos <ArrowRight className="w-4 h-4" />
                       </span>
                     </div>
-                    
+
                     {album.festival && (
                       <Badge className="absolute top-4 right-4 bg-primary text-primary-foreground border-none">
                         {album.festival}
                       </Badge>
                     )}
                   </div>
-                  
+
                   <div>
                     <h3 className="text-xl font-bold font-serif text-foreground group-hover:text-primary transition-colors line-clamp-1">{album.title}</h3>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
@@ -84,15 +87,11 @@ export default function Gallery() {
                     </div>
                   </div>
                 </div>
-              </motion.div>
-            ))}
+              </motion.div>;
+            })}
           </div>
         )}
       </div>
     </div>
   );
-}
-
-function ArrowRightIcon(props: any) {
-  return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinelinejoin="round" {...props}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
 }

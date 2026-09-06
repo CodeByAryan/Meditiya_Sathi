@@ -15,6 +15,7 @@ const EventDetail = lazy(() => import('@/pages/event-detail'));
 const Festivals = lazy(() => import('@/pages/festivals'));
 const Notices = lazy(() => import('@/pages/notices'));
 const Gallery = lazy(() => import('@/pages/gallery'));
+const GalleryAlbum = lazy(() => import('@/pages/gallery-album'));
 const DonationShowcase = lazy(() => import('@/pages/donation-showcase'));
 const Volunteers = lazy(() => import('@/pages/volunteers'));
 const Competitions = lazy(() => import('@/pages/competitions'));
@@ -31,7 +32,8 @@ const AdminResidentsList = lazy(() => import('@/pages/admin/residents-list'));
 const AdminBuildings = lazy(() => import('@/pages/admin/buildings'));
 const AdminEventsCrud = lazy(() => import('@/pages/admin/events-crud'));
 const AdminNoticesCrud = lazy(() => import('@/pages/admin/notices-crud'));
-const AdminGalleryCrud = lazy(() => import('@/pages/admin/gallery-crud'));
+const AdminGalleryCrud = lazy(() => import('@/pages/admin/gallery-albums'));
+const AdminGalleryAlbumCrud = lazy(() => import('@/pages/admin/gallery-album-crud'));
 const AdminFestivalsList = lazy(() => import('@/pages/admin/festivals-list'));
 const AdminFestivalCreate = lazy(() => import('@/pages/admin/festival-create'));
 const AdminFestivalDetail = lazy(() => import('@/pages/admin/festival-detail'));
@@ -91,6 +93,7 @@ function AppRoutes() {
         <Route path="/festivals"><Shell><Festivals /></Shell></Route>
         <Route path="/notices"><Shell><Notices /></Shell></Route>
         <Route path="/gallery"><Shell><Gallery /></Shell></Route>
+        <Route path="/gallery/:slug"><Shell><GalleryAlbum /></Shell></Route>
         <Route path="/donations"><Redirect to="/donation-showcase" /></Route>
         <Route path="/leaderboard"><Redirect to="/donation-showcase" /></Route>
         <Route path="/festival-leaderboard"><Redirect to="/donation-showcase" /></Route>
@@ -122,6 +125,9 @@ function AppRoutes() {
         </Route>
         <Route path="/admin/notices">
           <AdminShell><AdminNoticesCrud /></AdminShell>
+        </Route>
+        <Route path="/admin/gallery/:slug">
+          <AdminShell><AdminGalleryAlbumCrud /></AdminShell>
         </Route>
         <Route path="/admin/gallery">
           <AdminShell><AdminGalleryCrud /></AdminShell>

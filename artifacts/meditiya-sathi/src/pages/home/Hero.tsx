@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'wouter';
 import { motion } from 'framer-motion';
 import {
@@ -10,8 +10,24 @@ import {
 } from 'lucide-react';
 
 import HeroBackground from './HeroBackground';
+import { getApiUrl } from '@/lib/utils';
+import FestivalCountdown from '@/components/FestivalCountdown';
 
 export default function Hero() {
+  const [homepageCountdown, setHomepageCountdown] = useState<{ name: string; targetAt: string; endAt: string } | null>(null);
+
+  useEffect(() => {
+    fetch(`${getApiUrl()}/api/festival-countdowns/homepage`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => setHomepageCountdown(data?.countdown || null))
+      .catch(() => undefined);
+  }, []);
+
+  const countdownName = homepageCountdown?.name ?? null;
+  const countdownTargetAt = homepageCountdown?.targetAt ?? null;
+  const countdownEndAt = homepageCountdown?.endAt ?? null;
+
+  const showCountdownCard = homepageCountdown && countdownTargetAt;
   return (
     <section
       className="
@@ -454,91 +470,139 @@ export default function Hero() {
                     sm:py-4
                   "
                 >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="
-                        flex
-                        h-10
-                        w-10
-                        shrink-0
-                        items-center
-                        justify-center
-                        rounded-xl
-                        border
-                        border-amber-300/20
-                        bg-amber-300/10
-                      "
-                    >
-                      <CalendarDays className="h-4 w-4 text-amber-300" />
-                    </div>
+                  {/* Show content only when countdown is active */}
+                  {showCountdownCard ? (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="
+                            flex
+                            h-10
+                            w-10
+                            shrink-0
+                            items-center
+                            justify-center
+                            rounded-xl
+                            border
+                            border-amber-300/20
+                            bg-amber-300/10
+                          "
+                        >
+                          <CalendarDays className="h-4 w-4 text-amber-300" />
+                        </div>
 
-                    <div className="text-left">
-                      <p
+                        <div className="text-left">
+                          <p
+                            className="
+                              text-[9px]
+                              font-semibold
+                              uppercase
+                              tracking-[0.25em]
+                              text-amber-300/80
+                            "
+                          >
+                            Up Next
+                          </p>
+
+                          <p
+                            className="
+                              mt-0.5
+                              text-sm
+                              font-medium
+                              text-white
+                            "
+                          >
+                            {countdownName}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Desktop information */}
+
+                      <div
                         className="
-                          text-[9px]
-                          font-semibold
-                          uppercase
-                          tracking-[0.25em]
-                          text-amber-300/80
+                          hidden
+                          text-right
+                          sm:block
                         "
                       >
-                        Up Next
-                      </p>
+                        <p className="text-xs text-white/45">
+                          {new Date(countdownTargetAt!).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        </p>
 
-                      <p
+                        <p
+                          className="
+                            mt-1
+                            text-xs
+                            font-medium
+                            text-white/80
+                            transition-colors
+                            group-hover:text-amber-300
+                          "
+                        >
+                          View countdown →
+                        </p>
+                      </div>
+
+                      {/* Mobile arrow */}
+
+                      <ArrowRight
                         className="
-                          mt-0.5
-                          text-sm
-                          font-medium
-                          text-white
+                          h-4
+                          w-4
+                          shrink-0
+                          text-white/40
+                          transition-all
+                          group-hover:translate-x-1
+                          group-hover:text-amber-300
+                          sm:hidden
+                        "
+                      />
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="
+                          flex
+                          h-10
+                          w-10
+                          shrink-0
+                          items-center
+                          justify-center
+                          rounded-xl
+                          border
+                          border-amber-300/20
+                          bg-amber-300/10
                         "
                       >
-                        Ganesh Utsav 2026
-                      </p>
+                        <CalendarDays className="h-4 w-4 text-amber-300" />
+                      </div>
+
+                      <div className="text-left">
+                        <p
+                          className="
+                            text-[9px]
+                            font-semibold
+                            uppercase
+                            tracking-[0.25em]
+                            text-amber-300/80
+                          "
+                        >
+                          Up Next
+                        </p>
+
+                        <p
+                          className="
+                            mt-0.5
+                            text-xs
+                            text-white/45
+                          "
+                        >
+                          No upcoming celebration
+                        </p>
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Desktop information */}
-
-                  <div
-                    className="
-                      hidden
-                      text-right
-                      sm:block
-                    "
-                  >
-                    <p className="text-xs text-white/45">
-                      14 September 2026
-                    </p>
-
-                    <p
-                      className="
-                        mt-1
-                        text-xs
-                        font-medium
-                        text-white/80
-                        transition-colors
-                        group-hover:text-amber-300
-                      "
-                    >
-                      View countdown →
-                    </p>
-                  </div>
-
-                  {/* Mobile arrow */}
-
-                  <ArrowRight
-                    className="
-                      h-4
-                      w-4
-                      shrink-0
-                      text-white/40
-                      transition-all
-                      group-hover:translate-x-1
-                      group-hover:text-amber-300
-                      sm:hidden
-                    "
-                  />
+                  )}
                 </div>
             </motion.a>
           </motion.div>
