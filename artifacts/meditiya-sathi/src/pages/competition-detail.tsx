@@ -5,6 +5,7 @@ import { Trophy, Upload, Vote, AlertCircle, ArrowLeft, CheckCircle2, Medal } fro
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import SEO from "@/components/SEO";
 
 const api = () => import.meta.env.VITE_API_URL || "";
 
@@ -147,15 +148,15 @@ export default function CompetitionDetail() {
 
   if (isLoading) {
     return (
-      <main className="container mx-auto px-4 py-28 text-center text-muted-foreground">
+      <><SEO title="Community Competition | Meditiya Sathi" description="Explore community competition details and participation at Meditiya Nagar." path={`/competitions/${params?.id || ""}`} /><main className="container mx-auto px-4 py-28 text-center text-muted-foreground">
         Loading competition details...
-      </main>
+      </main></>
     );
   }
 
   if (isError || !competition) {
     return (
-      <main className="container mx-auto px-4 py-28 text-center">
+      <><SEO title="Competition | Meditiya Sathi" description="Explore community competition details and participation at Meditiya Nagar." path={`/competitions/${params?.id || ""}`} /><main className="container mx-auto px-4 py-28 text-center">
         <AlertCircle className="mx-auto mb-3 h-10 w-10 text-destructive" />
         <p className="text-lg font-semibold">Competition not found.</p>
         <button
@@ -164,10 +165,11 @@ export default function CompetitionDetail() {
         >
           ← Back to all competitions
         </button>
-      </main>
+      </main></>
     );
   }
 
+  const competitionDescription = competition.description || `Explore ${competition.name} and participate in this Meditiya Nagar community competition.`;
   const isRegOpen = competition.registrationOpen || competition.status.toLowerCase() === "registration_open";
   const isVoteOpen = competition.votingOpen || competition.status.toLowerCase() === "voting_open";
 
@@ -295,6 +297,8 @@ export default function CompetitionDetail() {
   };
 
   return (
+    <>
+      <SEO title={`${competition.name} | Meditiya Sathi`} description={competitionDescription} path={`/competitions/${competition.id}`} ogType="article" />
     <main className="container mx-auto max-w-6xl px-4 py-24">
       <button
         onClick={() => setLocation("/competitions")}
@@ -646,5 +650,6 @@ export default function CompetitionDetail() {
         </div>
       )}
     </main>
+    </>
   );
 }

@@ -1,2 +1,6 @@
 User-agent: *
 Allow: /
+
+Disallow: /admin
+Disallow: /admin-login
+Sitemap: https://www.medtiyasathi.in/sitemap.xml
