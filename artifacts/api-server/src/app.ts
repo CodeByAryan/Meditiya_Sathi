@@ -37,6 +37,10 @@ app.use(
 );
 
 const allowedOrigins = [
+  // Production frontend domains
+  "https://www.medtiyasathi.in",
+  "https://medtiyasathi.in",
+  // Existing Vercel deployment and local development domains
   "https://meditiya-sathi.vercel.app",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
@@ -77,6 +81,9 @@ app.use(
       }
       return callback(new Error("Not allowed by CORS"));
     },
+    // The cors middleware handles OPTIONS requests before the API router,
+    // including requested headers/methods for credentialed admin requests.
+    optionsSuccessStatus: 204,
   })
 );
 
