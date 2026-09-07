@@ -61,7 +61,8 @@ router.get("/gallery/albums", async (req, res): Promise<void> => {
       const photos = await db.select().from(galleryPhotosTable).where(and(eq(galleryPhotosTable.albumId, album.id), eq(galleryPhotosTable.isPublished, true))).orderBy(desc(galleryPhotosTable.createdAt));
       return publicAlbum(album, photos);
     }));
-    res.json(withCounts);
+    const publishedAlbumsWithPhotos = withCounts.filter((album) => album.photoCount > 0);
+    res.json(publishedAlbumsWithPhotos);
   } catch (error) {
     console.error("[Gallery] Failed to load public albums:", error);
     res.status(500).json({ error: "Unable to load gallery albums" });
