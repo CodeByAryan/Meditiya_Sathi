@@ -148,7 +148,7 @@ export default function CompetitionDetail() {
 
   if (isLoading) {
     return (
-      <><SEO title="Community Competition | Meditiya Sathi" description="Explore community competition details and participation at Meditiya Nagar." path={`/competitions/${params?.id || ""}`} /><main className="container mx-auto px-4 py-28 text-center text-muted-foreground">
+      <><SEO title="Community Competition | Meditiya Sathi" description="Explore community competition details and participation at Medtiya Nagar." path={`/competitions/${params?.id || ""}`} /><main className="container mx-auto px-4 py-28 text-center text-muted-foreground">
         Loading competition details...
       </main></>
     );
@@ -156,7 +156,7 @@ export default function CompetitionDetail() {
 
   if (isError || !competition) {
     return (
-      <><SEO title="Competition | Meditiya Sathi" description="Explore community competition details and participation at Meditiya Nagar." path={`/competitions/${params?.id || ""}`} /><main className="container mx-auto px-4 py-28 text-center">
+      <><SEO title="Competition | Meditiya Sathi" description="Explore community competition details and participation at Medtiya Nagar." path={`/competitions/${params?.id || ""}`} /><main className="container mx-auto px-4 py-28 text-center">
         <AlertCircle className="mx-auto mb-3 h-10 w-10 text-destructive" />
         <p className="text-lg font-semibold">Competition not found.</p>
         <button
@@ -169,7 +169,7 @@ export default function CompetitionDetail() {
     );
   }
 
-  const competitionDescription = competition.description || `Explore ${competition.name} and participate in this Meditiya Nagar community competition.`;
+  const competitionDescription = competition.description || `Explore ${competition.name} and participate in this Medtiya Nagar community competition.`;
   const isRegOpen = competition.registrationOpen || competition.status.toLowerCase() === "registration_open";
   const isVoteOpen = competition.votingOpen || competition.status.toLowerCase() === "voting_open";
 

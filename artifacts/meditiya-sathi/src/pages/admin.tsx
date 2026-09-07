@@ -723,7 +723,7 @@ export default function Admin() {
                   {greeting}, {adminName} <span aria-hidden="true">👋</span>
                 </h1>
                 <p className="mt-1 text-[11px] leading-4 text-muted-foreground dark:text-white/45">
-                  Manage your Meditiya Nagar community from one place.
+                  Manage your Medtiya Nagar community from one place.
                 </p>
               </div>
               <span className="shrink-0 rounded-full border border-amber-300/20 bg-amber-300/[0.08] px-2.5 py-1 text-[8px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-200">
@@ -921,7 +921,7 @@ export default function Admin() {
           </div>
         </motion.div>
 
-        
+
 
         {/* =================================================
             MODULE GRID
@@ -943,7 +943,7 @@ export default function Admin() {
           {sections.map(renderModuleCard)}
         </motion.div>
 
-        
+
 
         {/* =================================================
             VOLUNTEER TASKS

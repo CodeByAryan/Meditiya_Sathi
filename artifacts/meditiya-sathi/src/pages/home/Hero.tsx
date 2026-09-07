@@ -161,7 +161,7 @@ export default function Hero() {
                   sm:text-xs
                 "
               >
-                Meditiya Nagar • Community Platform
+                Medtiya Nagar • Community Platform
               </span>
 
               <span
@@ -290,7 +290,7 @@ export default function Hero() {
             Discover festivals, events, and moments that bring
             <span className="font-medium text-foreground">
               {' '}
-              Meditiya Nagar{' '}
+              Medtiya Nagar{' '}
             </span>
             together — all in one place.
           </motion.p>

@@ -637,7 +637,7 @@ export default function AdminVolunteersCrud() {
                     <p className="text-xs text-white/45">
                       {editingVolunteer
                         ? "Update volunteer information and display order."
-                        : "Add a new volunteer representing Meditiya Nagar."}
+                        : "Add a new volunteer representing Medtiya Nagar."}
                     </p>
                   </div>
                 </div>

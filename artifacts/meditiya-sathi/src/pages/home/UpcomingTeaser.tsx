@@ -201,7 +201,7 @@ export default function UpcomingTeaser() {
             <span className="h-1 w-1 rounded-full bg-amber-300/40" />
 
             <span className="text-[8px] uppercase tracking-[0.25em] text-muted-foreground/40 dark:text-white/20">
-              Meditiya Nagar • Community Celebrations
+              Medtiya Nagar • Community Celebrations
             </span>
 
             <span className="h-1 w-1 rounded-full bg-amber-300/40" />

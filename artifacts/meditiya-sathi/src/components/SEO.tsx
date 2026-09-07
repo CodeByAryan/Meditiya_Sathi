@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 const SITE_URL = "https://www.medtiyasathi.in";
 const DEFAULT_DESCRIPTION =
-  "Meditiya Sathi — the official digital platform for Meditiya Nagar society. Stay connected with events, notices, donations, and community services.";
+  "Meditiya Sathi — the official digital platform for Medtiya Nagar society. Stay connected with events, notices, donations, and community services.";
 
 export type SEOProps = {
   title: string;

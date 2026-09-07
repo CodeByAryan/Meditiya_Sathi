@@ -1494,7 +1494,7 @@ export default function Shell({
               </Link>
 
               <p className="mt-5 max-w-sm text-sm leading-7 text-muted-foreground dark:text-white/40">
-                The official digital platform for Meditiya
+                The official digital platform for Medtiya
                 Nagar society. Bridging gaps, celebrating
                 culture, and building a stronger community
                 together.
@@ -1630,7 +1630,7 @@ export default function Shell({
             {/* COPYRIGHT */}
 
             <p className="text-center text-[11px] text-muted-foreground dark:text-white/25 md:text-left">
-              © {new Date().getFullYear()} Meditiya Nagar
+              © {new Date().getFullYear()} Medtiya Nagar
               Society. All rights reserved.
             </p>
 

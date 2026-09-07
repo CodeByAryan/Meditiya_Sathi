@@ -8,7 +8,7 @@ export default function EventDetail() {
   const { id } = useParams<{ id: string }>(); const eventId = Number(id);
   const { data: event, isLoading, isError } = useGetEvent(eventId, { query: { queryKey: ["event-detail", eventId], enabled: Number.isInteger(eventId) && eventId > 0 } });
   const eventTitle = event?.title || "Community Event";
-  const eventDescription = event?.description || "Explore community event details, dates, locations, and updates from Meditiya Nagar.";
+  const eventDescription = event?.description || "Explore community event details, dates, locations, and updates from Medtiya Nagar.";
   const eventPath = Number.isInteger(eventId) && eventId > 0 ? `/events/${eventId}` : "/events";
   return <>
     <SEO title={`${eventTitle} | Meditiya Sathi`} description={eventDescription} path={eventPath} ogType="article" />

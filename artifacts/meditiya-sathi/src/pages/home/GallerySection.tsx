@@ -145,7 +145,7 @@ export default function GallerySection() {
             href="/gallery"
             className="hidden shrink-0 items-center gap-2 text-sm font-semibold text-amber-300 transition-colors hover:text-amber-200 sm:inline-flex"
           >
-            View Meditiya Nagar community gallery <ArrowRight className="h-4 w-4" />
+            View Medtiya Nagar community gallery <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
 
@@ -180,7 +180,7 @@ export default function GallerySection() {
           href="/gallery"
           className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-amber-300 transition-colors hover:text-amber-200 sm:hidden"
         >
-          View Meditiya Nagar community gallery <ArrowRight className="h-4 w-4" />
+          View Medtiya Nagar community gallery <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
     </section>

@@ -156,7 +156,7 @@ export default function CountdownPage() {
             <span className="h-1.5 w-1.5 rounded-full bg-amber-300 shadow-[0_0_10px_rgba(252,211,77,0.8)]" />
 
             <span className="text-[9px] font-semibold uppercase tracking-[0.25em] text-white/40">
-              Meditiya Nagar
+              Medtiya Nagar
             </span>
           </div>
         </motion.div>
@@ -303,7 +303,7 @@ export default function CountdownPage() {
                 "
               >
                 Get ready to celebrate, connect, and create memorable moments
-                together with the Meditiya Nagar community.
+                together with the Medtiya Nagar community.
               </motion.p>
 
               {/* =================================================
@@ -389,7 +389,7 @@ export default function CountdownPage() {
           className="pb-1 text-center"
         >
           <span className="text-[8px] uppercase tracking-[0.3em] text-white/20 sm:text-[9px]">
-            Meditiya Nagar • One Community • Many Celebrations
+            Medtiya Nagar • One Community • Many Celebrations
           </span>
         </motion.div>
       </div>

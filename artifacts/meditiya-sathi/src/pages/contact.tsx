@@ -178,7 +178,7 @@ export default function Contact() {
                     <MapPin className="w-6 h-6" />
                   </div>
                   <h3 className="font-bold text-foreground text-lg mb-2">Location</h3>
-                  <p className="text-muted-foreground">Omkareshwar Mandir,<br/>Meditiya Nagar Society,<br/> Opp. Seven Square School, Deepak Hospital Lane,,<br/>Mira Road,Mumbai, Maharashtra 401107</p>
+                  <p className="text-muted-foreground">Omkareshwar Mandir,<br/>Medtiya Nagar Society,<br/> Opp. Seven Square School, Deepak Hospital Lane,,<br/>Mira Road,Mumbai, Maharashtra 401107</p>
                 </div>
 
                 <div>
@@ -218,7 +218,7 @@ export default function Contact() {
               </CardContent>
             </Card>
 
-            
+
           </div>
 
         </div>

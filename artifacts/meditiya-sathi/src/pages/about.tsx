@@ -26,7 +26,7 @@ export default function About() {
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/90" />
         <div className="container relative z-10 mx-auto px-4 text-center">
           <Badge className="mb-4 border-primary/20 bg-primary/15 px-4 py-1.5 font-bold text-primary hover:bg-primary/20">OUR COMMUNITY</Badge>
-          <h1 className="mb-6 text-4xl font-serif font-bold text-foreground drop-shadow-md md:text-6xl">About Meditiya Nagar</h1>
+          <h1 className="mb-6 text-4xl font-serif font-bold text-foreground drop-shadow-md md:text-6xl">About Medtiya Nagar</h1>
           <p className="mx-auto max-w-2xl text-xl leading-relaxed text-muted-foreground">
             A vibrant community built on the pillars of togetherness, cultural celebration, and mutual respect.
           </p>
@@ -37,7 +37,7 @@ export default function About() {
       <section className="py-16 bg-background relative">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
@@ -50,14 +50,14 @@ export default function About() {
                 <h2 className="text-3xl font-serif font-bold text-foreground">Our History</h2>
               </div>
               <p className="text-muted-foreground text-lg leading-relaxed">
-                Established in 1995, Meditiya Nagar began as a modest residential complex and has blossomed into a thriving community of over 500 families. What started with just two buildings has now expanded into a fully-fledged society with state-of-the-art amenities.
+                Established in 1995, Medtiya Nagar began as a modest residential complex and has blossomed into a thriving community of over 500 families. What started with just two buildings has now expanded into a fully-fledged society with state-of-the-art amenities.
               </p>
               <p className="text-muted-foreground text-lg leading-relaxed">
                 Through decades of shared festivals, community initiatives, and unwavering support for one another, we have built more than just housing—we have built a family.
               </p>
             </motion.div>
 
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
@@ -151,15 +151,15 @@ export default function About() {
             <div className="absolute top-0 right-0 p-8 opacity-5">
               <BookOpen className="w-32 h-32 text-foreground" />
             </div>
-            
+
             <h2 className="text-3xl font-serif font-bold text-foreground mb-2 flex items-center gap-3">
               <Shield className="w-8 h-8 text-primary" /> Society Rules & Guidelines
             </h2>
             <p className="text-muted-foreground mb-8 text-lg">For the peaceful coexistence of all residents.</p>
-            
+
             <div className="space-y-4 relative z-10">
               {rules.map((rule, idx) => (
-                <motion.div 
+                <motion.div
                   key={idx}
                   initial={{ opacity: 0, x: -10 }}
                   whileInView={{ opacity: 1, x: 0 }}

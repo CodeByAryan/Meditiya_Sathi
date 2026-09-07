@@ -19,7 +19,7 @@ export default function Gallery() {
 
   return (
     <div className="w-full min-h-screen bg-background pb-20">
-      <section className="pt-16 pb-12 px-4 text-center"><p className="text-xs font-semibold uppercase tracking-[.28em] text-primary">Gallery</p><h1 className="mt-3 text-4xl font-serif font-bold text-foreground md:text-5xl">Festival &amp; Community Moments</h1><p className="mx-auto mt-4 max-w-2xl text-muted-foreground">Capturing the beautiful moments, vibrant festivals, and joyous celebrations of Meditiya Nagar.</p></section>
+      <section className="pt-16 pb-12 px-4 text-center"><p className="text-xs font-semibold uppercase tracking-[.28em] text-primary">Gallery</p><h1 className="mt-3 text-4xl font-serif font-bold text-foreground md:text-5xl">Festival &amp; Community Moments</h1><p className="mx-auto mt-4 max-w-2xl text-muted-foreground">Capturing the beautiful moments, vibrant festivals, and joyous celebrations of Medtiya Nagar.</p></section>
 
       <div className="container mx-auto max-w-6xl px-4">
         {loading ? (

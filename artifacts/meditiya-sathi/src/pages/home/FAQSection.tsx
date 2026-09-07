@@ -13,7 +13,7 @@ const faqs: FAQItem[] = [
     question: 'What is Meditiya Sathi?',
     answer: (
       <p>
-        Meditiya Sathi is the digital platform for Meditiya Nagar that helps
+        Meditiya Sathi is the digital platform for Medtiya Nagar that helps
         residents stay connected with community activities, festivals, events,
         announcements and other important updates.
       </p>

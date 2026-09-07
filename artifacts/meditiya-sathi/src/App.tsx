@@ -111,30 +111,30 @@ function AppRoutes() {
         </Route>
 
         <Route path="/">
-          <PublicPage title="Meditiya Sathi | Meditiya Nagar Community Platform" description="Connect with Meditiya Nagar through community events, notices, festivals, donations, volunteers, and local services." path="/"><Shell><Home /></Shell></PublicPage>
+          <PublicPage title="Meditiya Sathi | Medtiya Nagar Community Portal" description="Connect with Medtiya Nagar through community events, notices, festivals, donations, volunteers, and local services." path="/"><Shell><Home /></Shell></PublicPage>
         </Route>
-        <Route path="/countdown"><PublicPage title="Festival Countdown | Meditiya Sathi" description="See the latest festival countdowns and celebrations for the Meditiya Nagar community." path="/countdown"><Shell><Countdown /></Shell></PublicPage></Route>
+        <Route path="/countdown"><PublicPage title="Festival Countdown | Meditiya Sathi" description="See the latest festival countdowns and celebrations for the Medtiya Nagar community." path="/countdown"><Shell><Countdown /></Shell></PublicPage></Route>
 
-        <Route path="/about"><PublicPage title="About Meditiya Sathi | Meditiya Nagar" description="Learn about Meditiya Sathi and its mission to connect the Meditiya Nagar society community." path="/about"><Shell><About /></Shell></PublicPage></Route>
-        <Route path="/events"><PublicPage title="Community Events | Meditiya Sathi" description="Discover upcoming celebrations, activities, and community events in Meditiya Nagar." path="/events"><Shell><Events /></Shell></PublicPage></Route>
+        <Route path="/about"><PublicPage title="About Meditiya Sathi | Medtiya Nagar" description="Learn about Meditiya Sathi and its mission to connect the Medtiya Nagar society community." path="/about"><Shell><About /></Shell></PublicPage></Route>
+        <Route path="/events"><PublicPage title="Community Events | Meditiya Sathi" description="Discover upcoming celebrations, activities, and community events in Medtiya Nagar." path="/events"><Shell><Events /></Shell></PublicPage></Route>
         <Route path="/events/:id"><Shell><EventDetail /></Shell></Route>
-        <Route path="/festivals"><PublicPage title="Festivals | Meditiya Sathi" description="Explore festivals, celebrations, and community participation at Meditiya Nagar." path="/festivals"><Shell><Festivals /></Shell></PublicPage></Route>
-        <Route path="/notices"><PublicPage title="Community Notices | Meditiya Sathi" description="Read the latest notices and important updates for the Meditiya Nagar community." path="/notices"><Shell><Notices /></Shell></PublicPage></Route>
-        <Route path="/gallery"><PublicPage title="Community Gallery | Meditiya Sathi" description="Browse photos and memories from Meditiya Nagar community events and celebrations." path="/gallery"><Shell><Gallery /></Shell></PublicPage></Route>
+        <Route path="/festivals"><PublicPage title="Festivals | Meditiya Sathi" description="Explore festivals, celebrations, and community participation at Medtiya Nagar." path="/festivals"><Shell><Festivals /></Shell></PublicPage></Route>
+        <Route path="/notices"><PublicPage title="Community Notices | Meditiya Sathi" description="Read the latest notices and important updates for the Medtiya Nagar community." path="/notices"><Shell><Notices /></Shell></PublicPage></Route>
+        <Route path="/gallery"><PublicPage title="Community Gallery | Meditiya Sathi" description="Browse photos and memories from Medtiya Nagar community events and celebrations." path="/gallery"><Shell><Gallery /></Shell></PublicPage></Route>
         <Route path="/gallery/:slug"><Shell><GalleryAlbum /></Shell></Route>
         <Route path="/donations"><Redirect to="/donation-showcase" /></Route>
         <Route path="/leaderboard"><Redirect to="/donation-showcase" /></Route>
         <Route path="/festival-leaderboard"><Redirect to="/donation-showcase" /></Route>
-        <Route path="/donation-showcase"><PublicPage title="Community Donations | Meditiya Sathi" description="See how community donations support Meditiya Nagar initiatives and celebrations." path="/donation-showcase"><Shell><DonationShowcase /></Shell></PublicPage></Route>
-        <Route path="/volunteers"><PublicPage title="Community Volunteers | Meditiya Sathi" description="Meet the volunteers helping build a connected and active Meditiya Nagar community." path="/volunteers"><Shell><Volunteers /></Shell></PublicPage></Route>
-        <Route path="/competitions"><PublicPage title="Community Competitions | Meditiya Sathi" description="Participate in community competitions and discover creative activities at Meditiya Nagar." path="/competitions"><Shell><Competitions /></Shell></PublicPage></Route>
+        <Route path="/donation-showcase"><PublicPage title="Community Donations | Meditiya Sathi" description="See how community donations support Medtiya Nagar initiatives and celebrations." path="/donation-showcase"><Shell><DonationShowcase /></Shell></PublicPage></Route>
+        <Route path="/volunteers"><PublicPage title="Community Volunteers | Meditiya Sathi" description="Meet the volunteers helping build a connected and active Medtiya Nagar community." path="/volunteers"><Shell><Volunteers /></Shell></PublicPage></Route>
+        <Route path="/competitions"><PublicPage title="Community Competitions | Meditiya Sathi" description="Participate in community competitions and discover creative activities at Medtiya Nagar." path="/competitions"><Shell><Competitions /></Shell></PublicPage></Route>
         <Route path="/competitions/:id"><Shell><CompetitionDetail /></Shell></Route>
-        <Route path="/services"><PublicPage title="Community Services | Meditiya Sathi" description="Find useful community services and support available to Meditiya Nagar residents." path="/services"><Shell><Services /></Shell></PublicPage></Route>
-        <Route path="/emergency"><PublicPage title="Emergency Contacts | Meditiya Sathi" description="Find important emergency contacts and assistance information for the Meditiya Nagar community." path="/emergency"><Shell><Emergency /></Shell></PublicPage></Route>
-        <Route path="/marketplace"><PublicPage title="Community Marketplace | Meditiya Sathi" description="Explore the Meditiya Nagar community marketplace and local listings." path="/marketplace"><Shell><Marketplace /></Shell></PublicPage></Route>
-        <Route path="/lost-found"><PublicPage title="Lost and Found | Meditiya Sathi" description="View and share lost and found items within the Meditiya Nagar community." path="/lost-found"><Shell><LostFound /></Shell></PublicPage></Route>
-        <Route path="/live"><PublicPage title="Live Community Updates | Meditiya Sathi" description="Follow live updates and current community activity from Meditiya Nagar." path="/live" robots="noindex, follow"><Shell><Live /></Shell></PublicPage></Route>
-        <Route path="/contact"><PublicPage title="Contact Meditiya Sathi" description="Get in touch with the Meditiya Sathi community platform and Meditiya Nagar society." path="/contact"><Shell><Contact /></Shell></PublicPage></Route>
+        <Route path="/services"><PublicPage title="Community Services | Meditiya Sathi" description="Find useful community services and support available to Medtiya Nagar residents." path="/services"><Shell><Services /></Shell></PublicPage></Route>
+        <Route path="/emergency"><PublicPage title="Emergency Contacts | Meditiya Sathi" description="Find important emergency contacts and assistance information for the Medtiya Nagar community." path="/emergency"><Shell><Emergency /></Shell></PublicPage></Route>
+        <Route path="/marketplace"><PublicPage title="Community Marketplace | Meditiya Sathi" description="Explore the Medtiya Nagar community marketplace and local listings." path="/marketplace"><Shell><Marketplace /></Shell></PublicPage></Route>
+        <Route path="/lost-found"><PublicPage title="Lost and Found | Meditiya Sathi" description="View and share lost and found items within the Medtiya Nagar community." path="/lost-found"><Shell><LostFound /></Shell></PublicPage></Route>
+        <Route path="/live"><PublicPage title="Live Community Updates | Meditiya Sathi" description="Follow live updates and current community activity from Medtiya Nagar." path="/live" robots="noindex, follow"><Shell><Live /></Shell></PublicPage></Route>
+        <Route path="/contact"><PublicPage title="Contact Meditiya Sathi" description="Get in touch with the Meditiya Sathi community platform and Medtiya Nagar society." path="/contact"><Shell><Contact /></Shell></PublicPage></Route>
 
         <Route path="/admin">
           <AdminShell><Admin /></AdminShell>
