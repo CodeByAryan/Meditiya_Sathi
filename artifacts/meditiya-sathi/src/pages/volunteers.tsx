@@ -142,7 +142,7 @@ export default function Volunteers() {
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-300/20 bg-amber-300/10 text-amber-300 mb-4">
               <Users className="h-8 w-8" />
             </div>
-            <h3 className="font-serif text-2xl font-bold text-foreground">Our Volunteers</h3>
+            <h2 className="font-serif text-2xl font-bold text-foreground">Our Volunteers</h2>
             <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
               Our volunteer team will be introduced here soon.
             </p>

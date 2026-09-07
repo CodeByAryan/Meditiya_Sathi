@@ -16,11 +16,11 @@ export default function Marketplace() {
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
             Buy, sell, or donate items within our trusted community.
           </p>
-          
+
           <div className="max-w-xl mx-auto relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
-            <Input 
-              placeholder="Search items..." 
+            <Input
+              placeholder="Search items..."
               className="w-full pl-12 h-14 rounded-full bg-muted/50 border-border text-foreground focus-visible:ring-primary shadow-inner"
             />
           </div>
@@ -32,7 +32,7 @@ export default function Marketplace() {
           <div className="text-center py-10">Loading items...</div>
         ) : items?.length === 0 ? (
           <div className="text-center py-20 bg-card rounded-2xl border border-border">
-            <h3 className="text-xl font-medium text-foreground">No items listed yet</h3>
+            <h2 className="text-xl font-medium text-foreground">No items listed yet</h2>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -58,7 +58,7 @@ export default function Marketplace() {
                 </div>
                 <CardContent className="p-5 flex-1 flex flex-col">
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-lg text-foreground line-clamp-1">{item.title}</h3>
+                    <h2 className="font-bold text-lg text-foreground line-clamp-1">{item.title}</h2>
                   </div>
                   {item.price && (
                     <p className="text-xl font-bold text-primary mb-3">₹{item.price.toLocaleString('en-IN')}</p>
@@ -66,11 +66,11 @@ export default function Marketplace() {
                   {!item.price && item.listingType === 'donate' && (
                     <p className="text-xl font-bold text-green-600 mb-3">FREE</p>
                   )}
-                  
+
                   <p className="text-sm text-muted-foreground line-clamp-2 mb-4 flex-1">
                     {item.description}
                   </p>
-                  
+
                   <div className="pt-4 border-t border-border mt-auto flex items-center justify-between text-sm">
                     <span className="font-medium text-foreground/80 truncate max-w-[120px]">{item.sellerName}</span>
                     <a href={`tel:${item.sellerPhone}`} className="text-primary font-bold hover:underline">

@@ -211,7 +211,7 @@ export default function Hero() {
               lg:text-[88px]
             "
           >
-            One Community.
+            Meditiya Sathi –
             <br />
 
             <span className="relative inline-block">
@@ -225,7 +225,7 @@ export default function Hero() {
                   text-transparent
                 "
               >
-                Many Celebrations.
+                Meditiya Nagar Community.
               </span>
 
               <motion.span
@@ -287,12 +287,7 @@ export default function Hero() {
               sm:text-lg
             "
           >
-            Discover festivals, events, and moments that bring
-            <span className="font-medium text-foreground">
-              {' '}
-              Meditiya Nagar{' '}
-            </span>
-            together — all in one place.
+            Meditiya Sathi is the digital community platform for Meditiya Nagar residents, bringing events, festivals, notices, services and community updates together in one place.
           </motion.p>
 
           {/* =====================================================
@@ -347,7 +342,7 @@ export default function Hero() {
                   transition-all
                 "
               >
-                Explore Community
+                Explore Meditiya Nagar festivals
 
                 <ArrowRight
                   className="

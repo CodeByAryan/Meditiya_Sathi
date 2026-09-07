@@ -92,7 +92,7 @@ export default function Festivals() {
                           Current Festival
                         </div>
                       )}
-                      <h3 className="text-3xl md:text-4xl font-serif font-bold mb-2 drop-shadow-sm">{festival.name}</h3>
+                      <h2 className="text-3xl md:text-4xl font-serif font-bold mb-2 drop-shadow-sm">{festival.name}</h2>
                       <div className="flex items-center gap-2 text-white/80 mb-4 font-medium">
                         <CalendarDays className="w-4 h-4" />
                         {festival.year}

@@ -12,11 +12,11 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 export default function Notices() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("all");
-  
+
   // Realistically we'd debounce search, but for simplicity here
-  const { data: notices, isLoading } = useListNotices({ 
-    search: search || undefined, 
-    category: category !== "all" ? category : undefined 
+  const { data: notices, isLoading } = useListNotices({
+    search: search || undefined,
+    category: category !== "all" ? category : undefined
   });
 
   const categories = ["all", "General", "Maintenance", "Festival", "Emergency"];
@@ -35,12 +35,12 @@ export default function Notices() {
               Important updates, maintenance schedules, and official announcements from the managing committee.
             </p>
           </div>
-          
+
           <div className="w-full md:w-96">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
-              <Input 
-                placeholder="Search notices..." 
+              <Input
+                placeholder="Search notices..."
                 className="w-full pl-10 h-12 rounded-full bg-white/10 border-white/20 text-white placeholder:text-white/50 focus-visible:ring-primary focus-visible:border-primary"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -54,8 +54,8 @@ export default function Notices() {
         <Tabs value={category} onValueChange={setCategory} className="mb-8">
           <TabsList className="bg-background border border-border flex flex-wrap h-auto p-1">
             {categories.map(c => (
-              <TabsTrigger 
-                key={c} 
+              <TabsTrigger
+                key={c}
                 value={c}
                 className="capitalize data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
@@ -77,7 +77,7 @@ export default function Notices() {
           ) : notices?.length === 0 ? (
             <div className="text-center py-20 bg-card rounded-2xl border border-border shadow-sm">
               <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-              <h3 className="text-xl font-medium text-foreground">No notices found</h3>
+              <h2 className="text-xl font-medium text-foreground">No notices found</h2>
               <p className="text-muted-foreground mt-2">Try adjusting your search or filters.</p>
             </div>
           ) : (
@@ -100,8 +100,8 @@ export default function Notices() {
                     <div className="flex-1 space-y-4">
                       <div className="flex flex-wrap items-center gap-3 mb-2">
                         <Badge variant="secondary" className={
-                          notice.category === 'Emergency' ? 'bg-destructive/10 text-destructive border-destructive/20' : 
-                          notice.category === 'Festival' ? 'bg-accent/20 text-accent-foreground border-accent/20' : 
+                          notice.category === 'Emergency' ? 'bg-destructive/10 text-destructive border-destructive/20' :
+                          notice.category === 'Festival' ? 'bg-accent/20 text-accent-foreground border-accent/20' :
                           'bg-secondary/10 text-secondary border-secondary/20'
                         }>
                           {notice.category}
@@ -111,22 +111,22 @@ export default function Notices() {
                           {formatDate(notice.createdAt)}
                         </span>
                       </div>
-                      
-                      <h3 className="text-2xl font-serif font-bold text-foreground pr-8 md:pr-0">
+
+                      <h2 className="text-2xl font-serif font-bold text-foreground pr-8 md:pr-0">
                         {notice.title}
-                      </h3>
-                      
+                      </h2>
+
                       <div className="text-foreground/80 leading-relaxed whitespace-pre-wrap">
                         {notice.content}
                       </div>
                     </div>
-                    
+
                     {notice.attachmentUrl && (
                       <div className="shrink-0 pt-4 md:pt-0 md:pl-6 md:border-l border-border flex flex-row md:flex-col items-center justify-center gap-4">
                         <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary">
                           <FileText className="w-6 h-6" />
                         </div>
-                        <a 
+                        <a
                           href={notice.attachmentUrl}
                           target="_blank"
                           rel="noopener noreferrer"

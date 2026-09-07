@@ -33,7 +33,7 @@ export default function LostFound() {
               <div className="text-center py-10">Loading items...</div>
             ) : items?.length === 0 ? (
               <div className="text-center py-20 bg-card rounded-2xl border border-border">
-                <h3 className="text-xl font-medium text-foreground">No items reported</h3>
+                <h2 className="text-xl font-medium text-foreground">No items reported</h2>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -51,7 +51,7 @@ export default function LostFound() {
                     <CardContent className="p-5 flex-1 flex flex-col justify-between">
                       <div>
                         <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-bold text-lg text-foreground line-clamp-1">{item.title}</h3>
+                          <h2 className="font-bold text-lg text-foreground line-clamp-1">{item.title}</h2>
                           <Badge variant={item.type === 'lost' ? 'destructive' : 'default'} className="ml-2">
                             {item.type.toUpperCase()}
                           </Badge>
@@ -64,7 +64,7 @@ export default function LostFound() {
                         )}
                         <p className="text-xs text-muted-foreground mb-4">Reported on {formatDate(item.createdAt)}</p>
                       </div>
-                      
+
                       <div className="pt-3 border-t border-border mt-auto flex items-center justify-between text-sm">
                         <span className="font-medium text-foreground/80 truncate">{item.contactName}</span>
                         <a href={`tel:${item.contactPhone}`} className="text-primary font-bold hover:underline">

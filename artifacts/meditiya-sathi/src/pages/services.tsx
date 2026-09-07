@@ -282,11 +282,7 @@ export default function Services() {
                 md:text-7xl
               "
             >
-              Community
-              <br />
-              <span className="bg-gradient-to-r from-amber-200 via-orange-300 to-amber-500 bg-clip-text text-transparent">
-                Services.
-              </span>
+              Community Services
             </motion.h1>
 
             {/* Description */}
@@ -462,16 +458,16 @@ export default function Services() {
                           <Icon className="h-6 w-6" />
                         </div>
 
-                        <h3 className="font-semibold text-white">
+                        <h2 className="font-semibold text-white">
                           {cat.name}
-                        </h3>
+                        </h2>
 
                         <p className="mt-1 text-xs leading-5 text-white/35">
                           {cat.description}
                         </p>
 
                         <div className="mt-5 flex items-center text-[10px] font-medium uppercase tracking-wider text-white/30 transition-colors group-hover:text-amber-300">
-                          Request service
+                          Explore community services
                           <ArrowRight className="ml-2 h-3 w-3 transition-transform group-hover:translate-x-1" />
                         </div>
                       </div>

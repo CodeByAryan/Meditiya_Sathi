@@ -21,15 +21,15 @@ export default function Emergency() {
   const getColor = (category: string) => {
     switch (category) {
       case 'hospital':
-      case 'ambulance': 
+      case 'ambulance':
         return 'text-red-500 bg-red-500/10 border-red-200';
-      case 'police': 
+      case 'police':
         return 'text-blue-500 bg-blue-500/10 border-blue-200';
-      case 'fire_brigade': 
+      case 'fire_brigade':
         return 'text-orange-500 bg-orange-500/10 border-orange-200';
       case 'committee':
         return 'text-primary bg-primary/10 border-primary/20';
-      default: 
+      default:
         return 'text-slate-500 bg-slate-500/10 border-slate-200';
     }
   };
@@ -56,7 +56,7 @@ export default function Emergency() {
             {contacts?.map((contact, idx) => {
               const Icon = getIcon(contact.category);
               const colorStyle = getColor(contact.category);
-              
+
               return (
                 <motion.div
                   key={contact.id}
@@ -70,15 +70,15 @@ export default function Emergency() {
                         <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110 ${colorStyle}`}>
                           <Icon className="w-8 h-8" />
                         </div>
-                        <h3 className="text-xl font-bold text-foreground mb-1">{contact.name}</h3>
+                        <h2 className="text-xl font-bold text-foreground mb-1">{contact.name}</h2>
                         <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
                           {contact.category.replace('_', ' ')}
                         </p>
-                        
+
                         <div className="mt-auto w-full py-3 bg-muted rounded-xl text-lg font-bold text-foreground group-hover:bg-primary group-hover:text-white transition-colors">
                           {contact.phone}
                         </div>
-                        
+
                         {contact.address && (
                           <p className="text-xs text-muted-foreground mt-4 line-clamp-2">
                             {contact.address}

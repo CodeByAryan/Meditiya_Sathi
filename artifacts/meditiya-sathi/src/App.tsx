@@ -84,15 +84,17 @@ function PublicPage({
   title,
   description,
   path,
+  robots,
 }: {
   children: React.ReactNode;
   title: string;
   description: string;
   path: string;
+  robots?: string;
 }) {
   return (
     <>
-      <SEO title={title} description={description} path={path} />
+      <SEO title={title} description={description} path={path} robots={robots} />
       {children}
     </>
   );
@@ -131,7 +133,7 @@ function AppRoutes() {
         <Route path="/emergency"><PublicPage title="Emergency Contacts | Meditiya Sathi" description="Find important emergency contacts and assistance information for the Meditiya Nagar community." path="/emergency"><Shell><Emergency /></Shell></PublicPage></Route>
         <Route path="/marketplace"><PublicPage title="Community Marketplace | Meditiya Sathi" description="Explore the Meditiya Nagar community marketplace and local listings." path="/marketplace"><Shell><Marketplace /></Shell></PublicPage></Route>
         <Route path="/lost-found"><PublicPage title="Lost and Found | Meditiya Sathi" description="View and share lost and found items within the Meditiya Nagar community." path="/lost-found"><Shell><LostFound /></Shell></PublicPage></Route>
-        <Route path="/live"><PublicPage title="Live Community Updates | Meditiya Sathi" description="Follow live updates and current community activity from Meditiya Nagar." path="/live"><Shell><Live /></Shell></PublicPage></Route>
+        <Route path="/live"><PublicPage title="Live Community Updates | Meditiya Sathi" description="Follow live updates and current community activity from Meditiya Nagar." path="/live" robots="noindex, follow"><Shell><Live /></Shell></PublicPage></Route>
         <Route path="/contact"><PublicPage title="Contact Meditiya Sathi" description="Get in touch with the Meditiya Sathi community platform and Meditiya Nagar society." path="/contact"><Shell><Contact /></Shell></PublicPage></Route>
 
         <Route path="/admin">
