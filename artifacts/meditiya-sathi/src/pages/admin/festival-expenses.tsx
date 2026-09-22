@@ -690,82 +690,86 @@ export default function FestivalExpenses() {
     if (!festival || !festivalId) return;
 
     try {
-      const query = new URLSearchParams();
-      if (search) query.set("search", search);
-      if (categoryFilter) query.set("category", categoryFilter);
-      if (paymentFilter) query.set("paymentMethod", paymentFilter);
-      if (dateFrom) query.set("dateFrom", dateFrom);
-      if (dateTo) query.set("dateTo", dateTo);
-
-      const res = await fetch(
-        `${getApiUrl()}/api/admin/festivals/${festivalId}/expenses?${query.toString()}`,
-        { headers: { ...authHeaders(), "Cache-Control": "no-cache" } }
-      );
-
-      if (!res.ok) {
-        throw new Error("Failed to load fresh expense data for export");
-      }
+      // Do not pass page filters: this resident report must contain every record.
+      const res = await fetch(`${getApiUrl()}/api/admin/festivals/${festivalId}/expenses`, {
+        headers: { ...authHeaders(), "Cache-Control": "no-cache" },
+      });
+      if (!res.ok) throw new Error("Failed to load fresh expense data for export");
 
       const data = await res.json();
-      const freshExpenses: ExpenseItem[] = data.expenses || [];
-      const freshSummary: ExpenseSummary = data.summary || summary;
+      const freshExpenses: ExpenseItem[] = [...(data.expenses || [])].sort((a, b) => {
+        const dateDifference = String(a.expenseDate).localeCompare(String(b.expenseDate));
+        return dateDifference || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      });
+      const databaseCount = Number(data.summary?.expenseCount ?? freshExpenses.length);
+      const amountInCents = (value: string | number) => Math.round((Number(value) || 0) * 100);
+      const totalCents = freshExpenses.reduce((total, item) => total + amountInCents(item.amount), 0);
+      const totalExpenses = totalCents / 100;
+      if (freshExpenses.length !== databaseCount) {
+        throw new Error(`Export validation failed: database has ${databaseCount} records but ${freshExpenses.length} were returned`);
+      }
+      if (Math.round((Number(data.summary?.totalExpenses) || totalExpenses) * 100) !== totalCents) {
+        throw new Error("Export validation failed: detail total does not match the database total");
+      }
 
-      const festivalTitle = `${festival.name} ${festival.year}`;
-
-      // Summary Sheet
-      const summarySheetData = [
-        { Metric: "Festival", Value: festivalTitle },
-        { Metric: "Total Donations Collected", Value: freshSummary.totalDonations || 0 },
-        { Metric: "Total Expenses Recorded", Value: freshSummary.totalExpenses || 0 },
-        { Metric: "Remaining Balance", Value: freshSummary.remainingMoney || 0 },
-        { Metric: "Total Expense Count", Value: freshSummary.expenseCount || 0 },
-        { Metric: "Cash Expenses", Value: freshSummary.cash || 0 },
-        { Metric: "UPI Expenses", Value: freshSummary.upi || 0 },
-        { Metric: "Cheque Expenses", Value: freshSummary.cheque || 0 },
-        { Metric: "Bank Transfer Expenses", Value: freshSummary.bankTransfer || 0 },
-        { Metric: "Other Expenses", Value: freshSummary.other || 0 },
+      const paymentTotals = new Map<string, number>();
+      const categoryTotals = new Map<string, { total: number; count: number }>();
+      for (const item of freshExpenses) {
+        const payment = PAYMENT_METHODS.find((method) => method.key === item.paymentMethod)?.label || item.paymentMethod || "Other";
+        paymentTotals.set(payment, (paymentTotals.get(payment) || 0) + amountInCents(item.amount));
+        const category = item.category || "Uncategorised";
+        const current = categoryTotals.get(category) || { total: 0, count: 0 };
+        categoryTotals.set(category, { total: current.total + amountInCents(item.amount), count: current.count + 1 });
+      }
+      const inrFormat = "₹#,##0.00";
+      const paymentRows = [...paymentTotals.entries()].map(([method, cents]) => [method, cents / 100]);
+      const categoryRows = [...categoryTotals.entries()].map(([category, value]) => [category, value.total / 100, value.count]);
+      const summaryRows: any[][] = [
+        ["GANESH UTSAV 2026", ""], ["EXPENSE TRANSPARENCY REPORT", ""], ["", ""],
+        ["Total Donations Collected", Number(data.summary?.totalDonations) || 0],
+        ["Total Expenses", totalExpenses],
+        ["Remaining Balance", (Number(data.summary?.totalDonations) || 0) - totalExpenses],
+        ["Number of Expense Entries", freshExpenses.length], ["", ""],
+        ["Payment Method Breakdown", ""], ["Payment Method", "Total"], ...paymentRows,
+        ["", ""], ["Category Breakdown", ""], ["Category", "Total", "Entries"], ...categoryRows,
       ];
-
-      // Expenses Sheet
-      const expensesSheetData = freshExpenses.map((item) => ({
-        Date: formatDateReadable(item.expenseDate),
-        "Expense Name": item.expenseName,
-        Category: item.category,
-        "Amount (INR)": parseFloat(item.amount) || 0,
-        "Payment Method":
-          PAYMENT_METHODS.find((m) => m.key === item.paymentMethod)?.label ||
-          item.paymentMethod,
-        "Added By": item.createdByAdminName,
-        "Created At": item.createdAt ? new Date(item.createdAt).toLocaleString("en-IN") : "—",
-      }));
+      const expenseRows: any[][] = [
+        ["Sr. No.", "Date", "Expense Description", "Category", "Amount", "Payment Method", "Added By", "Created At"],
+        ...freshExpenses.map((item, index) => [index + 1, new Date(`${item.expenseDate}T00:00:00`), item.expenseName, item.category, Number(item.amount) || 0, PAYMENT_METHODS.find((method) => method.key === item.paymentMethod)?.label || item.paymentMethod || "Other", item.createdByAdminName || "—", item.createdAt ? new Date(item.createdAt) : "—"]),
+        ["", "", "TOTAL EXPENSES", "", totalExpenses, "", "", ""],
+      ];
 
       const workbook = XLSX.utils.book_new();
-
-      const wsSummary = XLSX.utils.json_to_sheet(summarySheetData);
-      const wsExpenses = XLSX.utils.json_to_sheet(expensesSheetData);
-
-      // Auto width
-      wsSummary["!cols"] = [{ wch: 30 }, { wch: 25 }];
-      wsExpenses["!cols"] = [
-        { wch: 15 },
-        { wch: 30 },
-        { wch: 20 },
-        { wch: 15 },
-        { wch: 18 },
-        { wch: 20 },
-        { wch: 22 },
-      ];
+      const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+      const wsExpenses = XLSX.utils.aoa_to_sheet(expenseRows);
+      wsSummary["!cols"] = [{ wch: 32 }, { wch: 22 }, { wch: 12 }];
+      wsExpenses["!cols"] = [{ wch: 9 }, { wch: 15 }, { wch: 36 }, { wch: 20 }, { wch: 16 }, { wch: 18 }, { wch: 22 }, { wch: 25 }];
+      wsExpenses["!autofilter"] = { ref: `A1:H${freshExpenses.length + 1}` };
+      (wsExpenses as any)["!tables"] = [{ name: "AllExpensesTable", ref: `A1:H${freshExpenses.length + 1}` }];
+      wsExpenses["!freeze"] = { xSplit: 0, ySplit: 1 };
+      wsExpenses["!print"] = { orientation: "landscape", paperSize: 9, fitToWidth: 1, fitToHeight: 0, repeatRows: "1:1" };
+      wsExpenses["!rows"] = [{ hpt: 24 }, ...freshExpenses.map(() => ({ hpt: 30 })), { hpt: 22 }];
+      for (let row = 1; row <= freshExpenses.length; row += 1) {
+        wsExpenses[`B${row + 1}`].z = "dd mmm yyyy";
+        wsExpenses[`E${row + 1}`].z = inrFormat;
+        if (wsExpenses[`H${row + 1}`].v instanceof Date) wsExpenses[`H${row + 1}`].z = "dd mmm yyyy, h:mm AM/PM";
+      }
+      wsExpenses[`E${freshExpenses.length + 2}`].z = inrFormat;
+      for (let row = 0; row < summaryRows.length; row += 1) {
+        if (typeof wsSummary[`B${row + 1}`]?.v === "number") wsSummary[`B${row + 1}`].z = inrFormat;
+        if (summaryRows[row][0] === "Payment Method" || summaryRows[row][0] === "Category") wsSummary[`B${row + 1}`].z = inrFormat;
+      }
 
       XLSX.utils.book_append_sheet(workbook, wsSummary, "Expense Summary");
-      XLSX.utils.book_append_sheet(workbook, wsExpenses, "Expenses");
-
-      const safeFilename = `${festival.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_${festival.year}_Expenses.xlsx`;
+      XLSX.utils.book_append_sheet(workbook, wsExpenses, "All Expenses");
+      const safeFilename = `${festival.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_${festival.year}_Expense_Transparency_Report.xlsx`;
       XLSX.writeFile(workbook, safeFilename);
-      toast.success(`Exported ${safeFilename}`);
+      toast.success(`Exported ${freshExpenses.length} expense entries to ${safeFilename}`);
     } catch (err: any) {
       toast.error(err?.message || "Failed to export Excel");
     }
   };
+
 
   // ── Computed Analytics ───────────────────────────────────────────────────────
 
