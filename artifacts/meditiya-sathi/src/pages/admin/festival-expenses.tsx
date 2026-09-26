@@ -61,6 +61,7 @@ export interface ExpenseSummary {
   cheque: number;
   bankTransfer: number;
   other: number;
+  categoryBreakdown?: Array<{ name: string; total: number; count: number }>;
 }
 
 export interface FestivalInfo {
@@ -75,16 +76,13 @@ export interface FestivalInfo {
 }
 
 const CATEGORIES = [
-  "Decoration",
-  "Pooja",
-  "Prasad / Food",
-  "Sound System",
-  "Electricity",
-  "Pandal / Setup",
-  "Transportation",
-  "Printing",
-  "Cleaning",
-  "Other",
+  "Murti", "Phool & Haar", "Decoration", "Mandap / Stage", "Lighting",
+  "Sound System", "Pooja Samagri", "Prasad / Food", "Naivedya",
+  "Aarti / Religious Items", "Visarjan", "Dhol / Band", "Cultural Program",
+  "Competition", "T-Shirt", "Printing / Posters", "Photography / Videography",
+  "Electricity", "Water", "Transportation", "Cleaning", "Security",
+  "Labour / Helper", "Equipment Rental", "Stationery", "Miscellaneous",
+  "Other / Legacy",
 ] as const;
 
 const PAYMENT_METHODS = [
@@ -96,16 +94,28 @@ const PAYMENT_METHODS = [
 ] as const;
 
 const CATEGORY_COLORS: Record<string, { color: string; bg: string; bar: string }> = {
+  Murti: { color: "text-orange-400", bg: "bg-orange-400/10", bar: "bg-gradient-to-r from-orange-500 to-orange-400" },
+  "Phool & Haar": { color: "text-pink-400", bg: "bg-pink-400/10", bar: "bg-gradient-to-r from-pink-500 to-pink-400" },
   Decoration: { color: "text-amber-400", bg: "bg-amber-400/10", bar: "bg-gradient-to-r from-amber-500 to-amber-400" },
-  Pooja: { color: "text-orange-400", bg: "bg-orange-400/10", bar: "bg-gradient-to-r from-orange-500 to-orange-400" },
+  "Mandap / Stage": { color: "text-indigo-400", bg: "bg-indigo-400/10", bar: "bg-gradient-to-r from-indigo-500 to-indigo-400" },
+  Lighting: { color: "text-yellow-400", bg: "bg-yellow-400/10", bar: "bg-gradient-to-r from-yellow-500 to-yellow-400" },
+  "Pooja Samagri": { color: "text-orange-400", bg: "bg-orange-400/10", bar: "bg-gradient-to-r from-orange-500 to-orange-400" },
+  Naivedya: { color: "text-rose-400", bg: "bg-rose-400/10", bar: "bg-gradient-to-r from-rose-500 to-rose-400" },
+  "Aarti / Religious Items": { color: "text-amber-300", bg: "bg-amber-300/10", bar: "bg-gradient-to-r from-amber-400 to-amber-300" },
   "Prasad / Food": { color: "text-rose-400", bg: "bg-rose-400/10", bar: "bg-gradient-to-r from-rose-500 to-rose-400" },
   "Sound System": { color: "text-cyan-400", bg: "bg-cyan-400/10", bar: "bg-gradient-to-r from-cyan-500 to-cyan-400" },
   Electricity: { color: "text-yellow-400", bg: "bg-yellow-400/10", bar: "bg-gradient-to-r from-yellow-500 to-yellow-400" },
-  "Pandal / Setup": { color: "text-indigo-400", bg: "bg-indigo-400/10", bar: "bg-gradient-to-r from-indigo-500 to-indigo-400" },
+  "Visarjan": { color: "text-cyan-400", bg: "bg-cyan-400/10", bar: "bg-gradient-to-r from-cyan-500 to-cyan-400" },
+  "Dhol / Band": { color: "text-purple-400", bg: "bg-purple-400/10", bar: "bg-gradient-to-r from-purple-500 to-purple-400" },
+  "Cultural Program": { color: "text-violet-400", bg: "bg-violet-400/10", bar: "bg-gradient-to-r from-violet-500 to-violet-400" },
+  Competition: { color: "text-blue-400", bg: "bg-blue-400/10", bar: "bg-gradient-to-r from-blue-500 to-blue-400" },
+  "T-Shirt": { color: "text-fuchsia-400", bg: "bg-fuchsia-400/10", bar: "bg-gradient-to-r from-fuchsia-500 to-fuchsia-400" },
+  "Printing / Posters": { color: "text-pink-400", bg: "bg-pink-400/10", bar: "bg-gradient-to-r from-pink-500 to-pink-400" },
+  "Photography / Videography": { color: "text-sky-400", bg: "bg-sky-400/10", bar: "bg-gradient-to-r from-sky-500 to-sky-400" },
   Transportation: { color: "text-teal-400", bg: "bg-teal-400/10", bar: "bg-gradient-to-r from-teal-500 to-teal-400" },
-  Printing: { color: "text-pink-400", bg: "bg-pink-400/10", bar: "bg-gradient-to-r from-pink-500 to-pink-400" },
   Cleaning: { color: "text-emerald-400", bg: "bg-emerald-400/10", bar: "bg-gradient-to-r from-emerald-500 to-emerald-400" },
-  Other: { color: "text-zinc-400", bg: "bg-zinc-400/10", bar: "bg-gradient-to-r from-zinc-500 to-zinc-400" },
+  "Other / Legacy": { color: "text-zinc-400", bg: "bg-zinc-400/10", bar: "bg-gradient-to-r from-zinc-500 to-zinc-400" },
+};
 };
 
 function formatCurrency(amount: number | string | null | undefined): string {
@@ -166,7 +176,7 @@ function ExpenseFormModal({
   expense,
 }: ExpenseFormModalProps) {
   const [expenseName, setExpenseName] = useState("");
-  const [category, setCategory] = useState<string>("Decoration");
+  const [category, setCategory] = useState<string>("");
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<string>("cash");
   const [expenseDate, setExpenseDate] = useState(
@@ -178,7 +188,7 @@ function ExpenseFormModal({
   useEffect(() => {
     if (expense) {
       setExpenseName(expense.expenseName || "");
-      setCategory(expense.category || "Decoration");
+      setCategory(expense.category || "");
       setAmount(String(expense.amount || ""));
       setPaymentMethod(expense.paymentMethod || "cash");
       setExpenseDate(
@@ -186,7 +196,7 @@ function ExpenseFormModal({
       );
     } else {
       setExpenseName("");
-      setCategory("Decoration");
+      setCategory("");
       setAmount("");
       setPaymentMethod("cash");
       setExpenseDate(new Date().toISOString().split("T")[0]);
@@ -200,6 +210,9 @@ function ExpenseFormModal({
     const errs: Record<string, string> = {};
     if (!expenseName.trim()) {
       errs.expenseName = "Expense name is required";
+    }
+    if (!category) {
+      errs.category = "Please select an expense category.";
     }
     const parsedAmount = parseFloat(amount);
     if (!amount || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -340,20 +353,28 @@ function ExpenseFormModal({
                 <div className="relative">
                   <select
                     value={category}
-                    onChange={(e) => setCategory(e.target.value)}
+                    onChange={(e) => {
+                      setCategory(e.target.value);
+                      if (errors.category) setErrors((prev) => ({ ...prev, category: "" }));
+                    }}
                     className="w-full px-4 py-2.5 text-sm rounded-xl border border-white/10 bg-[#1e1e1a] text-white outline-none transition-all focus:border-amber-400/60 focus:ring-4 focus:ring-amber-400/10 cursor-pointer"
                   >
+                    <option value="" className="bg-[#181816] text-white">Select Category</option>
+                    {category && !CATEGORIES.includes(category as (typeof CATEGORIES)[number]) && <option value={category}>{category} (Legacy)</option>}
                     {CATEGORIES.map((cat) => (
                       <option key={cat} value={cat} className="bg-[#181816] text-white">
                         {cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        {errors.category && (
+                          <p className="text-xs text-rose-400 mt-1 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {errors.category}</p>
+                        )}
+                      </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-white/90 mb-1.5">
+                      <div>
+                    <label className="block text-xs font-semibold text-white/90 mb-1.5">
                   Payment Method <span className="text-amber-400">*</span>
                 </label>
                 <div className="relative">
@@ -774,6 +795,12 @@ export default function FestivalExpenses() {
   // ── Computed Analytics ───────────────────────────────────────────────────────
 
   const categoryBreakdown = useMemo(() => {
+    if (summary.categoryBreakdown) {
+      return summary.categoryBreakdown.map((item) => ({
+        ...item,
+        percent: summary.totalExpenses > 0 ? (item.total / summary.totalExpenses) * 100 : 0,
+      })).sort((a, b) => b.total - a.total);
+    }
     const map = new Map<string, { total: number; count: number }>();
     for (const cat of CATEGORIES) {
       map.set(cat, { total: 0, count: 0 });
