@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, festivalsTable, festivalDonationsTable, adminsTable, volunteerFestivalAssignmentsTable } from "@workspace/db";
 import { eq, and, sql, desc, asc, inArray, or } from "drizzle-orm";
+import { z } from "zod";
 import { requireRole, canAccessFestival } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
@@ -13,6 +14,13 @@ function isNonEmptyString(val: unknown): val is string {
 
 function isPositiveInteger(val: unknown): val is number {
   return typeof val === "number" && Number.isInteger(val) && val > 0;
+}
+
+const driveUrlSchema = z.string().url().refine((value) => /^https:\/\/drive\.google\.com\//i.test(value), "Please enter a valid Google Drive link.");
+function parseDriveUrl(value: unknown): string | null {
+  if (value == null || (typeof value === "string" && value.trim() === "")) return null;
+  const parsed = driveUrlSchema.safeParse(String(value).trim());
+  return parsed.success ? parsed.data : null;
 }
 
 // ── GET /api/admin/festivals ────────────────────────────────────────────────
@@ -150,6 +158,11 @@ router.post("/admin/festivals", requireRole("Super Admin", "Admin"), async (req,
     }
 
     const festivalName = body.festivalName.trim();
+    const googleDriveUrl = parseDriveUrl(body.googleDriveUrl);
+    if (body.googleDriveUrl != null && googleDriveUrl === null) {
+      res.status(400).json({ error: "Please enter a valid Google Drive link." });
+      return;
+    }
     const year = body.year;
     const slug = festivalName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + year;
 
@@ -209,6 +222,7 @@ router.post("/admin/festivals", requireRole("Super Admin", "Admin"), async (req,
         name: festivalName,
         slug: finalSlug,
         description: body.description?.trim() || "",
+        googleDriveUrl,
         year,
         startDate: body.startDate || null,
         endDate: body.endDate || null,
@@ -244,6 +258,14 @@ router.patch("/admin/festivals/:id", requireRole("Super Admin", "Admin"), async 
     const body = req.body || {};
     const allowedFields = ["festivalName", "description", "year", "startDate", "endDate", "expectedDonation", "status"] as const;
     const updateData: Record<string, unknown> = {};
+    if (body.googleDriveUrl !== undefined) {
+      const googleDriveUrl = parseDriveUrl(body.googleDriveUrl);
+      if (body.googleDriveUrl != null && googleDriveUrl === null) {
+        res.status(400).json({ error: "Please enter a valid Google Drive link." });
+        return;
+      }
+      updateData.googleDriveUrl = googleDriveUrl;
+    }
 
     for (const field of allowedFields) {
       if (body[field] !== undefined) {

@@ -243,6 +243,8 @@ export interface Festival {
   /** @nullable */
   bannerImageUrl?: string | null;
   /** @nullable */
+  googleDriveUrl?: string | null;
+  /** @nullable */
   youtubeUrl?: string | null;
   /** @nullable */
   history?: string | null;
@@ -258,6 +260,8 @@ export interface FestivalInput {
   endDate: string;
   /** @nullable */
   bannerImageUrl?: string | null;
+  /** @nullable */
+  googleDriveUrl?: string | null;
   /** @nullable */
   youtubeUrl?: string | null;
   /** @nullable */

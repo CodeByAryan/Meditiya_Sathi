@@ -13,6 +13,7 @@ export const festivalsTable = pgTable("festivals", {
   expectedDonation: numeric("expected_donation", { precision: 10, scale: 2 }),
   status: text("status").notNull().default("upcoming"), // upcoming | active | completed
   bannerImageUrl: text("banner_image_url"),
+  googleDriveUrl: text("google_drive_url"),
   youtubeUrl: text("youtube_url"),
   history: text("history"),
   isActive: boolean("is_active").notNull().default(true),

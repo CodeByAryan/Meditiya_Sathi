@@ -1332,6 +1332,8 @@ components:
           format: date
         bannerImageUrl:
           type: ["string", "null"]
+        googleDriveUrl:
+          type: ["string", "null"]
         youtubeUrl:
           type: ["string", "null"]
         history:
@@ -1356,6 +1358,8 @@ components:
         endDate:
           type: string
         bannerImageUrl:
+          type: ["string", "null"]
+        googleDriveUrl:
           type: ["string", "null"]
         youtubeUrl:
           type: ["string", "null"]

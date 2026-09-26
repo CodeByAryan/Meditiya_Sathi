@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   CircleDashed,
   FileText,
+  FolderOpen,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, getApiUrl } from '@/lib/utils';
@@ -72,6 +73,7 @@ export default function AdminFestivalCreate() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [description, setDescription] = useState('');
+  const [googleDriveUrl, setGoogleDriveUrl] = useState('');
   const [expectedDonation, setExpectedDonation] = useState('');
   const [status, setStatus] = useState('upcoming');
 
@@ -112,6 +114,7 @@ export default function AdminFestivalCreate() {
         setStartDate(data.startDate || '');
         setEndDate(data.endDate || '');
         setDescription(data.description || '');
+        setGoogleDriveUrl(data.googleDriveUrl || '');
 
         setExpectedDonation(
           data.expectedDonation !== null &&
@@ -154,6 +157,11 @@ export default function AdminFestivalCreate() {
       return;
     }
 
+    if (googleDriveUrl && !/^https:\/\/drive\.google\.com\//i.test(googleDriveUrl.trim())) {
+      toast.error('Please enter a valid Google Drive link.');
+      return;
+    }
+
     if (
       expectedDonation &&
       (isNaN(parseFloat(expectedDonation)) ||
@@ -172,6 +180,7 @@ export default function AdminFestivalCreate() {
         startDate: startDate || null,
         endDate: endDate || null,
         description: description.trim(),
+        googleDriveUrl: googleDriveUrl.trim() || null,
         expectedDonation: expectedDonation
           ? parseFloat(expectedDonation)
           : null,
@@ -225,6 +234,7 @@ export default function AdminFestivalCreate() {
     setStartDate('');
     setEndDate('');
     setDescription('');
+    setGoogleDriveUrl('');
     setExpectedDonation('');
     setStatus('upcoming');
   };

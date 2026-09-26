@@ -16,6 +16,8 @@ export interface FestivalInput {
   /** @nullable */
   bannerImageUrl?: string | null;
   /** @nullable */
+  googleDriveUrl?: string | null;
+  /** @nullable */
   youtubeUrl?: string | null;
   /** @nullable */
   history?: string | null;
