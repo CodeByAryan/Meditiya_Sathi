@@ -116,7 +116,6 @@ const CATEGORY_COLORS: Record<string, { color: string; bg: string; bar: string }
   Cleaning: { color: "text-emerald-400", bg: "bg-emerald-400/10", bar: "bg-gradient-to-r from-emerald-500 to-emerald-400" },
   "Other / Legacy": { color: "text-zinc-400", bg: "bg-zinc-400/10", bar: "bg-gradient-to-r from-zinc-500 to-zinc-400" },
 };
-};
 
 function formatCurrency(amount: number | string | null | undefined): string {
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
