@@ -222,7 +222,12 @@ router.post("/admin/festivals", requireRole("Super Admin", "Admin"), async (req,
         name: festivalName,
         slug: finalSlug,
         description: body.description?.trim() || "",
+        shortDescription: body.shortDescription?.trim() || null,
+        venue: body.venue?.trim() || "Medtiya Nagar, Mumbai",
         googleDriveUrl,
+        bannerImageUrl: body.bannerImageUrl?.trim() || null,
+        homepageVisible: Boolean(body.homepageVisible),
+        isHomepageFeatured: Boolean(body.isHomepageFeatured),
         year,
         startDate: body.startDate || null,
         endDate: body.endDate || null,
@@ -256,7 +261,20 @@ router.patch("/admin/festivals/:id", requireRole("Super Admin", "Admin"), async 
     }
 
     const body = req.body || {};
-    const allowedFields = ["festivalName", "description", "year", "startDate", "endDate", "expectedDonation", "status"] as const;
+    const allowedFields = [
+      "festivalName",
+      "description",
+      "shortDescription",
+      "venue",
+      "year",
+      "startDate",
+      "endDate",
+      "expectedDonation",
+      "status",
+      "bannerImageUrl",
+      "homepageVisible",
+      "isHomepageFeatured",
+    ] as const;
     const updateData: Record<string, unknown> = {};
     if (body.googleDriveUrl !== undefined) {
       const googleDriveUrl = parseDriveUrl(body.googleDriveUrl);
@@ -265,6 +283,33 @@ router.patch("/admin/festivals/:id", requireRole("Super Admin", "Admin"), async 
         return;
       }
       updateData.googleDriveUrl = googleDriveUrl;
+    }
+
+    // If making this festival the homepage featured one, reset other festivals first
+    if (body.isHomepageFeatured === true) {
+      await db
+        .update(festivalsTable)
+        .set({ isHomepageFeatured: false })
+        .where(eq(festivalsTable.isHomepageFeatured, true));
+      updateData.isHomepageFeatured = true;
+    } else if (body.isHomepageFeatured === false) {
+      updateData.isHomepageFeatured = false;
+    }
+
+    if (body.homepageVisible !== undefined) {
+      updateData.homepageVisible = Boolean(body.homepageVisible);
+    }
+
+    if (body.bannerImageUrl !== undefined) {
+      updateData.bannerImageUrl = body.bannerImageUrl ? String(body.bannerImageUrl).trim() : null;
+    }
+
+    if (body.shortDescription !== undefined) {
+      updateData.shortDescription = body.shortDescription ? String(body.shortDescription).trim() : null;
+    }
+
+    if (body.venue !== undefined) {
+      updateData.venue = body.venue ? String(body.venue).trim() : null;
     }
 
     for (const field of allowedFields) {
@@ -286,7 +331,13 @@ router.patch("/admin/festivals/:id", requireRole("Super Admin", "Admin"), async 
         } else if (field === "status") {
           updateData.status = body[field];
           updateData.isActive = body[field] === "active";
-        } else {
+        } else if (
+          field !== "bannerImageUrl" &&
+          field !== "homepageVisible" &&
+          field !== "isHomepageFeatured" &&
+          field !== "shortDescription" &&
+          field !== "venue"
+        ) {
           updateData[field] = body[field];
         }
       }
@@ -354,6 +405,81 @@ router.patch("/admin/festivals/:id", requireRole("Super Admin", "Admin"), async 
       return;
     }
     res.status(500).json({ error: err?.message || "Failed to update festival" });
+  }
+});
+
+// ── POST /api/admin/festivals/homepage-featured ──────────────────────────────
+// Set which festival is featured on the homepage and update its homepage visibility & details
+router.post("/admin/festivals/homepage-featured", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
+  try {
+    const { festivalId, homepageVisible, festivalName, shortDescription, description, venue, startDate, endDate, bannerImageUrl, googleDriveUrl } = req.body || {};
+    const parsedId = parseInt(String(festivalId), 10);
+    if (isNaN(parsedId)) {
+      res.status(400).json({ error: "Please select a valid festival" });
+      return;
+    }
+
+    const [existing] = await db
+      .select()
+      .from(festivalsTable)
+      .where(eq(festivalsTable.id, parsedId))
+      .limit(1);
+
+    if (!existing) {
+      res.status(404).json({ error: "Festival not found" });
+      return;
+    }
+
+    // Reset other festivals' isHomepageFeatured flag
+    await db
+      .update(festivalsTable)
+      .set({ isHomepageFeatured: false })
+      .where(eq(festivalsTable.isHomepageFeatured, true));
+
+    const updatePayload: Record<string, any> = {
+      isHomepageFeatured: true,
+      homepageVisible: homepageVisible !== undefined ? Boolean(homepageVisible) : true,
+    };
+
+    if (festivalName && typeof festivalName === "string" && festivalName.trim()) {
+      updatePayload.name = festivalName.trim();
+    }
+    if (shortDescription !== undefined) {
+      updatePayload.shortDescription = shortDescription ? String(shortDescription).trim() : null;
+    }
+    if (description !== undefined) {
+      updatePayload.description = description ? String(description).trim() : existing.description;
+    }
+    if (venue !== undefined) {
+      updatePayload.venue = venue ? String(venue).trim() : null;
+    }
+    if (startDate !== undefined) {
+      updatePayload.startDate = startDate ? String(startDate) : existing.startDate;
+    }
+    if (endDate !== undefined) {
+      updatePayload.endDate = endDate ? String(endDate) : existing.endDate;
+    }
+    if (bannerImageUrl !== undefined) {
+      updatePayload.bannerImageUrl = bannerImageUrl ? String(bannerImageUrl).trim() : null;
+    }
+    if (googleDriveUrl !== undefined) {
+      const parsedDrive = parseDriveUrl(googleDriveUrl);
+      if (googleDriveUrl != null && String(googleDriveUrl).trim() !== "" && parsedDrive === null) {
+        res.status(400).json({ error: "Please enter a valid Google Drive link." });
+        return;
+      }
+      updatePayload.googleDriveUrl = parsedDrive;
+    }
+
+    const [updated] = await db
+      .update(festivalsTable)
+      .set(updatePayload)
+      .where(eq(festivalsTable.id, parsedId))
+      .returning();
+
+    res.json({ success: true, festival: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || "Failed to update homepage festival" });
   }
 });
 

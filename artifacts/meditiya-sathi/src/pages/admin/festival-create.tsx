@@ -14,6 +14,8 @@ import {
   CircleDashed,
   FileText,
   FolderOpen,
+  Upload,
+  Globe,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, getApiUrl } from '@/lib/utils';
@@ -74,6 +76,11 @@ export default function AdminFestivalCreate() {
   const [endDate, setEndDate] = useState('');
   const [description, setDescription] = useState('');
   const [googleDriveUrl, setGoogleDriveUrl] = useState('');
+  const [shortDescription, setShortDescription] = useState('');
+  const [venue, setVenue] = useState('Medtiya Nagar, Mumbai');
+  const [bannerImageUrl, setBannerImageUrl] = useState('');
+  const [homepageVisible, setHomepageVisible] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [expectedDonation, setExpectedDonation] = useState('');
   const [status, setStatus] = useState('upcoming');
 
@@ -114,6 +121,10 @@ export default function AdminFestivalCreate() {
         setStartDate(data.startDate || '');
         setEndDate(data.endDate || '');
         setDescription(data.description || '');
+        setShortDescription(data.shortDescription || '');
+        setVenue(data.venue || 'Medtiya Nagar, Mumbai');
+        setBannerImageUrl(data.bannerImageUrl || '');
+        setHomepageVisible(Boolean(data.homepageVisible));
         setGoogleDriveUrl(data.googleDriveUrl || '');
 
         setExpectedDonation(
@@ -180,6 +191,10 @@ export default function AdminFestivalCreate() {
         startDate: startDate || null,
         endDate: endDate || null,
         description: description.trim(),
+        shortDescription: shortDescription.trim() || null,
+        venue: venue.trim() || null,
+        bannerImageUrl: bannerImageUrl.trim() || null,
+        homepageVisible,
         googleDriveUrl: googleDriveUrl.trim() || null,
         expectedDonation: expectedDonation
           ? parseFloat(expectedDonation)
@@ -748,6 +763,158 @@ export default function AdminFestivalCreate() {
                 </div>
               </section>
             </div>
+
+            {/* ─────────────────────────────────────────────────────────────
+                Homepage & Media Showcase
+            ───────────────────────────────────────────────────────────── */}
+
+            <section className="px-6 md:px-8 py-7 border-t border-white/[0.07] bg-white/[0.015]">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-9 h-9 rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center">
+                  <Globe className="w-4 h-4 text-[#D4AF37]" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-white">Homepage Showcase & Media</h3>
+                  <p className="text-xs text-white/40">Festival image, venue, and homepage visibility settings</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* Homepage Visibility checkbox */}
+                <div className="flex items-center gap-3 p-3.5 rounded-xl border border-white/10 bg-white/[0.02]">
+                  <input
+                    type="checkbox"
+                    id="homepageVisible"
+                    checked={homepageVisible}
+                    onChange={(e) => setHomepageVisible(e.target.checked)}
+                    className="w-4 h-4 rounded border-white/20 text-[#D4AF37] focus:ring-[#D4AF37]"
+                  />
+                  <label htmlFor="homepageVisible" className="text-sm font-medium text-white cursor-pointer">
+                    Eligible for Homepage Festival Showcase
+                  </label>
+                </div>
+
+                {/* Venue */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-white/70">Celebration Venue / Location</label>
+                  <input
+                    type="text"
+                    value={venue}
+                    onChange={(e) => setVenue(e.target.value)}
+                    placeholder="Medtiya Nagar, Mumbai"
+                    className="w-full px-4 py-3 rounded-xl border border-white/10 bg-white/[0.03] text-white text-sm outline-none focus:border-[#D4AF37]"
+                  />
+                </div>
+
+                {/* Short Description */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-white/70">Short Summary (for homepage showcase)</label>
+                  <input
+                    type="text"
+                    value={shortDescription}
+                    onChange={(e) => setShortDescription(e.target.value)}
+                    placeholder="Brief highlight of the festival celebration..."
+                    className="w-full px-4 py-3 rounded-xl border border-white/10 bg-white/[0.03] text-white text-sm outline-none focus:border-[#D4AF37]"
+                  />
+                </div>
+
+                {/* Festival Photo */}
+                <div className="space-y-2 pt-2">
+                  <label className="text-xs font-semibold text-white">Festival Photo</label>
+                  {bannerImageUrl ? (
+                    <div className="relative aspect-video max-w-md rounded-2xl overflow-hidden border border-white/10 bg-black group">
+                      <img src={bannerImageUrl} alt="Festival Banner" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                        <label className="cursor-pointer px-4 py-2 bg-[#D4AF37] text-black rounded-xl font-bold text-xs hover:bg-[#E5C158] transition-all flex items-center gap-1.5">
+                          <Upload className="w-3.5 h-3.5" /> Replace Photo
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const formData = new FormData();
+                              formData.append('image', file);
+                              setIsUploadingPhoto(true);
+                              try {
+                                const token = getAdminToken();
+                                const res = await fetch(`${getApiUrl()}/api/admin/uploads/festival-image`, {
+                                  method: 'POST',
+                                  headers: token ? { Authorization: `Bearer ${token}` } : {},
+                                  body: formData,
+                                });
+                                const data = await res.json();
+                                if (!res.ok) throw new Error(data.error || 'Failed to upload image');
+                                setBannerImageUrl(data.secureUrl || data.secure_url);
+                                toast.success('Festival photo uploaded');
+                              } catch (err: any) {
+                                toast.error(err.message || 'Upload failed');
+                              } finally {
+                                setIsUploadingPhoto(false);
+                              }
+                            }}
+                            className="hidden"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setBannerImageUrl('')}
+                          className="px-4 py-2 bg-red-500/20 text-red-300 border border-red-500/30 rounded-xl font-bold text-xs hover:bg-red-500/30 transition-all"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border border-dashed border-white/20 rounded-2xl p-5 text-center bg-white/[0.02] max-w-md">
+                      <label className="cursor-pointer inline-flex flex-col items-center">
+                        <Upload className="w-6 h-6 text-[#D4AF37] mb-2" />
+                        <span className="text-xs font-semibold text-white">
+                          {isUploadingPhoto ? 'Uploading...' : 'Upload Festival Photo'}
+                        </span>
+                        <span className="text-[10px] text-white/40 mt-0.5">PNG, JPG, or WEBP up to 5 MB</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={isUploadingPhoto}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const formData = new FormData();
+                            formData.append('image', file);
+                            setIsUploadingPhoto(true);
+                            try {
+                              const token = getAdminToken();
+                              const res = await fetch(`${getApiUrl()}/api/admin/uploads/festival-image`, {
+                                method: 'POST',
+                                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                                body: formData,
+                              });
+                              const data = await res.json();
+                              if (!res.ok) throw new Error(data.error || 'Failed to upload image');
+                              setBannerImageUrl(data.secureUrl || data.secure_url);
+                              toast.success('Festival photo uploaded');
+                            } catch (err: any) {
+                              toast.error(err.message || 'Upload failed');
+                            } finally {
+                              setIsUploadingPhoto(false);
+                            }
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  )}
+                  <input
+                    type="url"
+                    placeholder="Or enter photo URL: https://..."
+                    value={bannerImageUrl}
+                    onChange={(e) => setBannerImageUrl(e.target.value)}
+                    className="w-full px-4 py-2 rounded-xl border border-white/10 bg-white/[0.02] text-xs text-white placeholder:text-white/20 outline-none focus:border-[#D4AF37]"
+                  />
+                </div>
+              </div>
+            </section>
 
             {/* ─────────────────────────────────────────────────────────────
                 Footer

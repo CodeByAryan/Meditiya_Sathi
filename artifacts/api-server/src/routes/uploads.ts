@@ -183,4 +183,28 @@ router.post("/admin/uploads/event-image", requireRole("Super Admin", "Admin"), (
   });
 });
 
+router.post("/admin/uploads/festival-image", requireRole("Super Admin", "Admin"), (req, res) => {
+  upload.single("image")(req, res, async (error) => {
+    if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+      res.status(400).json({ error: "Image size must be less than 5 MB." });
+      return;
+    }
+    if (error || !req.file) {
+      res.status(400).json({ error: "Please upload a JPG, PNG, or WEBP image." });
+      return;
+    }
+    if (!isCloudinaryConfigured) {
+      const base64Data = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+      res.status(201).json({ secureUrl: base64Data, publicId: `local-festival-${Date.now()}` });
+      return;
+    }
+    try {
+      const image = await uploadToCloudinary(req.file.buffer, "meditiya-sathi/festivals");
+      res.status(201).json({ secureUrl: image.secure_url, publicId: image.public_id });
+    } catch (_uploadError) {
+      res.status(502).json({ error: "Unable to upload the festival image. Please try again." });
+    }
+  });
+});
+
 export default router;

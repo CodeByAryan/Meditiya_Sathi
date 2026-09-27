@@ -16,6 +16,10 @@ export const festivalsTable = pgTable("festivals", {
   googleDriveUrl: text("google_drive_url"),
   youtubeUrl: text("youtube_url"),
   history: text("history"),
+  shortDescription: text("short_description"),
+  venue: text("venue").default("Medtiya Nagar, Mumbai"),
+  homepageVisible: boolean("homepage_visible").notNull().default(false),
+  isHomepageFeatured: boolean("is_homepage_featured").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
   assignedVolunteerId: text("assigned_volunteer_id"), // FK to admins.id (UUID) — Volunteer assigned to this festival
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

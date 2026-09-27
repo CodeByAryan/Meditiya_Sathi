@@ -19,6 +19,11 @@ import {
   Users,
   Wallet,
   Sparkles,
+  Home,
+  Upload,
+  FolderOpen,
+  X,
+  Save,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, getApiUrl } from '@/lib/utils';
@@ -39,6 +44,12 @@ interface Festival {
   expectedDonation: string | null;
   status: string;
   isActive: boolean;
+  bannerImageUrl?: string | null;
+  googleDriveUrl?: string | null;
+  shortDescription?: string | null;
+  venue?: string | null;
+  homepageVisible?: boolean;
+  isHomepageFeatured?: boolean;
   createdAt: string;
   updatedAt: string;
 
@@ -252,10 +263,123 @@ export default function AdminFestivalsList() {
   const [sortOrder, setSortOrder] = useState('desc');
 
   // Delete
-  const [deleteFestival, setDeleteFestival] =
-    useState<Festival | null>(null);
-
+  const [deleteFestival, setDeleteFestival] = useState<Festival | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Homepage showcase modal state
+  const [showHomepageModal, setShowHomepageModal] = useState(false);
+  const [selectedFestivalId, setSelectedFestivalId] = useState<number | null>(null);
+  const [hfVisible, setHfVisible] = useState(true);
+  const [hfName, setHfName] = useState('');
+  const [hfShortDescription, setHfShortDescription] = useState('');
+  const [hfDescription, setHfDescription] = useState('');
+  const [hfVenue, setHfVenue] = useState('Medtiya Nagar, Mumbai');
+  const [hfStartDate, setHfStartDate] = useState('');
+  const [hfEndDate, setHfEndDate] = useState('');
+  const [hfBannerUrl, setHfBannerUrl] = useState('');
+  const [hfGoogleDriveUrl, setHfGoogleDriveUrl] = useState('');
+  const [isSavingHomepage, setIsSavingHomepage] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  // Initialize homepage showcase form when selecting festival
+  const selectShowcaseFestival = (fId: number) => {
+    setSelectedFestivalId(fId);
+    const target = festivals.find((item) => item.id === fId);
+    if (target) {
+      setHfVisible(target.homepageVisible !== false);
+      setHfName(target.name || '');
+      setHfShortDescription(target.shortDescription || '');
+      setHfDescription(target.description || '');
+      setHfVenue(target.venue || 'Medtiya Nagar, Mumbai');
+      setHfStartDate(target.startDate ? target.startDate.split('T')[0] : '');
+      setHfEndDate(target.endDate ? target.endDate.split('T')[0] : '');
+      setHfBannerUrl(target.bannerImageUrl || '');
+      setHfGoogleDriveUrl(target.googleDriveUrl || '');
+    }
+  };
+
+  const openHomepageModal = () => {
+    // Pick the currently featured festival, or the first active one
+    const featured = festivals.find((f) => f.isHomepageFeatured) || festivals.find((f) => f.isActive) || festivals[0];
+    if (featured) {
+      selectShowcaseFestival(featured.id);
+    }
+    setShowHomepageModal(true);
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be less than 5 MB');
+      return;
+    }
+    const formData = new FormData();
+    formData.append('image', file);
+    setIsUploadingPhoto(true);
+    try {
+      const token = getAdminToken();
+      const res = await fetch(`${getApiUrl()}/api/admin/uploads/festival-image`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to upload image');
+      const url = data.secureUrl || data.secure_url;
+      setHfBannerUrl(url);
+      toast.success('Festival photo uploaded successfully');
+    } catch (err: any) {
+      toast.error(err.message || 'Image upload failed');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleSaveHomepageFestival = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFestivalId) {
+      toast.error('Please select a festival');
+      return;
+    }
+    if (!hfName.trim()) {
+      toast.error('Festival name cannot be empty');
+      return;
+    }
+    if (hfGoogleDriveUrl && !/^https:\/\/drive\.google\.com\//i.test(hfGoogleDriveUrl.trim())) {
+      toast.error('Please enter a valid Google Drive link.');
+      return;
+    }
+
+    setIsSavingHomepage(true);
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/festivals/homepage-featured`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          festivalId: selectedFestivalId,
+          homepageVisible: hfVisible,
+          festivalName: hfName.trim(),
+          shortDescription: hfShortDescription.trim(),
+          description: hfDescription.trim(),
+          venue: hfVenue.trim(),
+          startDate: hfStartDate || null,
+          endDate: hfEndDate || null,
+          bannerImageUrl: hfBannerUrl.trim() || null,
+          googleDriveUrl: hfGoogleDriveUrl.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update homepage festival');
+      toast.success('Homepage Festival Showcase updated!');
+      setShowHomepageModal(false);
+      await fetchFestivals();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save homepage festival');
+    } finally {
+      setIsSavingHomepage(false);
+    }
+  };
 
   // ───────────────────────────────────────────────────────────────────────────
   // Fetch festivals
@@ -475,20 +599,33 @@ export default function AdminFestivalsList() {
             </div>
 
             {/* Festival creation is administrative; Volunteers only see assigned festivals. */}
-            {canManageFestivals && <Link
-              href="/admin/festivals/create"
-              className="group flex items-center gap-2 px-4 md:px-5 py-3 bg-gradient-to-r from-[#B8860B] via-[#D4AF37] to-[#E5C158] text-black rounded-xl font-bold text-sm shadow-lg shadow-[#D4AF37]/10 hover:shadow-[#D4AF37]/25 hover:brightness-110 transition-all"
-            >
-              <Plus className="w-4 h-4 transition-transform group-hover:rotate-90" />
+            <div className="flex items-center gap-3">
+              {canManageFestivals && (
+                <button
+                  onClick={openHomepageModal}
+                  className="group flex items-center gap-2 px-4 md:px-5 py-3 rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/10 text-[#D4AF37] hover:bg-[#D4AF37]/20 font-bold text-sm shadow-lg shadow-[#D4AF37]/5 transition-all"
+                >
+                  <Home className="w-4 h-4 text-[#D4AF37]" />
+                  <span className="hidden sm:inline">Homepage Festival</span>
+                  <span className="sm:hidden">Homepage</span>
+                </button>
+              )}
 
-              <span className="hidden sm:inline">
-                Create Festival
-              </span>
+              {canManageFestivals && <Link
+                href="/admin/festivals/create"
+                className="group flex items-center gap-2 px-4 md:px-5 py-3 bg-gradient-to-r from-[#B8860B] via-[#D4AF37] to-[#E5C158] text-black rounded-xl font-bold text-sm shadow-lg shadow-[#D4AF37]/10 hover:shadow-[#D4AF37]/25 hover:brightness-110 transition-all"
+              >
+                <Plus className="w-4 h-4 transition-transform group-hover:rotate-90" />
 
-              <span className="sm:hidden">
-                Create
-              </span>
-            </Link>}
+                <span className="hidden sm:inline">
+                  Create Festival
+                </span>
+
+                <span className="sm:hidden">
+                  Create
+                </span>
+              </Link>}
+            </div>
           </div>
         </div>
       </header>
@@ -909,6 +1046,220 @@ export default function AdminFestivalsList() {
           onCancel={() => setDeleteFestival(null)}
           isLoading={isDeleting}
         />
+      )}
+
+      {/* Homepage Festival Showcase Modal */}
+      {showHomepageModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
+          <div className="relative w-full max-w-2xl rounded-3xl border border-[#D4AF37]/25 bg-[#0e0e0e] shadow-2xl p-6 sm:p-8 my-8 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-5 border-b border-white/[0.08]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center">
+                  <Home className="w-5 h-5 text-[#D4AF37]" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-serif font-bold text-white">Homepage Festival Showcase</h2>
+                  <p className="text-xs text-zinc-400">Configure which festival is showcased on the public homepage</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHomepageModal(false)}
+                className="w-9 h-9 rounded-xl border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveHomepageFestival} className="mt-6 space-y-5">
+              {/* Select Festival Dropdown */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#D4AF37]">
+                  Select Festival
+                </label>
+                <select
+                  value={selectedFestivalId || ''}
+                  onChange={(e) => selectShowcaseFestival(Number(e.target.value))}
+                  className="w-full px-4 py-3 rounded-xl border border-white/10 bg-black/60 text-white text-sm outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 transition-all [color-scheme:dark]"
+                >
+                  {festivals.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name} ({f.year}) {f.isHomepageFeatured ? '★ [Current Homepage]' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Homepage Visible Toggle */}
+              <div className="flex items-center justify-between p-4 rounded-xl border border-white/[0.08] bg-white/[0.02]">
+                <div>
+                  <p className="text-sm font-semibold text-white">Homepage Visibility</p>
+                  <p className="text-xs text-zinc-500">Show or hide the Festival showcase section on the homepage</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setHfVisible(!hfVisible)}
+                  className={cn(
+                    'px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border transition-all',
+                    hfVisible
+                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                      : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+                  )}
+                >
+                  {hfVisible ? 'ON (Visible)' : 'OFF (Hidden)'}
+                </button>
+              </div>
+
+              {/* Festival Name */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-zinc-400">Festival Name</label>
+                <input
+                  type="text"
+                  required
+                  value={hfName}
+                  onChange={(e) => setHfName(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-white text-sm outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
+                />
+              </div>
+
+              {/* Short Description */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-zinc-400">Short Description (for Homepage subtitle/summary)</label>
+                <input
+                  type="text"
+                  value={hfShortDescription}
+                  onChange={(e) => setHfShortDescription(e.target.value)}
+                  placeholder="Grand community celebrations with devotion, culture, and togetherness."
+                  className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-white text-sm outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
+                />
+              </div>
+
+              {/* Full Description */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-zinc-400">Full Description</label>
+                <textarea
+                  rows={3}
+                  value={hfDescription}
+                  onChange={(e) => setHfDescription(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-white text-sm outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
+                />
+              </div>
+
+              {/* Venue & Dates */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1.5 sm:col-span-1">
+                  <label className="block text-xs font-medium text-zinc-400">Venue / Location</label>
+                  <input
+                    type="text"
+                    value={hfVenue}
+                    onChange={(e) => setHfVenue(e.target.value)}
+                    placeholder="Medtiya Nagar, Mumbai"
+                    className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-white text-sm outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-1">
+                  <label className="block text-xs font-medium text-zinc-400">Start Date</label>
+                  <input
+                    type="date"
+                    value={hfStartDate}
+                    onChange={(e) => setHfStartDate(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-white text-sm outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 transition-all [color-scheme:dark]"
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-1">
+                  <label className="block text-xs font-medium text-zinc-400">End Date</label>
+                  <input
+                    type="date"
+                    value={hfEndDate}
+                    onChange={(e) => setHfEndDate(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-white text-sm outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 transition-all [color-scheme:dark]"
+                  />
+                </div>
+              </div>
+
+              {/* Festival Photo (Upload / Preview) */}
+              <div className="space-y-2 pt-2 border-t border-white/[0.08]">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#D4AF37]">
+                  Festival Photo
+                </label>
+                {hfBannerUrl ? (
+                  <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-white/10 bg-black group">
+                    <img src={hfBannerUrl} alt="Festival Preview" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                      <label className="cursor-pointer px-4 py-2 bg-[#D4AF37] text-black rounded-xl font-bold text-xs hover:bg-[#E5C158] transition-all flex items-center gap-1.5">
+                        <Upload className="w-3.5 h-3.5" /> Replace Photo
+                        <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setHfBannerUrl('')}
+                        className="px-4 py-2 bg-red-500/20 text-red-300 border border-red-500/30 rounded-xl font-bold text-xs hover:bg-red-500/30 transition-all"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border border-dashed border-white/20 rounded-2xl p-6 text-center bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
+                    <label className="cursor-pointer inline-flex flex-col items-center">
+                      <div className="w-12 h-12 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center mb-2">
+                        <Upload className="w-6 h-6 text-[#D4AF37]" />
+                      </div>
+                      <span className="text-sm font-semibold text-white">
+                        {isUploadingPhoto ? 'Uploading...' : 'Upload Festival Photo'}
+                      </span>
+                      <span className="text-xs text-zinc-500 mt-1">PNG, JPG, or WEBP up to 5 MB</span>
+                      <input type="file" accept="image/*" disabled={isUploadingPhoto} onChange={handlePhotoUpload} className="hidden" />
+                    </label>
+                  </div>
+                )}
+                {/* Optional manual URL */}
+                <input
+                  type="url"
+                  placeholder="Or paste external image URL: https://..."
+                  value={hfBannerUrl}
+                  onChange={(e) => setHfBannerUrl(e.target.value)}
+                  className="w-full px-4 py-2 rounded-xl border border-white/10 bg-white/[0.02] text-xs text-white placeholder:text-zinc-600 outline-none focus:border-[#D4AF37]/60"
+                />
+              </div>
+
+              {/* Google Drive URL */}
+              <div className="space-y-1.5 pt-2 border-t border-white/[0.08]">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#D4AF37] flex items-center gap-1.5">
+                  <FolderOpen className="w-4 h-4" /> Google Drive URL
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://drive.google.com/..."
+                  value={hfGoogleDriveUrl}
+                  onChange={(e) => setHfGoogleDriveUrl(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-white text-sm outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
+                />
+                <p className="text-[11px] text-zinc-500">Only Google Drive links are accepted. Opens public Drive photos in a new tab.</p>
+              </div>
+
+              {/* Submit / Cancel Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/[0.08]">
+                <button
+                  type="button"
+                  onClick={() => setShowHomepageModal(false)}
+                  className="px-5 py-2.5 rounded-xl border border-white/10 text-zinc-400 hover:text-white hover:bg-white/[0.05] text-sm font-medium transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingHomepage || isUploadingPhoto}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#B8860B] via-[#D4AF37] to-[#E5C158] text-black font-bold text-sm shadow-lg shadow-[#D4AF37]/15 hover:shadow-[#D4AF37]/30 hover:brightness-110 transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  {isSavingHomepage ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
