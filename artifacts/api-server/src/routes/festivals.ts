@@ -1,9 +1,8 @@
 import { Router, type IRouter } from "express";
 import { db, festivalsTable } from "@workspace/db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, or } from "drizzle-orm";
 import { CreateFestivalBody, GetFestivalParams } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/requireRole";
-import { z } from "zod";
 
 const router: IRouter = Router();
 const publicFestivalFields = {
@@ -19,8 +18,6 @@ const publicFestivalFields = {
   status: festivalsTable.status,
   isActive: festivalsTable.isActive,
 };
-const driveUrlSchema = z.string().url().refine((value) => /^https:\/\/drive\.google\.com\//i.test(value), "Please enter a valid Google Drive link.");
-
 router.get("/festivals", async (_req, res): Promise<void> => {
   const festivals = await db.select(publicFestivalFields).from(festivalsTable).where(eq(festivalsTable.isActive, true)).orderBy(desc(festivalsTable.year), festivalsTable.startDate);
   res.json(festivals);
@@ -35,10 +32,26 @@ router.post("/festivals", requireRole("Super Admin", "Admin"), async (req, res):
 });
 
 router.get("/festivals/:slug", async (req, res): Promise<void> => {
-  const slug = Array.isArray(req.params.slug) ? req.params.slug[0] : req.params.slug;
+  const param = (Array.isArray(req.params.slug) ? req.params.slug[0] : req.params.slug)?.trim();
+  if (!param) {
+    res.status(404).json({ error: "Festival not found" });
+    return;
+  }
 
-  const [festival] = await db.select(publicFestivalFields).from(festivalsTable).where(and(eq(festivalsTable.slug, slug), eq(festivalsTable.isActive, true)));
-  if (!festival) { res.status(404).json({ error: "Festival not found" }); return; }
+  const numId = parseInt(param, 10);
+  const condition = !isNaN(numId) && String(numId) === param
+    ? or(eq(festivalsTable.slug, param), eq(festivalsTable.id, numId))
+    : eq(festivalsTable.slug, param);
+
+  const [festival] = await db
+    .select(publicFestivalFields)
+    .from(festivalsTable)
+    .where(and(condition, eq(festivalsTable.isActive, true)));
+
+  if (!festival) {
+    res.status(404).json({ error: "Festival not found" });
+    return;
+  }
   res.json(festival);
 });
 

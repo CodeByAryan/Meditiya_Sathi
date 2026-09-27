@@ -125,7 +125,7 @@ export default function Shell({
     {
       name: 'Festivals',
       href: '/festivals',
-      icon: MapPin,
+      icon: PartyPopper,
     },
     {
       name: 'Notices',

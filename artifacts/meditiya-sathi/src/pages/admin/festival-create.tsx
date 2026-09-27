@@ -753,6 +753,20 @@ export default function AdminFestivalCreate() {
                 Footer
             ───────────────────────────────────────────────────────────── */}
 
+            <section className="px-6 md:px-8 py-7 border-t border-white/[0.07]">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-9 h-9 rounded-lg bg-[#D4AF37]/10 border-[#D4AF37]/20 flex items-center justify-center">
+                  <FolderOpen className="w-4 h-4 text-[#D4AF37]" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-white">Google Drive Link</h3>
+                  <p className="text-xs text-white/40">Optional public photos and documents link</p>
+                </div>
+              </div>
+              <input type="url" value={googleDriveUrl} onChange={(e) => setGoogleDriveUrl(e.target.value)} placeholder="https://drive.google.com/..." className="w-full px-4 py-3.5 rounded-xl border-white/10 bg-white/[0.03] text-white placeholder:text-white/25 outline-none transition-all focus:ring-4 focus:ring-[#D4AF37]/10 focus:border-[#D4AF37] hover:border-[#D4AF37]/40" />
+              <p className="text-xs text-white/30 mt-2">Only Google Drive links are accepted.</p>
+            </section>
+
             <div className="px-6 md:px-8 py-5 border-t border-white/[0.07] bg-white/[0.015]">
 
               <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">

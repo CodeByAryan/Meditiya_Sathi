@@ -14,6 +14,7 @@ const About = lazy(() => import('@/pages/about'));
 const Events = lazy(() => import('@/pages/events'));
 const EventDetail = lazy(() => import('@/pages/event-detail'));
 const Festivals = lazy(() => import('@/pages/festivals'));
+const FestivalDetail = lazy(() => import('@/pages/festival-detail'));
 const Notices = lazy(() => import('@/pages/notices'));
 const Gallery = lazy(() => import('@/pages/gallery'));
 const GalleryAlbum = lazy(() => import('@/pages/gallery-album'));
@@ -119,6 +120,7 @@ function AppRoutes() {
         <Route path="/events"><PublicPage title="Community Events | Meditiya Sathi" description="Discover upcoming celebrations, activities, and community events in Medtiya Nagar." path="/events"><Shell><Events /></Shell></PublicPage></Route>
         <Route path="/events/:id"><Shell><EventDetail /></Shell></Route>
         <Route path="/festivals"><PublicPage title="Festivals | Meditiya Sathi" description="Explore festivals, celebrations, and community participation at Medtiya Nagar." path="/festivals"><Shell><Festivals /></Shell></PublicPage></Route>
+        <Route path="/festivals/:slug"><Shell><FestivalDetail /></Shell></Route>
         <Route path="/notices"><PublicPage title="Community Notices | Meditiya Sathi" description="Read the latest notices and important updates for the Medtiya Nagar community." path="/notices"><Shell><Notices /></Shell></PublicPage></Route>
         <Route path="/gallery"><PublicPage title="Community Gallery | Meditiya Sathi" description="Browse photos and memories from Medtiya Nagar community events and celebrations." path="/gallery"><Shell><Gallery /></Shell></PublicPage></Route>
         <Route path="/gallery/:slug"><Shell><GalleryAlbum /></Shell></Route>

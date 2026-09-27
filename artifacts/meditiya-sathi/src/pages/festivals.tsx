@@ -1,8 +1,9 @@
 import { useListFestivals } from '@workspace/api-client-react';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { CalendarDays, ArrowRight } from 'lucide-react';
+import { CalendarDays, ArrowRight, ExternalLink, FolderOpen } from 'lucide-react';
 import { Link } from 'wouter';
+import { format } from 'date-fns';
 
 
 export default function Festivals() {
@@ -71,40 +72,63 @@ export default function Festivals() {
                   viewport={{ once: true }}
                   transition={{ delay: idx * 0.1 }}
                 >
-                  {/* For now we just make them beautiful cards, actual detailed view could be a modal or separate page */}
-                  <div className="group relative h-80 md:h-96 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 cursor-pointer flex flex-col justify-end p-8 border border-border">
+                  <Link
+                    href={`/festivals/${festival.slug || festival.id}`}
+                    className="group relative h-80 md:h-96 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 cursor-pointer flex flex-col justify-end p-8 border border-white/10 block"
+                  >
                     {/* Background */}
                     {festival.bannerImageUrl ? (
                       <div className="absolute inset-0 z-0">
-                        <img src={festival.bannerImageUrl} alt={festival.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+                        <img
+                          src={festival.bannerImageUrl}
+                          alt={festival.name}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent"></div>
                       </div>
                     ) : (
                       <div className={`absolute inset-0 z-0 bg-gradient-to-br ${getGradient(idx)} opacity-90`}>
                         <div className="absolute inset-0 bg-pattern mix-blend-overlay opacity-50"></div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent"></div>
                       </div>
                     )}
 
                     {/* Content */}
                     <div className="relative z-10 text-white transform group-hover:-translate-y-2 transition-transform duration-300">
-                      {festival.isActive && (
-                        <div className="inline-block px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-bold uppercase tracking-wider mb-4 border border-white/30">
-                          Current Festival
-                        </div>
-                      )}
-                      <h2 className="text-3xl md:text-4xl font-serif font-bold mb-2 drop-shadow-sm">{festival.name}</h2>
-                      <div className="flex items-center gap-2 text-white/80 mb-4 font-medium">
-                        <CalendarDays className="w-4 h-4" />
-                        {festival.year}
+                      <div className="flex flex-wrap items-center gap-2 mb-3">
+                        {festival.isActive && (
+                          <div className="inline-block px-3 py-1 bg-amber-400/20 backdrop-blur-md rounded-full text-xs font-bold uppercase tracking-wider border border-amber-300/30 text-amber-300">
+                            Current Festival
+                          </div>
+                        )}
+                        {festival.googleDriveUrl && (
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/15 backdrop-blur-md rounded-full text-xs font-medium border border-white/20 text-white/90">
+                            <FolderOpen className="w-3.5 h-3.5 text-amber-300" />
+                            Drive Photos
+                          </div>
+                        )}
                       </div>
-                      <p className="text-white/90 line-clamp-2 mb-4 max-w-md drop-shadow-sm">
+
+                      <h2 className="text-3xl md:text-4xl font-serif font-bold mb-2 drop-shadow-sm text-white">
+                        {festival.name}
+                      </h2>
+
+                      <div className="flex items-center gap-2 text-white/80 mb-3 font-medium text-sm">
+                        <CalendarDays className="w-4 h-4 text-amber-300" />
+                        <span>{festival.year}</span>
+                      </div>
+
+                      <p className="text-white/85 line-clamp-2 mb-5 max-w-md drop-shadow-sm text-sm">
                         {festival.description}
                       </p>
-                      <div className="flex items-center text-white font-bold group-hover:text-gold transition-colors">
-                        Explore Festival <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-2 transition-transform" />
+
+                      <div className="flex items-center text-amber-300 font-bold group-hover:text-amber-200 transition-colors text-sm">
+                        View Festival <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1.5 transition-transform" />
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 </motion.div>
                 );
               })}
