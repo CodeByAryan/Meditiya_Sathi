@@ -46,6 +46,7 @@ function formatDate(dateStr?: string | null): string {
 export default function HomepageFestivalShowcase() {
   const [festival, setFestival] = useState<HomepageFestival | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,6 +93,7 @@ export default function HomepageFestivalShowcase() {
 
   const venueText = festival.venue || 'Medtiya Nagar, Mumbai';
   const displaySummary = festival.shortDescription || festival.description;
+  const showImage = Boolean(festival.bannerImageUrl && !imageFailed);
 
   return (
     <section className="relative overflow-hidden bg-[var(--page-bg)] py-16 sm:py-20 md:py-28">
@@ -125,15 +127,21 @@ export default function HomepageFestivalShowcase() {
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-amber-300/20 bg-amber-300/[0.06] text-amber-300 backdrop-blur-md">
               <Sparkles className="h-3.5 w-3.5" />
               <span className="text-[10px] font-bold uppercase tracking-[0.25em]">
-                Community Festival Showcase
+                Community traditions
               </span>
             </div>
             <span className="h-px w-8 bg-gradient-to-l from-transparent to-amber-300/60" />
           </div>
 
-          <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-white">
-            {festival.name}
+          <h2 className="font-serif text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
+            Festivals of{' '}
+            <span className="bg-gradient-to-r from-amber-200 via-orange-300 to-amber-400 bg-clip-text text-transparent">
+              Meditiya
+            </span>
           </h2>
+          <p className="mt-3 max-w-xl text-sm leading-7 text-white/55 sm:text-base">
+            Celebrating our traditions, together.
+          </p>
         </motion.div>
 
         {/* Premium Showcase Card */}
@@ -147,19 +155,21 @@ export default function HomepageFestivalShowcase() {
           {/* Subtle top border glow */}
           <div className="absolute left-[15%] right-[15%] top-0 h-px bg-gradient-to-r from-transparent via-amber-300/50 to-transparent" />
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-0">
+          <div className="grid grid-cols-1 gap-0 lg:grid-cols-12">
             {/* Festival Large Photo */}
-            <div className="relative lg:col-span-7 min-h-[300px] sm:min-h-[380px] md:min-h-[440px] overflow-hidden bg-black/80">
-              {festival.bannerImageUrl ? (
+            <div className="relative min-h-[18rem] overflow-hidden bg-zinc-950 sm:min-h-[25rem] lg:col-span-7 lg:min-h-[31rem]">
+              {showImage ? (
                 <>
                   <img
-                    src={festival.bannerImageUrl}
-                    alt={festival.name}
+                    src={festival.bannerImageUrl!}
+                    alt={`${festival.name} festival`}
                     loading="lazy"
                     decoding="async"
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    onError={() => setImageFailed(true)}
+                    className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.045]"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent lg:bg-gradient-to-r lg:from-transparent lg:via-black/20 lg:to-black" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent lg:bg-gradient-to-r lg:from-transparent lg:via-black/10 lg:to-black/90" />
+                  <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/40 to-transparent" />
                 </>
               ) : (
                 <div className="relative h-full w-full min-h-[320px] bg-gradient-to-br from-amber-950/80 via-black to-zinc-950 flex flex-col items-center justify-center p-8 text-center">
@@ -187,37 +197,39 @@ export default function HomepageFestivalShowcase() {
             <div className="relative lg:col-span-5 flex flex-col justify-between p-6 sm:p-8 md:p-10 bg-gradient-to-b from-white/[0.02] to-transparent">
               <div className="space-y-6">
                 {/* Meta details: Date & Venue */}
-                <div className="space-y-2.5">
-                  <div className="flex items-center gap-2.5 text-xs sm:text-sm font-medium text-amber-300/90">
+                <div className="mb-7 flex-wrap gap-x-5 gap-y-2">
+                  <div className="inline-flex items-center gap-2.5 text-xs font-medium text-amber-200/90 sm:text-sm">
                     <CalendarDays className="h-4 w-4 shrink-0 text-amber-300" />
                     <span>{dateText}</span>
                   </div>
 
-                  <div className="flex items-center gap-2.5 text-xs sm:text-sm text-white/70">
+                  <div className="flex min-w-0 items-center gap-2.5 text-xs text-white/60 sm:text-sm">
                     <MapPin className="h-4 w-4 shrink-0 text-amber-300/80" />
-                    <span>{venueText}</span>
+                    <span className="truncate">{venueText}</span>
                   </div>
                 </div>
 
                 {/* Festival Title */}
                 <div>
-                  <h3 className="font-serif text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                  <h3 className="font-serif text-2xl font-bold tracking-tight text-white sm:text-3xl">
                     {festival.name}
                   </h3>
                   <div className="mt-2 h-0.5 w-12 bg-gradient-to-r from-amber-300 to-transparent" />
                 </div>
 
                 {/* Description */}
-                <p className="text-sm sm:text-base leading-relaxed text-white/80 line-clamp-4">
-                  {displaySummary}
-                </p>
+                {displaySummary && (
+                  <p className="line-clamp-4 text-sm leading-7 text-white/65 sm:text-base">
+                    {displaySummary}
+                  </p>
+                )}
               </div>
 
               {/* CTA Action Buttons */}
               <div className="mt-8 pt-6 border-t border-white/[0.08] flex flex-wrap items-center gap-3">
                 <Link
                   href={`/festivals/${festival.slug || festival.id}`}
-                  className="group/btn inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-gradient-to-r from-[#D4AF37] via-[#E5C158] to-[#D4AF37] text-black font-bold text-sm shadow-[0_4px_25px_rgba(212,175,55,0.25)] hover:shadow-[0_6px_30px_rgba(212,175,55,0.4)] hover:brightness-105 active:scale-[0.98] transition-all"
+                  className="group/btn inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#D4AF37] via-[#E5C158] to-[#D4AF37] px-6 py-3.5 text-sm font-bold text-black shadow-[0_4px_25px_rgba(212,175,55,0.25)] transition-all hover:brightness-105 hover:shadow-[0_6px_30px_rgba(212,175,55,0.4)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200 focus-visible:ring-offset-2 focus-visible:ring-offset-black sm:w-auto"
                 >
                   <span>Explore Festival</span>
                   <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
