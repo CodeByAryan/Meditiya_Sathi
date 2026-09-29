@@ -143,9 +143,9 @@ export default function Shell({
       icon: Trophy,
     },
     {
-      name: 'Services',
-      href: '/services',
-      icon: AlertCircle,
+      name: 'Competition',
+      href: '/competitions',
+      icon: Trophy,
     },
   ];
 
@@ -160,14 +160,14 @@ export default function Shell({
       icon: Info,
     },
     {
+      name: 'Services',
+      href: '/services',
+      icon: AlertCircle,
+    },
+    {
       name: 'Volunteers',
       href: '/volunteers',
       icon: Users,
-    },
-    {
-      name: 'Competitions',
-      href: '/competitions',
-      icon: Trophy,
     },
     {
       name: 'Marketplace',

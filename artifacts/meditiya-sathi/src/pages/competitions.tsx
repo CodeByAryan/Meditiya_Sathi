@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { Trophy, Calendar, Vote, UserCheck, ArrowRight, Sparkles, Search, Compass, ChevronDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import CompetitionRegistrationSection from "@/pages/home/CompetitionRegistrationSection";
 
 const api = import.meta.env.VITE_API_URL || "";
 
@@ -125,6 +126,7 @@ export default function Competitions() {
 
   return (
     <main className="min-h-screen bg-[var(--page-bg)] text-foreground pb-24">
+      <CompetitionRegistrationSection />
       {/* HERO SECTION */}
       <section className="relative overflow-hidden pt-28 pb-16 md:pt-36 md:pb-24 border-b border-border/50 bg-pattern">
         <div className="absolute inset-0 pointer-events-none opacity-30 bg-gradient-to-b from-primary/10 via-transparent to-transparent" />

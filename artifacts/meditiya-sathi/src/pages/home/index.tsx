@@ -10,7 +10,6 @@ import FAQSection from './FAQSection';
 import { pageFade } from './motionVariants';
 import WhatsAppFloatingButton from '@/components/WhatsAppFloatingButton';
 import GallerySection from './GallerySection';
-import CompetitionRegistrationSection from './CompetitionRegistrationSection';
 
 export default function HomePage() {
   return (
@@ -19,7 +18,6 @@ export default function HomePage() {
       <Stats />
       <HomepageFestivalShowcase />
       <UpcomingTeaser />
-      <CompetitionRegistrationSection />
       <FeaturesBento />
       <VolunteersSection />
       <GallerySection />
