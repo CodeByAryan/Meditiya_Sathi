@@ -115,6 +115,13 @@ const publicRegistrationSchema = z.object({
   submissionUrl: z.string().trim().url().optional().or(z.literal("")),
 });
 const entryCode = (id: number) => `MM-AAGMAN-2026-${String(id).padStart(4, "0")}`;
+const registrationSchema = z.object({
+  participantName: z.string().trim().min(2).max(120).regex(/[A-Za-z\u0900-\u097F]/),
+  phone: z.string().trim().transform((value) => value.replace(/[\s-]/g, "")).refine((value) => /^(?:\+91|91)?[6-9]\d{9}$/.test(value), "Invalid Indian mobile number").transform((value) => `+91${value.replace(/^\+?91/, "")}`),
+  email: z.string().trim().email().max(160),
+  instagramUsername: z.string().trim().transform((value) => value.replace(/^@/, "")).regex(/^[A-Za-z0-9._]{1,30}$/),
+  competitionIds: z.array(z.coerce.number().int().positive()).min(1).max(3),
+});
 const instagramReelUrl = (value: string) => /^https?:\/\/(?:www\.)?instagram\.com\/(?:reel|reels)\/[A-Za-z0-9_-]+\/?(?:\?.*)?$/i.test(value);
 async function captcha(token: string, ip: string) { if (!turnstileSecret || !token) return false; try { const body = new URLSearchParams({secret:turnstileSecret,response:token,remoteip:ip}); const r = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body}); return r.ok && !!((await r.json()) as { success?: boolean }).success; } catch { return false; } }
 async function attempt(req:any, competitionId:number, entryId:number | null, outcome:string) { if (!secret) return; const {ipHash,userAgentHash}=reqHashes(req); await db.insert(competitionSecurityAttemptsTable).values({competitionId,entryId,attemptType:"vote",outcome,ipHash,userAgentHash}).catch(()=>undefined); }
@@ -232,6 +239,26 @@ router.post("/competitions/:id/verify-resident", async (req, res) => {
   }
 
   res.json({ verified: true, resident: { fullName: r.fullName, buildingName: r.buildingName, wingName: r.wingName } });
+});
+router.post("/competitions/register", publicFormRateLimiter, async (req, res) => {
+  const parsed = registrationSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Please check your registration details." });
+  const data = parsed.data;
+  const uniqueCompetitionIds = [...new Set(data.competitionIds)];
+  const competitions = await db.select({ id: competitionsTable.id, status: competitionsTable.status }).from(competitionsTable).where(sql`${competitionsTable.id} IN (${sql.join(uniqueCompetitionIds.map((value) => sql`${value}`), sql`, `)})`);
+  if (competitions.length !== uniqueCompetitionIds.length || competitions.some((competition) => !isRegistrationOpen(competition))) return res.status(400).json({ error: "One or more selected competitions are not open for registration." });
+  try {
+    const registration = await db.transaction(async (tx) => {
+      const [created] = await tx.insert(competitionRegistrationsTable).values({ competitionId: uniqueCompetitionIds[0], participantName: data.participantName, phone: data.phone, email: data.email, instagramUsername: data.instagramUsername, participatingEvents: uniqueCompetitionIds }).returning({ id: competitionRegistrationsTable.id });
+      const code = entryCode(created.id);
+      const [updated] = await tx.update(competitionRegistrationsTable).set({ entryCode: code }).where(eq(competitionRegistrationsTable.id, created.id)).returning({ entryCode: competitionRegistrationsTable.entryCode });
+      return updated;
+    });
+    return res.status(201).json({ entryId: registration.entryCode, participatingEvents: uniqueCompetitionIds, message: "Registration successful." });
+  } catch (error) {
+    console.error("Competition registration failed", error);
+    return res.status(502).json({ error: "Something went wrong. Please try again." });
+  }
 });
 router.post("/competitions/:id/register-public", publicFormRateLimiter, (req, res) =>
   publicSubmissionUpload.single("submission")(req, res, async (error) => {
@@ -523,6 +550,7 @@ router.get("/admin/competitions", requireRole("Super Admin", "Admin"), async (_q
     res.status(500).json({ error: "Unable to load admin competitions." });
   }
 });
+router.get("/admin/competitions/:id/registrations",requireRole("Super Admin","Admin"),async(req,res)=>{const competitionId=id(req.params.id);if(!competitionId){res.status(400).json({error:"Invalid competition id"});return;}const registrations=await db.select({entryCode:competitionRegistrationsTable.entryCode,participantName:competitionRegistrationsTable.participantName,phone:competitionRegistrationsTable.phone,email:competitionRegistrationsTable.email,instagramUsername:competitionRegistrationsTable.instagramUsername,participatingEvents:competitionRegistrationsTable.participatingEvents,registeredAt:competitionRegistrationsTable.registeredAt}).from(competitionRegistrationsTable).where(sql`${competitionRegistrationsTable.participatingEvents} @> ${JSON.stringify([competitionId])}::jsonb`).orderBy(desc(competitionRegistrationsTable.registeredAt));res.json(registrations)});
 router.get("/admin/competitions/:id/entries",requireRole("Super Admin","Admin"),async(req,res)=>{const competitionId=id(req.params.id);if(!competitionId){res.status(400).json({error:"Invalid competition id"});return;}const rows=await db.select({id:competitionEntriesTable.id,entryCode:competitionEntriesTable.entryCode,title:competitionEntriesTable.title,description:competitionEntriesTable.description,status:competitionEntriesTable.status,reviewNote:competitionEntriesTable.reviewNote,createdAt:competitionEntriesTable.createdAt,updatedAt:competitionEntriesTable.updatedAt,participantName:competitionEntriesTable.participantName,mobile:competitionEntriesTable.mobile,email:competitionEntriesTable.email,instagramUsername:competitionEntriesTable.instagramUsername,competitionCategory:competitionEntriesTable.competitionCategory,submissionUrl:competitionEntriesTable.submissionUrl,submissionFileName:competitionEntriesTable.submissionFileName,residentName:residentsTable.fullName,flatNo:residentsTable.flatNo,buildingName:buildingsTable.buildingName,wingName:wingsTable.wingName,imageUrl:competitionEntryImagesTable.imageUrl,displayOrder:competitionEntryImagesTable.displayOrder,votes:sql<number>`COUNT(${competitionVotesTable.id})::int`}).from(competitionEntriesTable).leftJoin(residentsTable,eq(competitionEntriesTable.residentId,residentsTable.id)).leftJoin(buildingsTable,eq(residentsTable.buildingId,buildingsTable.id)).leftJoin(wingsTable,eq(residentsTable.wingId,wingsTable.id)).leftJoin(competitionEntryImagesTable,eq(competitionEntryImagesTable.entryId,competitionEntriesTable.id)).leftJoin(competitionVotesTable,eq(competitionVotesTable.entryId,competitionEntriesTable.id)).where(eq(competitionEntriesTable.competitionId,competitionId)).groupBy(competitionEntriesTable.id,competitionEntriesTable.entryCode,competitionEntriesTable.title,competitionEntriesTable.description,competitionEntriesTable.status,competitionEntriesTable.reviewNote,competitionEntriesTable.createdAt,competitionEntriesTable.updatedAt,competitionEntriesTable.participantName,competitionEntriesTable.mobile,competitionEntriesTable.email,competitionEntriesTable.instagramUsername,competitionEntriesTable.competitionCategory,competitionEntriesTable.submissionUrl,competitionEntriesTable.submissionFileName,residentsTable.fullName,residentsTable.flatNo,buildingsTable.buildingName,wingsTable.wingName,competitionEntryImagesTable.id).orderBy(desc(competitionEntriesTable.createdAt));const map=new Map<number,any>();rows.forEach(r=>{const e=map.get(r.id)||{...r,images:[]};delete e.imageUrl;delete e.displayOrder;if(r.imageUrl)e.images.push({imageUrl:r.imageUrl,displayOrder:r.displayOrder});map.set(r.id,e)});res.json([...map.values()])});
 router.post("/admin/competitions", requireRole("Super Admin", "Admin"), async (req: any, res) => {
   const p = settingsSchema.safeParse(req.body);

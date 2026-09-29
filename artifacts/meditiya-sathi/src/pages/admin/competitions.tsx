@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { getApiUrl } from "@/lib/utils";
 import { useAdminAuth } from "@/lib/AdminAuthContext";
 
+const registrationCategoryLabel = (value: string) => ({ photography: "Photography", reels: "Reels Competition", videography: "Videography" }[value] || value);
+
 type Competition = {
   id: number;
   name: string;
@@ -115,6 +117,7 @@ export default function AdminCompetitions() {
   const [formModalOpen, setFormModalOpen] = useState(false);
 
   const [selectedCompForEntries, setSelectedCompForEntries] = useState<Competition | null>(null);
+  const [selectedCompForRegistrations, setSelectedCompForRegistrations] = useState<Competition | null>(null);
   const [selectedCompForResults, setSelectedCompForResults] = useState<Competition | null>(null);
   const [deleteModalComp, setDeleteModalComp] = useState<Competition | null>(null);
 
@@ -137,6 +140,16 @@ export default function AdminCompetitions() {
     queryFn: async () => {
       const r = await fetch(`${api}/api/admin/competitions`, { headers: auth });
       if (!r.ok) throw new Error("Unable to load competitions");
+      return r.json();
+    },
+  });
+
+  const registrations = useQuery<{ entryCode?: string | null; participantName: string; phone: string; email?: string | null; instagramUsername?: string | null; participatingEvents: unknown; registeredAt: string }[]>({
+    queryKey: ["admin-competition-registrations", selectedCompForRegistrations?.id],
+    enabled: !!selectedCompForRegistrations && !!user?.token,
+    queryFn: async () => {
+      const r = await fetch(`${api}/api/admin/competitions/${selectedCompForRegistrations!.id}/registrations`, { headers: auth });
+      if (!r.ok) throw new Error("Unable to load registrations");
       return r.json();
     },
   });
@@ -490,6 +503,7 @@ export default function AdminCompetitions() {
                           <Users className="h-3.5 w-3.5" />
                           Manage Entries ({c.pendingEntries ? `${c.pendingEntries} Pending` : c.totalEntries ?? 0})
                         </button>
+                        <button onClick={() => setSelectedCompForRegistrations(c)} className="inline-flex items-center gap-1.5 rounded-lg border-amber-400/30 bg-amber-400/10 px-3.5 py-2 text-xs font-bold text-amber-200 hover:bg-amber-400/20"><Users className="h-3.5 w-3.5" /> Registrations</button>
                         <button
                           onClick={() => handleCloseRegistration(c)}
                           className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-bold text-white shadow hover:bg-blue-700"
@@ -509,6 +523,7 @@ export default function AdminCompetitions() {
                           <Users className="h-3.5 w-3.5" />
                           Manage Entries
                         </button>
+                        <button onClick={() => setSelectedCompForRegistrations(c)} className="inline-flex items-center gap-1.5 rounded-lg border-amber-400/30 bg-amber-400/10 px-3.5 py-2 text-xs font-bold text-amber-200 hover:bg-amber-400/20"><Users className="h-3.5 w-3.5" /> Registrations</button>
                         <button
                           onClick={() => handleStartVoting(c)}
                           className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-3.5 py-2 text-xs font-bold text-white shadow hover:bg-purple-700"
@@ -528,6 +543,7 @@ export default function AdminCompetitions() {
                           <Users className="h-3.5 w-3.5" />
                           Manage Entries
                         </button>
+                        <button onClick={() => setSelectedCompForRegistrations(c)} className="inline-flex items-center gap-1.5 rounded-lg border-amber-400/30 bg-amber-400/10 px-3.5 py-2 text-xs font-bold text-amber-200 hover:bg-amber-400/20"><Users className="h-3.5 w-3.5" /> Registrations</button>
                         <button
                           onClick={() => setSelectedCompForResults(c)}
                           className="inline-flex items-center gap-1.5 rounded-lg bg-primary/20 px-3.5 py-2 text-xs font-bold text-primary hover:bg-primary/30"
@@ -815,6 +831,26 @@ export default function AdminCompetitions() {
               >
                 {deleteMutation.isPending ? "Deleting..." : "Delete Competition"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* HOMEPAGE REGISTRATIONS PANEL */}
+      {selectedCompForRegistrations && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 p-4 backdrop-blur-sm">
+          <div className="mx-auto my-6 max-w-5xl rounded-2xl border bg-card shadow-2xl">
+            <div className="flex items-center justify-between border-b p-5">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-primary">{selectedCompForRegistrations.name}</p>
+                <h2 className="mt-1 font-serif text-2xl font-bold">Participant Registrations</h2>
+              </div>
+              <button onClick={() => setSelectedCompForRegistrations(null)} className="rounded-lg p-1 text-muted-foreground hover:bg-accent" aria-label="Close registrations">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="max-h-[70vh] overflow-y-auto p-6">
+              {registrations.isLoading ? <p className="py-12 text-center text-muted-foreground">Loading registrations...</p> : registrations.isError ? <p className="rounded-xl border-destructive/30 bg-destructive/10 p-6 text-center text-destructive">Unable to load registrations.</p> : !registrations.data?.length ? <p className="py-12 text-center text-muted-foreground">No participant registrations found.</p> : <div className="space-y-3">{registrations.data.map((registration) => { const events = Array.isArray(registration.participatingEvents) ? registration.participatingEvents : []; return <article key={registration.entryCode || `${registration.participantName}-${registration.registeredAt}`} className="rounded-xl border bg-background p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="font-semibold">{registration.participantName}</p><p className="mt-1 font-mono text-xs text-primary">{registration.entryCode || "Registration"}</p><p className="mt-2 text-sm text-muted-foreground">{registration.phone} · {registration.email || "No email"}</p><p className="text-sm text-muted-foreground">@{registration.instagramUsername || "-"}</p></div><div className="text-left sm:text-right"><p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Participating In</p><p className="mt-1 text-sm font-semibold text-foreground">{events.map((event) => registrationCategoryLabel(String(event))).join(", ") || selectedCompForRegistrations.category}</p><p className="mt-2 text-xs text-muted-foreground">{new Date(registration.registeredAt).toLocaleString()}</p></div></div></article>; })}</div>}
             </div>
           </div>
         </div>

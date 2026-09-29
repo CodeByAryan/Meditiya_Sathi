@@ -30,10 +30,13 @@ export const competitionsTable = pgTable("competitions", {
 
 export const competitionRegistrationsTable = pgTable("competition_registrations", {
   id: serial("id").primaryKey(),
+  entryCode: text("entry_code").unique(),
   competitionId: integer("competition_id").notNull().references(() => competitionsTable.id),
   participantName: text("participant_name").notNull(),
   phone: text("phone").notNull(),
   email: text("email"),
+  instagramUsername: text("instagram_username"),
+  participatingEvents: jsonb("participating_events").notNull().default([]),
   ageGroup: text("age_group"),
   userId: text("user_id"),
   registeredAt: timestamp("registered_at", { withTimezone: true }).notNull().defaultNow(),
