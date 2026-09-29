@@ -109,7 +109,7 @@ const publicRegistrationSchema = z.object({
   fullName: z.string().trim().min(2).max(120).regex(/[A-Za-z\u0900-\u097F]/, "Enter a valid name"),
   mobile: z.string().trim().transform((value) => value.replace(/[\s-]/g, "")).refine((value) => /^(?:\+91|91)?[6-9]\d{9}$/.test(value), "Enter a valid Indian mobile number").transform((value) => `+91${value.replace(/^\+?91/, "")}`),
   email: z.string().trim().email().max(160),
-  instagramUsername: z.string().trim().transform((value) => value.replace(/^@/, "")).regex(/^[A-Za-z0-9._]{1,30}$/, "Enter a valid Instagram username"),
+  instagramUsername: z.string().trim().regex(/^@?[A-Za-z0-9._]{1,30}$/, "Enter a valid Instagram username").transform((value) => value.replace(/^@/, "")),
   category: z.enum(["photography", "reels", "videography"]),
   title: z.string().trim().max(150).optional().default(""),
   submissionUrl: z.string().trim().url().optional().or(z.literal("")),
@@ -119,7 +119,7 @@ const registrationSchema = z.object({
   participantName: z.string().trim().min(2).max(120).regex(/[A-Za-z\u0900-\u097F]/),
   phone: z.string().trim().transform((value) => value.replace(/[\s-]/g, "")).refine((value) => /^(?:\+91|91)?[6-9]\d{9}$/.test(value), "Invalid Indian mobile number").transform((value) => `+91${value.replace(/^\+?91/, "")}`),
   email: z.string().trim().email().max(160),
-  instagramUsername: z.string().trim().transform((value) => value.replace(/^@/, "")).regex(/^[A-Za-z0-9._]{1,30}$/),
+  instagramUsername: z.string().trim().regex(/^@?[A-Za-z0-9._]{1,30}$/, "Enter a valid Instagram username").transform((value) => value.replace(/^@/, "")),
   competitionIds: z.array(z.coerce.number().int().positive()).min(1).max(3),
 });
 const instagramReelUrl = (value: string) => /^https?:\/\/(?:www\.)?instagram\.com\/(?:reel|reels)\/[A-Za-z0-9_-]+\/?(?:\?.*)?$/i.test(value);
