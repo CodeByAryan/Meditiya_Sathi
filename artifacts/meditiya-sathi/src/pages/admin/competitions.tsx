@@ -29,14 +29,21 @@ type Competition = {
 
 type Entry = {
   id: number;
+  entryCode?: string | null;
+  participantName?: string | null;
+  mobile?: string | null;
+  email?: string | null;
+  instagramUsername?: string | null;
+  competitionCategory?: string | null;
+  submissionUrl?: string | null;
+  submissionFileName?: string | null;
   title: string;
   description: string;
   status: string;
   reviewNote?: string | null;
   createdAt: string;
-  residentName: string;
-  mobile?: string;
-  flatNo: string;
+  residentName?: string | null;
+  flatNo?: string | null;
   buildingName: string;
   wingName?: string | null;
   votes: number;
@@ -341,7 +348,9 @@ export default function AdminCompetitions() {
 
   const shownEntries = useMemo(() => {
     const all = entries.data || [];
-    return entryFilter === "all" ? all : all.filter((e) => e.status.toLowerCase() === entryFilter.toLowerCase());
+    if (entryFilter === "all") return all;
+    if (["photography", "reels", "videography"].includes(entryFilter)) return all.filter((e) => e.competitionCategory === entryFilter);
+    return all.filter((e) => e.status.toLowerCase() === entryFilter.toLowerCase());
   }, [entries.data, entryFilter]);
 
   const fieldStyle = "w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40";
@@ -818,7 +827,7 @@ export default function AdminCompetitions() {
             <div className="flex items-center justify-between border-b p-5">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wider text-primary">{selectedCompForEntries.name}</p>
-                <h2 className="mt-1 font-serif text-2xl font-bold">Resident Submissions Review</h2>
+                <h2 className="mt-1 font-serif text-2xl font-bold">Competition Entries Review</h2>
               </div>
               <button onClick={() => setSelectedCompForEntries(null)} className="rounded-lg p-1 text-muted-foreground hover:bg-accent">
                 <X className="h-6 w-6" />
@@ -827,7 +836,7 @@ export default function AdminCompetitions() {
 
             {/* Entry Filter Tabs */}
             <div className="flex border-b bg-accent/20 px-5 py-2 gap-2">
-              {["all", "pending", "approved", "rejected"].map((tab) => (
+              {["all", "photography", "reels", "videography", "pending", "approved", "rejected"].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setEntryFilter(tab)}
@@ -870,7 +879,7 @@ export default function AdminCompetitions() {
                       {/* Entry Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <h3 className="font-semibold text-lg">{e.title}</h3>
+                          <div><h3 className="font-semibold text-lg">{e.title}</h3><p className="mt-1 text-xs font-mono text-primary">{e.entryCode || `Entry #${e.id}`}</p><p className="mt-1 text-xs text-muted-foreground">{e.competitionCategory || "Legacy resident entry"} · {e.participantName || e.residentName}</p>{e.mobile && <p className="text-xs text-muted-foreground">{e.mobile} · {e.email}</p>}{e.instagramUsername && <p className="text-xs text-muted-foreground">@{e.instagramUsername}</p>}{e.submissionUrl && <a className="text-xs text-primary underline" href={e.submissionUrl} target="_blank" rel="noreferrer">Open submission</a>}</div>
                           <span
                             className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                               e.status === "approved"

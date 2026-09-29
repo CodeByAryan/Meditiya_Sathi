@@ -404,8 +404,12 @@ export default function CompetitionDetail() {
               <h2 className="font-serif text-2xl font-bold">Participate Now</h2>
 
               <p className="mt-1 text-xs text-muted-foreground">
-                Fill in your details and submit up to {competition.maxImages} photos of your entry. Your entry will be reviewed by Admin before becoming visible publicly.
+                Submit your Aagman Sohala entry through our dedicated registration portal.
               </p>
+              <Button className="mt-4 w-full font-bold shadow" onClick={() => setLocation(`/competitions/${competition.id}/register`)}>
+                <Trophy className="mr-2 h-4 w-4" /> Register & Submit Entry
+              </Button>
+              <p className="mt-4 border-t pt-4 text-xs text-muted-foreground">Resident decoration submissions remain available below for existing competitions.</p>
 
               <div className="mt-4 space-y-3">
                 <div>

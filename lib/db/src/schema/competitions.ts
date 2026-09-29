@@ -50,8 +50,17 @@ export const competitionWinnersTable = pgTable("competition_winners", {
 /** Decoration submissions are separate from the legacy generic registrations. */
 export const competitionEntriesTable = pgTable("competition_entries", {
   id: serial("id").primaryKey(),
+  entryCode: text("entry_code").unique(),
   competitionId: integer("competition_id").notNull().references(() => competitionsTable.id),
-  residentId: integer("resident_id").notNull().references(() => residentsTable.id),
+  // Kept for the original resident-decoration flow; public event submissions may omit it.
+  residentId: integer("resident_id").references(() => residentsTable.id),
+  participantName: text("participant_name"),
+  mobile: text("mobile"),
+  email: text("email"),
+  instagramUsername: text("instagram_username"),
+  competitionCategory: text("competition_category"),
+  submissionUrl: text("submission_url"),
+  submissionFileName: text("submission_file_name"),
   title: text("title").notNull(),
   description: text("description").notNull(),
   status: text("status").notNull().default("pending"),

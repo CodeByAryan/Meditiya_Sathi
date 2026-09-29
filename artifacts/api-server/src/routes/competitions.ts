@@ -13,6 +13,11 @@ const secret = process.env.VOTER_HASH_SECRET || "meditiya-sathi-voter-secret-key
 const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { files: 5, fileSize: 5 * 1024 * 1024 }, fileFilter: (_r, f, cb) => cb(null, ["image/jpeg", "image/png", "image/webp"].includes(f.mimetype)) });
+const publicSubmissionUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { files: 1, fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_r, f, cb) => cb(null, ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/quicktime", "video/webm"].includes(f.mimetype)),
+});
 const residentSchema = z.object({
   fullName: z.string().trim().min(2).max(120),
   mobile: z.string().trim().regex(/^[0-9+\-\s]{7,15}$/, "Invalid mobile number format"),
@@ -99,7 +104,18 @@ async function findOrCreateResident(data: z.infer<typeof residentSchema>) {
 
   return newResident;
 }
-function cloudUpload(buffer: Buffer) { return new Promise<{url:string;publicId:string}>((resolve, reject) => { const s = cloudinary.uploader.upload_stream({ folder: "meditiya-sathi/competitions", format: "webp", transformation: [{width:1600,height:1200,crop:"limit"},{quality:"auto:good"}] }, (e,r) => e || !r ? reject(e || Error("Upload failed")) : resolve({url:r.secure_url,publicId:r.public_id})); s.end(buffer); }); }
+function cloudUpload(buffer: Buffer, resourceType: "image" | "video" = "image") { return new Promise<{url:string;publicId:string}>((resolve, reject) => { const options: any = { folder: "meditiya-sathi/competitions", resource_type: resourceType }; if (resourceType === "image") Object.assign(options, { format: "webp", transformation: [{width:1600,height:1200,crop:"limit"},{quality:"auto:good"}] }); const s = cloudinary.uploader.upload_stream(options, (e,r) => e || !r ? reject(e || Error("Upload failed")) : resolve({url:r.secure_url,publicId:r.public_id})); s.end(buffer); }); }
+const publicRegistrationSchema = z.object({
+  fullName: z.string().trim().min(2).max(120).regex(/[A-Za-z\u0900-\u097F]/, "Enter a valid name"),
+  mobile: z.string().trim().transform((value) => value.replace(/[\s-]/g, "")).refine((value) => /^(?:\+91|91)?[6-9]\d{9}$/.test(value), "Enter a valid Indian mobile number").transform((value) => `+91${value.replace(/^\+?91/, "")}`),
+  email: z.string().trim().email().max(160),
+  instagramUsername: z.string().trim().transform((value) => value.replace(/^@/, "")).regex(/^[A-Za-z0-9._]{1,30}$/, "Enter a valid Instagram username"),
+  category: z.enum(["photography", "reels", "videography"]),
+  title: z.string().trim().max(150).optional().default(""),
+  submissionUrl: z.string().trim().url().optional().or(z.literal("")),
+});
+const entryCode = (id: number) => `MM-AAGMAN-2026-${String(id).padStart(4, "0")}`;
+const instagramReelUrl = (value: string) => /^https?:\/\/(?:www\.)?instagram\.com\/(?:reel|reels)\/[A-Za-z0-9_-]+\/?(?:\?.*)?$/i.test(value);
 async function captcha(token: string, ip: string) { if (!turnstileSecret || !token) return false; try { const body = new URLSearchParams({secret:turnstileSecret,response:token,remoteip:ip}); const r = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body}); return r.ok && !!((await r.json()) as { success?: boolean }).success; } catch { return false; } }
 async function attempt(req:any, competitionId:number, entryId:number | null, outcome:string) { if (!secret) return; const {ipHash,userAgentHash}=reqHashes(req); await db.insert(competitionSecurityAttemptsTable).values({competitionId,entryId,attemptType:"vote",outcome,ipHash,userAgentHash}).catch(()=>undefined); }
 
@@ -158,7 +174,7 @@ router.get("/competitions/:id/entries", async (req, res) => {
         id: competitionEntriesTable.id,
         title: competitionEntriesTable.title,
         description: competitionEntriesTable.description,
-        residentName: residentsTable.fullName,
+        residentName: sql<string>`COALESCE(${competitionEntriesTable.participantName}, ${residentsTable.fullName}, 'Participant')`,
         buildingName: buildingsTable.buildingName,
         wingName: wingsTable.wingName,
         imageUrl: competitionEntryImagesTable.imageUrl,
@@ -166,14 +182,15 @@ router.get("/competitions/:id/entries", async (req, res) => {
         votes: sql<number>`COUNT(${competitionVotesTable.id})::int`,
       })
       .from(competitionEntriesTable)
-      .innerJoin(residentsTable, eq(competitionEntriesTable.residentId, residentsTable.id))
-      .innerJoin(buildingsTable, eq(residentsTable.buildingId, buildingsTable.id))
-      .leftJoin(wingsTable, eq(residentsTable.wingId, wingsTable.id))
+      .leftJoin(residentsTable, eq(competitionEntriesTable.residentId, residentsTable.id))
+             .leftJoin(buildingsTable, eq(residentsTable.buildingId, buildingsTable.id))
+             .leftJoin(wingsTable, eq(residentsTable.wingId, wingsTable.id))
       .leftJoin(competitionEntryImagesTable, eq(competitionEntryImagesTable.entryId, competitionEntriesTable.id))
       .leftJoin(competitionVotesTable, eq(competitionVotesTable.entryId, competitionEntriesTable.id))
       .where(and(eq(competitionEntriesTable.competitionId, competitionId), eq(competitionEntriesTable.status, "approved")))
       .groupBy(
         competitionEntriesTable.id,
+        competitionEntriesTable.participantName,
         residentsTable.fullName,
         buildingsTable.buildingName,
         wingsTable.wingName,
@@ -216,6 +233,49 @@ router.post("/competitions/:id/verify-resident", async (req, res) => {
 
   res.json({ verified: true, resident: { fullName: r.fullName, buildingName: r.buildingName, wingName: r.wingName } });
 });
+router.post("/competitions/:id/register-public", publicFormRateLimiter, (req, res) =>
+  publicSubmissionUpload.single("submission")(req, res, async (error) => {
+    try {
+      const competitionId = id(req.params.id);
+      const parsed = publicRegistrationSchema.safeParse(req.body);
+      const file = req.file;
+      const competition = competitionId && (await db.select().from(competitionsTable).where(eq(competitionsTable.id, competitionId)).limit(1))[0];
+      if (!competitionId || !competition || !isRegistrationOpen(competition)) return res.status(403).json({ error: "Registration is closed for this competition." });
+      if (error || !parsed.success) return res.status(400).json({ error: "Please check your participant and submission details." });
+      const data = parsed.data;
+      const isPhoto = data.category === "photography";
+      const isVideo = data.category === "videography";
+      if ((isPhoto || isVideo) && !file) return res.status(400).json({ error: "Please upload your entry file." });
+      if (data.category === "reels" && (!data.submissionUrl || !instagramReelUrl(data.submissionUrl))) return res.status(400).json({ error: "Please provide a valid Instagram Reel URL." });
+      if (!isCloudinaryConfigured && file) return res.status(503).json({ error: "File upload service is not configured." });
+      let uploaded: { url: string; publicId: string } | undefined;
+      if (file) uploaded = await cloudUpload(file.buffer, isVideo ? "video" : "image");
+      const created = await db.transaction(async (tx) => {
+        const [entry] = await tx.insert(competitionEntriesTable).values({
+          competitionId,
+          participantName: data.fullName,
+          mobile: data.mobile,
+          email: data.email,
+          instagramUsername: data.instagramUsername,
+          competitionCategory: data.category,
+          submissionUrl: uploaded?.url || data.submissionUrl || null,
+          submissionFileName: file?.originalname || null,
+          title: data.title || `${data.category} entry`,
+          description: data.title || "Aagman Sohala 2026 competition submission",
+          status: "pending",
+        }).returning({ id: competitionEntriesTable.id });
+        const code = entryCode(entry.id);
+        const [updated] = await tx.update(competitionEntriesTable).set({ entryCode: code }).where(eq(competitionEntriesTable.id, entry.id)).returning({ id: competitionEntriesTable.id, entryCode: competitionEntriesTable.entryCode });
+        if (uploaded && isPhoto) await tx.insert(competitionEntryImagesTable).values({ entryId: entry.id, imageUrl: uploaded.url, cloudinaryPublicId: uploaded.publicId, displayOrder: 0 });
+        return updated;
+      });
+      return res.status(201).json({ entryId: created.entryCode, message: "Registration successful." });
+    } catch (submissionError) {
+      console.error("Public competition registration failed", submissionError);
+      return res.status(502).json({ error: "Something went wrong. Please try again." });
+    }
+  })
+);
 router.post("/competitions/:id/register", publicFormRateLimiter, (req, res) =>
   upload.array("images", 5)(req, res, async (error) => {
     const competitionId = id(req.params.id);
@@ -463,7 +523,7 @@ router.get("/admin/competitions", requireRole("Super Admin", "Admin"), async (_q
     res.status(500).json({ error: "Unable to load admin competitions." });
   }
 });
-router.get("/admin/competitions/:id/entries",requireRole("Super Admin","Admin"),async(req,res)=>{const competitionId=id(req.params.id);if(!competitionId){res.status(400).json({error:"Invalid competition id"});return;}const rows=await db.select({id:competitionEntriesTable.id,title:competitionEntriesTable.title,description:competitionEntriesTable.description,status:competitionEntriesTable.status,reviewNote:competitionEntriesTable.reviewNote,createdAt:competitionEntriesTable.createdAt,updatedAt:competitionEntriesTable.updatedAt,residentName:residentsTable.fullName,flatNo:residentsTable.flatNo,buildingName:buildingsTable.buildingName,wingName:wingsTable.wingName,imageUrl:competitionEntryImagesTable.imageUrl,displayOrder:competitionEntryImagesTable.displayOrder,votes:sql<number>`COUNT(${competitionVotesTable.id})::int`}).from(competitionEntriesTable).innerJoin(residentsTable,eq(competitionEntriesTable.residentId,residentsTable.id)).innerJoin(buildingsTable,eq(residentsTable.buildingId,buildingsTable.id)).leftJoin(wingsTable,eq(residentsTable.wingId,wingsTable.id)).leftJoin(competitionEntryImagesTable,eq(competitionEntryImagesTable.entryId,competitionEntriesTable.id)).leftJoin(competitionVotesTable,eq(competitionVotesTable.entryId,competitionEntriesTable.id)).where(eq(competitionEntriesTable.competitionId,competitionId)).groupBy(competitionEntriesTable.id,residentsTable.fullName,residentsTable.flatNo,buildingsTable.buildingName,wingsTable.wingName,competitionEntryImagesTable.id).orderBy(desc(competitionEntriesTable.createdAt));const map=new Map<number,any>();rows.forEach(r=>{const e=map.get(r.id)||{...r,images:[]};delete e.imageUrl;delete e.displayOrder;if(r.imageUrl)e.images.push({imageUrl:r.imageUrl,displayOrder:r.displayOrder});map.set(r.id,e)});res.json([...map.values()])});
+router.get("/admin/competitions/:id/entries",requireRole("Super Admin","Admin"),async(req,res)=>{const competitionId=id(req.params.id);if(!competitionId){res.status(400).json({error:"Invalid competition id"});return;}const rows=await db.select({id:competitionEntriesTable.id,entryCode:competitionEntriesTable.entryCode,title:competitionEntriesTable.title,description:competitionEntriesTable.description,status:competitionEntriesTable.status,reviewNote:competitionEntriesTable.reviewNote,createdAt:competitionEntriesTable.createdAt,updatedAt:competitionEntriesTable.updatedAt,participantName:competitionEntriesTable.participantName,mobile:competitionEntriesTable.mobile,email:competitionEntriesTable.email,instagramUsername:competitionEntriesTable.instagramUsername,competitionCategory:competitionEntriesTable.competitionCategory,submissionUrl:competitionEntriesTable.submissionUrl,submissionFileName:competitionEntriesTable.submissionFileName,residentName:residentsTable.fullName,flatNo:residentsTable.flatNo,buildingName:buildingsTable.buildingName,wingName:wingsTable.wingName,imageUrl:competitionEntryImagesTable.imageUrl,displayOrder:competitionEntryImagesTable.displayOrder,votes:sql<number>`COUNT(${competitionVotesTable.id})::int`}).from(competitionEntriesTable).leftJoin(residentsTable,eq(competitionEntriesTable.residentId,residentsTable.id)).leftJoin(buildingsTable,eq(residentsTable.buildingId,buildingsTable.id)).leftJoin(wingsTable,eq(residentsTable.wingId,wingsTable.id)).leftJoin(competitionEntryImagesTable,eq(competitionEntryImagesTable.entryId,competitionEntriesTable.id)).leftJoin(competitionVotesTable,eq(competitionVotesTable.entryId,competitionEntriesTable.id)).where(eq(competitionEntriesTable.competitionId,competitionId)).groupBy(competitionEntriesTable.id,competitionEntriesTable.entryCode,competitionEntriesTable.title,competitionEntriesTable.description,competitionEntriesTable.status,competitionEntriesTable.reviewNote,competitionEntriesTable.createdAt,competitionEntriesTable.updatedAt,competitionEntriesTable.participantName,competitionEntriesTable.mobile,competitionEntriesTable.email,competitionEntriesTable.instagramUsername,competitionEntriesTable.competitionCategory,competitionEntriesTable.submissionUrl,competitionEntriesTable.submissionFileName,residentsTable.fullName,residentsTable.flatNo,buildingsTable.buildingName,wingsTable.wingName,competitionEntryImagesTable.id).orderBy(desc(competitionEntriesTable.createdAt));const map=new Map<number,any>();rows.forEach(r=>{const e=map.get(r.id)||{...r,images:[]};delete e.imageUrl;delete e.displayOrder;if(r.imageUrl)e.images.push({imageUrl:r.imageUrl,displayOrder:r.displayOrder});map.set(r.id,e)});res.json([...map.values()])});
 router.post("/admin/competitions", requireRole("Super Admin", "Admin"), async (req: any, res) => {
   const p = settingsSchema.safeParse(req.body);
   if (!p.success) {
@@ -799,7 +859,7 @@ router.post("/admin/competitions/:id/entries/:entryId/:decision", requireRole("S
 router.patch("/admin/competitions/:id/entries/:entryId/:decision", requireRole("Super Admin", "Admin"), handleEntryDecision);
 router.post("/admin/competition-entries/:id/:decision", requireRole("Super Admin", "Admin"), handleEntryDecision);
 router.patch("/admin/competition-entries/:id/:decision", requireRole("Super Admin", "Admin"), handleEntryDecision);
-router.get("/admin/competitions/:id/results",requireRole("Super Admin","Admin"),async(req,res)=>{const competitionId=id(req.params.id);if(!competitionId){res.status(400).json({error:"Invalid competition id"});return;}res.json(await db.select({entryId:competitionEntriesTable.id,title:competitionEntriesTable.title,participant:residentsTable.fullName,votes:sql<number>`COUNT(${competitionVotesTable.id})::int`}).from(competitionEntriesTable).innerJoin(residentsTable,eq(competitionEntriesTable.residentId,residentsTable.id)).leftJoin(competitionVotesTable,eq(competitionVotesTable.entryId,competitionEntriesTable.id)).where(and(eq(competitionEntriesTable.competitionId,competitionId),eq(competitionEntriesTable.status,"approved"))).groupBy(competitionEntriesTable.id,residentsTable.fullName).orderBy(desc(sql`COUNT(${competitionVotesTable.id})`)))});
+router.get("/admin/competitions/:id/results",requireRole("Super Admin","Admin"),async(req,res)=>{const competitionId=id(req.params.id);if(!competitionId){res.status(400).json({error:"Invalid competition id"});return;}res.json(await db.select({entryId:competitionEntriesTable.id,title:competitionEntriesTable.title,participant:sql<string>`COALESCE(${competitionEntriesTable.participantName}, ${residentsTable.fullName}, 'Participant')`,votes:sql<number>`COUNT(${competitionVotesTable.id})::int`}).from(competitionEntriesTable).leftJoin(residentsTable,eq(competitionEntriesTable.residentId,residentsTable.id)).leftJoin(competitionVotesTable,eq(competitionVotesTable.entryId,competitionEntriesTable.id)).where(and(eq(competitionEntriesTable.competitionId,competitionId),eq(competitionEntriesTable.status,"approved"))).groupBy(competitionEntriesTable.id,competitionEntriesTable.participantName,residentsTable.fullName).orderBy(desc(sql`COUNT(${competitionVotesTable.id})`)))});
 
 const handleDeleteCompetition = async (req: any, res: any) => {
   try {

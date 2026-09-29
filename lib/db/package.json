@@ -16,6 +16,7 @@
     "migrate:festival-countdowns": "node ./scripts/migrate-festival-countdowns.mjs",
     "migrate:volunteer-assignments": "node ./scripts/migrate-volunteer-assignments.mjs",
     "migrate:gallery-albums": "node ./scripts/migrate-gallery-albums.mjs",
+    "migrate:public-competition-entries": "node ./scripts/migrate-public-competition-entries.mjs",
     "verify:volunteer-assignments": "node ./scripts/verify-volunteer-assignments.mjs"
   },
 

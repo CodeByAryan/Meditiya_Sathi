@@ -22,6 +22,7 @@ const DonationShowcase = lazy(() => import('@/pages/donation-showcase'));
 const Volunteers = lazy(() => import('@/pages/volunteers'));
 const Competitions = lazy(() => import('@/pages/competitions'));
 const CompetitionDetail = lazy(() => import('@/pages/competition-detail'));
+const CompetitionRegister = lazy(() => import('@/pages/competition-register'));
 const Services = lazy(() => import('@/pages/services'));
 const Emergency = lazy(() => import('@/pages/emergency'));
 const Marketplace = lazy(() => import('@/pages/marketplace'));
@@ -130,6 +131,7 @@ function AppRoutes() {
         <Route path="/donation-showcase"><PublicPage title="Community Donations | Meditiya Sathi" description="See how community donations support Medtiya Nagar initiatives and celebrations." path="/donation-showcase"><Shell><DonationShowcase /></Shell></PublicPage></Route>
         <Route path="/volunteers"><PublicPage title="Community Volunteers | Meditiya Sathi" description="Meet the volunteers helping build a connected and active Medtiya Nagar community." path="/volunteers"><Shell><Volunteers /></Shell></PublicPage></Route>
         <Route path="/competitions"><PublicPage title="Community Competitions | Meditiya Sathi" description="Participate in community competitions and discover creative activities at Medtiya Nagar." path="/competitions"><Shell><Competitions /></Shell></PublicPage></Route>
+        <Route path="/competitions/:id/register"><Shell><CompetitionRegister /></Shell></Route>
         <Route path="/competitions/:id"><Shell><CompetitionDetail /></Shell></Route>
         <Route path="/services"><PublicPage title="Community Services | Meditiya Sathi" description="Find useful community services and support available to Medtiya Nagar residents." path="/services"><Shell><Services /></Shell></PublicPage></Route>
         <Route path="/emergency"><PublicPage title="Emergency Contacts | Meditiya Sathi" description="Find important emergency contacts and assistance information for the Medtiya Nagar community." path="/emergency"><Shell><Emergency /></Shell></PublicPage></Route>
