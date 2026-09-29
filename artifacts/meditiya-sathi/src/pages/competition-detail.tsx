@@ -397,21 +397,24 @@ export default function CompetitionDetail() {
       )}
 
       <section className="mt-8 grid gap-8 lg:grid-cols-3">
-        {/* PARTICIPATION FORM */}
-        {isRegOpen ? (
-          <Card className="lg:col-span-1 border-primary/20 shadow-sm">
+        {/* PUBLIC REGISTRATION MOVED TO HOMEPAGE NAVRATRI 2026 FORM */}
+        <Card className="lg:col-span-1 border-muted bg-accent/10">
+          <CardContent className="p-6 text-center text-muted-foreground">
+            <Trophy className="mx-auto mb-2 h-8 w-8 text-muted-foreground/60" />
+            <h3 className="font-serif text-lg font-bold text-foreground">Registration is on the homepage</h3>
+            <p className="mt-1 text-xs">Public competition registration is currently available only through the Navratri 2026 form on the homepage.</p>
+          </CardContent>
+        </Card>
+        {false && isRegOpen ? (
+          <Card className="hidden lg:col-span-1 border-primary/20 shadow-sm">
             <CardContent className="p-6">
               <h2 className="font-serif text-2xl font-bold">Participate Now</h2>
 
               <p className="mt-1 text-xs text-muted-foreground">
-                Submit your Aagman Sohala entry through our dedicated registration portal.
+                Public competition registration is available from the Navratri 2026 registration form on the homepage.
               </p>
-              <Button className="mt-4 w-full font-bold shadow" onClick={() => setLocation(`/competitions/${competition.id}/register`)}>
-                <Trophy className="mr-2 h-4 w-4" /> Register & Submit Entry
-              </Button>
-              <p className="mt-4 border-t pt-4 text-xs text-muted-foreground">Resident decoration submissions remain available below for existing competitions.</p>
 
-              <div className="mt-4 space-y-3">
+              <div className="mt-4 hidden space-y-3">
                 <div>
                   <label className="mb-1 block text-xs font-semibold">Full Name</label>
                   <input
@@ -509,14 +512,14 @@ export default function CompetitionDetail() {
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-xs font-semibold">Select Photos (Max {competition.maxImages})</label>
+                    <label className="mb-1 block text-xs font-semibold">Select Photos</label>
                     <input
                       type="file"
                       multiple
                       accept="image/jpeg,image/png,image/webp"
                       onChange={(event) =>
                         setFiles(
-                          Array.from(event.target.files || []).slice(0, competition.maxImages)
+                          Array.from(event.target.files || [])
                         )
                       }
                       className="w-full text-xs text-muted-foreground file:mr-2 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-foreground"

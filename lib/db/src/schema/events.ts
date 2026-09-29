@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { festivalsTable } from "./festivals";
@@ -31,6 +31,8 @@ export const eventRegistrationsTable = pgTable("event_registrations", {
   userName: text("user_name").notNull(),
   phone: text("phone").notNull(),
   email: text("email"),
+  instagramUsername: text("instagram_username"),
+  selectedEventIds: jsonb("selected_event_ids").notNull().default([]),
   familyMembers: integer("family_members").default(1),
   registeredAt: timestamp("registered_at", { withTimezone: true }).notNull().defaultNow(),
 });

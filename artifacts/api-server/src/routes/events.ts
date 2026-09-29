@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, eventsTable, eventRegistrationsTable, volunteerEventAssignmentsTable } from "@workspace/db";
+import { db, eventsTable, eventRegistrationsTable, volunteerEventAssignmentsTable, festivalsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/requireRole";
 import { publicFormRateLimiter } from "../middlewares/rateLimiter";
 import { eq, desc, gte, lte, lt, count, and, sql, inArray, or } from "drizzle-orm";
@@ -119,6 +119,18 @@ router.get("/admin/events/upcoming/summary", requireRole("Super Admin", "Admin",
   } catch (err: any) {
     res.status(500).json({ error: err?.message || "Failed to fetch event summary" });
   }
+});
+
+router.get("/admin/events/navratri-2026/registrations", requireRole("Super Admin", "Admin"), async (_req, res): Promise<void> => {
+  try {
+    const [festival] = await db.select({ id: festivalsTable.id }).from(festivalsTable).where(and(eq(festivalsTable.year, 2026), sql`LOWER(${festivalsTable.name}) LIKE '%navratri%'`, eq(festivalsTable.isActive, true))).limit(1);
+    if (!festival) { res.json([]); return; }
+    const rows = await db.select({ id: eventRegistrationsTable.id, name: eventRegistrationsTable.userName, phone: eventRegistrationsTable.phone, email: eventRegistrationsTable.email, instagramUsername: eventRegistrationsTable.instagramUsername, selectedEventIds: eventRegistrationsTable.selectedEventIds, registeredAt: eventRegistrationsTable.registeredAt }).from(eventRegistrationsTable).innerJoin(eventsTable, eq(eventRegistrationsTable.eventId, eventsTable.id)).where(eq(eventsTable.festivalId, festival.id)).orderBy(desc(eventRegistrationsTable.registeredAt));
+    const eventIds = [...new Set(rows.flatMap((row) => Array.isArray(row.selectedEventIds) ? row.selectedEventIds.map(Number) : [row.id]))];
+    const eventRows = eventIds.length ? await db.select({ id: eventsTable.id, title: eventsTable.title }).from(eventsTable).where(inArray(eventsTable.id, eventIds)) : [];
+    const eventNames = new Map(eventRows.map((event) => [event.id, event.title]));
+    res.json(rows.map((row) => ({ ...row, selectedEvents: (Array.isArray(row.selectedEventIds) ? row.selectedEventIds : []).map(Number).map((eventId) => eventNames.get(eventId)).filter(Boolean) })));
+  } catch (error) { res.status(500).json({ error: "Unable to load Navratri registrations." }); }
 });
 
 router.get("/admin/events/:id", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
@@ -288,6 +300,13 @@ router.patch("/admin/events/:id/assign-volunteer", requireRole("Super Admin", "A
 });
 
 // ── Public event routes (no auth required) ─────────────────────────────────
+router.get("/events/navratri-2026/registration-options", async (_req, res): Promise<void> => {
+  const [festival] = await db.select({ id: festivalsTable.id, name: festivalsTable.name, year: festivalsTable.year }).from(festivalsTable).where(and(eq(festivalsTable.year, 2026), sql`LOWER(${festivalsTable.name}) LIKE '%navratri%'`, eq(festivalsTable.isActive, true))).limit(1);
+  if (!festival) { res.json({ festival: null, events: [] }); return; }
+  const events = await db.select({ id: eventsTable.id, title: eventsTable.title, description: eventsTable.description, date: eventsTable.date, category: eventsTable.category, status: eventsTable.status }).from(eventsTable).where(eq(eventsTable.festivalId, festival.id)).orderBy(eventsTable.date);
+  res.json({ festival, events });
+});
+
 router.get("/events", async (req, res): Promise<void> => {
   const params = ListEventsQueryParams.safeParse(req.query);
   const status = params.success ? params.data.status : "all";
@@ -344,6 +363,19 @@ router.get("/events/:id", async (req, res): Promise<void> => {
 
   const [reg] = await db.select({ count: count() }).from(eventRegistrationsTable).where(eq(eventRegistrationsTable.eventId, id));
   res.json({ ...event, registrationCount: reg.count });
+});
+
+router.post("/events/navratri-2026/register", publicFormRateLimiter, async (req, res): Promise<void> => {
+  const schema = z.object({ name: z.string().trim().min(2).max(120), phone: z.string().trim().regex(/^(?:\+?91[\s-]?)?[6-9]\d{9}$/, "Invalid Indian mobile number").transform((value) => `+91${value.replace(/[\s-]/g, "").replace(/^\+?91/, "")}`), email: z.string().trim().email().max(160), instagramUsername: z.string().trim().regex(/^@?[A-Za-z0-9._]{1,30}$/).transform((value) => value.replace(/^@/, "")), eventIds: z.array(z.coerce.number().int().positive()).min(1).max(20) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Please provide valid registration details and select at least one event." }); return; }
+  const eventIds = [...new Set(parsed.data.eventIds)];
+  const [festival] = await db.select({ id: festivalsTable.id }).from(festivalsTable).where(and(eq(festivalsTable.year, 2026), sql`LOWER(${festivalsTable.name}) LIKE '%navratri%'`, eq(festivalsTable.isActive, true))).limit(1);
+  if (!festival) { res.status(404).json({ error: "Navratri 2026 is not available." }); return; }
+  const validEvents = await db.select({ id: eventsTable.id }).from(eventsTable).where(and(eq(eventsTable.festivalId, festival.id), inArray(eventsTable.id, eventIds)));
+  if (validEvents.length !== eventIds.length) { res.status(400).json({ error: "Please select only Navratri 2026 events." }); return; }
+  const [registration] = await db.insert(eventRegistrationsTable).values({ eventId: eventIds[0], userName: parsed.data.name, phone: parsed.data.phone, email: parsed.data.email, instagramUsername: parsed.data.instagramUsername, selectedEventIds: eventIds, familyMembers: 1 }).returning();
+  res.status(201).json({ registrationId: registration.id, selectedEventIds: eventIds, message: "Registration successful." });
 });
 
 router.post("/events/:id/register", publicFormRateLimiter, async (req, res): Promise<void> => {

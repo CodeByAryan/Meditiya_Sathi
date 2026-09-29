@@ -1,30 +1,16 @@
 import { Router, type IRouter } from "express";
-import multer from "multer";
 import { createHmac, randomBytes } from "node:crypto";
 import { db, buildingsTable, competitionEntriesTable, competitionEntryImagesTable, competitionRegistrationsTable, competitionSecurityAttemptsTable, competitionVotesTable, competitionWinnersTable, competitionsTable, residentsTable, wingsTable } from "@workspace/db";
 import { and, desc, eq, gte, ne, sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import { requireRole } from "../middlewares/requireRole";
 import { cloudinary, isCloudinaryConfigured } from "../lib/cloudinary";
-import { votingRateLimiter, publicFormRateLimiter } from "../middlewares/rateLimiter";
+import { votingRateLimiter } from "../middlewares/rateLimiter";
 
 const router: IRouter = Router();
 const secret = process.env.VOTER_HASH_SECRET || "meditiya-sathi-voter-secret-key-2025";
 const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { files: 5, fileSize: 5 * 1024 * 1024 }, fileFilter: (_r, f, cb) => cb(null, ["image/jpeg", "image/png", "image/webp"].includes(f.mimetype)) });
-const publicSubmissionUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { files: 1, fileSize: 50 * 1024 * 1024 },
-  fileFilter: (_r, f, cb) => cb(null, ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/quicktime", "video/webm"].includes(f.mimetype)),
-});
-const residentSchema = z.object({
-  fullName: z.string().trim().min(2).max(120),
-  mobile: z.string().trim().regex(/^[0-9+\-\s]{7,15}$/, "Invalid mobile number format"),
-  buildingId: z.coerce.number().int().positive(),
-  wingId: z.preprocess((val) => (val === "" || val === undefined || val === "null" ? null : val), z.coerce.number().int().positive().nullable().optional()),
-  flatNo: z.string().trim().min(1).max(30),
-});
 const settingsSchema = z.object({
   name: z.string().trim().min(3).max(160),
   category: z.string().trim().min(2).max(80).default("Ganpati Decoration"),
@@ -49,80 +35,7 @@ function reqHashes(req: any) {
   const ip = String(req.headers["x-forwarded-for"] || req.ip || "").split(",")[0].trim();
   return { ip, ipHash: h(`ip:${ip}`), userAgentHash: h(`ua:${req.get("user-agent") || ""}`) };
 }
-async function resident(data: z.infer<typeof residentSchema>) { const where = [eq(residentsTable.fullName, data.fullName), eq(residentsTable.mobile, data.mobile), eq(residentsTable.buildingId, data.buildingId), eq(residentsTable.flatNo, data.flatNo), eq(residentsTable.status, "active"), data.wingId == null ? sql`${residentsTable.wingId} IS NULL` : eq(residentsTable.wingId, data.wingId)]; return (await db.select({ id: residentsTable.id, fullName: residentsTable.fullName, buildingName: buildingsTable.buildingName, wingName: wingsTable.wingName }).from(residentsTable).innerJoin(buildingsTable, eq(residentsTable.buildingId, buildingsTable.id)).leftJoin(wingsTable, eq(residentsTable.wingId, wingsTable.id)).where(and(...where)).limit(1))[0]; }
 
-async function findOrCreateResident(data: z.infer<typeof residentSchema>) {
-  const exactWhere = [
-    eq(residentsTable.fullName, data.fullName),
-    eq(residentsTable.mobile, data.mobile),
-    eq(residentsTable.buildingId, data.buildingId),
-    eq(residentsTable.flatNo, data.flatNo),
-    data.wingId == null ? sql`${residentsTable.wingId} IS NULL` : eq(residentsTable.wingId, data.wingId),
-  ];
-
-  const [exact] = await db
-    .select({ id: residentsTable.id })
-    .from(residentsTable)
-    .where(and(...exactWhere))
-    .limit(1);
-
-  if (exact) return exact;
-
-  const [byMobile] = await db
-    .select({ id: residentsTable.id })
-    .from(residentsTable)
-    .where(eq(residentsTable.mobile, data.mobile))
-    .limit(1);
-
-  if (byMobile) return byMobile;
-
-  const flatWhere = [
-    eq(residentsTable.buildingId, data.buildingId),
-    eq(residentsTable.flatNo, data.flatNo),
-    data.wingId == null ? sql`${residentsTable.wingId} IS NULL` : eq(residentsTable.wingId, data.wingId),
-  ];
-
-  const [byFlat] = await db
-    .select({ id: residentsTable.id })
-    .from(residentsTable)
-    .where(and(...flatWhere))
-    .limit(1);
-
-  if (byFlat) return byFlat;
-
-  const [newResident] = await db
-    .insert(residentsTable)
-    .values({
-      fullName: data.fullName,
-      mobile: data.mobile,
-      buildingId: data.buildingId,
-      wingId: data.wingId,
-      flatNo: data.flatNo,
-      status: "active",
-    })
-    .returning({ id: residentsTable.id });
-
-  return newResident;
-}
-function cloudUpload(buffer: Buffer, resourceType: "image" | "video" = "image") { return new Promise<{url:string;publicId:string}>((resolve, reject) => { const options: any = { folder: "meditiya-sathi/competitions", resource_type: resourceType }; if (resourceType === "image") Object.assign(options, { format: "webp", transformation: [{width:1600,height:1200,crop:"limit"},{quality:"auto:good"}] }); const s = cloudinary.uploader.upload_stream(options, (e,r) => e || !r ? reject(e || Error("Upload failed")) : resolve({url:r.secure_url,publicId:r.public_id})); s.end(buffer); }); }
-const publicRegistrationSchema = z.object({
-  fullName: z.string().trim().min(2).max(120).regex(/[A-Za-z\u0900-\u097F]/, "Enter a valid name"),
-  mobile: z.string().trim().transform((value) => value.replace(/[\s-]/g, "")).refine((value) => /^(?:\+91|91)?[6-9]\d{9}$/.test(value), "Enter a valid Indian mobile number").transform((value) => `+91${value.replace(/^\+?91/, "")}`),
-  email: z.string().trim().email().max(160),
-  instagramUsername: z.string().trim().regex(/^@?[A-Za-z0-9._]{1,30}$/, "Enter a valid Instagram username").transform((value) => value.replace(/^@/, "")),
-  category: z.enum(["photography", "reels", "videography"]),
-  title: z.string().trim().max(150).optional().default(""),
-  submissionUrl: z.string().trim().url().optional().or(z.literal("")),
-});
-const entryCode = (id: number) => `MM-AAGMAN-2026-${String(id).padStart(4, "0")}`;
-const registrationSchema = z.object({
-  participantName: z.string().trim().min(2).max(120).regex(/[A-Za-z\u0900-\u097F]/),
-  phone: z.string().trim().transform((value) => value.replace(/[\s-]/g, "")).refine((value) => /^(?:\+91|91)?[6-9]\d{9}$/.test(value), "Invalid Indian mobile number").transform((value) => `+91${value.replace(/^\+?91/, "")}`),
-  email: z.string().trim().email().max(160),
-  instagramUsername: z.string().trim().regex(/^@?[A-Za-z0-9._]{1,30}$/, "Enter a valid Instagram username").transform((value) => value.replace(/^@/, "")),
-  competitionIds: z.array(z.coerce.number().int().positive()).min(1).max(3),
-});
-const instagramReelUrl = (value: string) => /^https?:\/\/(?:www\.)?instagram\.com\/(?:reel|reels)\/[A-Za-z0-9_-]+\/?(?:\?.*)?$/i.test(value);
 async function captcha(token: string, ip: string) { if (!turnstileSecret || !token) return false; try { const body = new URLSearchParams({secret:turnstileSecret,response:token,remoteip:ip}); const r = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body}); return r.ok && !!((await r.json()) as { success?: boolean }).success; } catch { return false; } }
 async function attempt(req:any, competitionId:number, entryId:number | null, outcome:string) { if (!secret) return; const {ipHash,userAgentHash}=reqHashes(req); await db.insert(competitionSecurityAttemptsTable).values({competitionId,entryId,attemptType:"vote",outcome,ipHash,userAgentHash}).catch(()=>undefined); }
 
@@ -160,7 +73,7 @@ router.get("/competitions/:id", async (req, res) => {
 
     res.json({
       ...c,
-      registrationOpen: isRegistrationOpen(c),
+      registrationOpen: false,
       votingOpen: isVotingOpen(c),
     });
   } catch (error) {
@@ -222,158 +135,6 @@ router.get("/competitions/:id/entries", async (req, res) => {
     res.status(500).json({ error: "Unable to load entries." });
   }
 });
-router.post("/competitions/:id/verify-resident", async (req, res) => {
-  const competitionId = id(req.params.id);
-  const data = residentSchema.safeParse(req.body);
-  const c = competitionId && (await db.select().from(competitionsTable).where(eq(competitionsTable.id, competitionId)).limit(1))[0];
-
-  if (!data.success || !c || !isRegistrationOpen(c)) {
-    res.status(403).json({ error: "Registration is not open for this competition." });
-    return;
-  }
-
-  const r = await resident(data.data);
-  if (!r) {
-    res.status(403).json({ error: "We could not verify these resident details." });
-    return;
-  }
-
-  res.json({ verified: true, resident: { fullName: r.fullName, buildingName: r.buildingName, wingName: r.wingName } });
-});
-router.post("/competitions/register", publicFormRateLimiter, async (req, res) => {
-  const parsed = registrationSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "Please check your registration details." });
-  const data = parsed.data;
-  const uniqueCompetitionIds = [...new Set(data.competitionIds)];
-  const competitions = await db.select({ id: competitionsTable.id, status: competitionsTable.status }).from(competitionsTable).where(sql`${competitionsTable.id} IN (${sql.join(uniqueCompetitionIds.map((value) => sql`${value}`), sql`, `)})`);
-  if (competitions.length !== uniqueCompetitionIds.length || competitions.some((competition) => !isRegistrationOpen(competition))) return res.status(400).json({ error: "One or more selected competitions are not open for registration." });
-  try {
-    const registration = await db.transaction(async (tx) => {
-      const [created] = await tx.insert(competitionRegistrationsTable).values({ competitionId: uniqueCompetitionIds[0], participantName: data.participantName, phone: data.phone, email: data.email, instagramUsername: data.instagramUsername, participatingEvents: uniqueCompetitionIds }).returning({ id: competitionRegistrationsTable.id });
-      const code = entryCode(created.id);
-      const [updated] = await tx.update(competitionRegistrationsTable).set({ entryCode: code }).where(eq(competitionRegistrationsTable.id, created.id)).returning({ entryCode: competitionRegistrationsTable.entryCode });
-      return updated;
-    });
-    return res.status(201).json({ entryId: registration.entryCode, participatingEvents: uniqueCompetitionIds, message: "Registration successful." });
-  } catch (error) {
-    console.error("Competition registration failed", error);
-    return res.status(502).json({ error: "Something went wrong. Please try again." });
-  }
-});
-router.post("/competitions/:id/register-public", publicFormRateLimiter, (req, res) =>
-  publicSubmissionUpload.single("submission")(req, res, async (error) => {
-    try {
-      const competitionId = id(req.params.id);
-      const parsed = publicRegistrationSchema.safeParse(req.body);
-      const file = req.file;
-      const competition = competitionId && (await db.select().from(competitionsTable).where(eq(competitionsTable.id, competitionId)).limit(1))[0];
-      if (!competitionId || !competition || !isRegistrationOpen(competition)) return res.status(403).json({ error: "Registration is closed for this competition." });
-      if (error || !parsed.success) return res.status(400).json({ error: "Please check your participant and submission details." });
-      const data = parsed.data;
-      const isPhoto = data.category === "photography";
-      const isVideo = data.category === "videography";
-      if ((isPhoto || isVideo) && !file) return res.status(400).json({ error: "Please upload your entry file." });
-      if (data.category === "reels" && (!data.submissionUrl || !instagramReelUrl(data.submissionUrl))) return res.status(400).json({ error: "Please provide a valid Instagram Reel URL." });
-      if (!isCloudinaryConfigured && file) return res.status(503).json({ error: "File upload service is not configured." });
-      let uploaded: { url: string; publicId: string } | undefined;
-      if (file) uploaded = await cloudUpload(file.buffer, isVideo ? "video" : "image");
-      const created = await db.transaction(async (tx) => {
-        const [entry] = await tx.insert(competitionEntriesTable).values({
-          competitionId,
-          participantName: data.fullName,
-          mobile: data.mobile,
-          email: data.email,
-          instagramUsername: data.instagramUsername,
-          competitionCategory: data.category,
-          submissionUrl: uploaded?.url || data.submissionUrl || null,
-          submissionFileName: file?.originalname || null,
-          title: data.title || `${data.category} entry`,
-          description: data.title || "Aagman Sohala 2026 competition submission",
-          status: "pending",
-        }).returning({ id: competitionEntriesTable.id });
-        const code = entryCode(entry.id);
-        const [updated] = await tx.update(competitionEntriesTable).set({ entryCode: code }).where(eq(competitionEntriesTable.id, entry.id)).returning({ id: competitionEntriesTable.id, entryCode: competitionEntriesTable.entryCode });
-        if (uploaded && isPhoto) await tx.insert(competitionEntryImagesTable).values({ entryId: entry.id, imageUrl: uploaded.url, cloudinaryPublicId: uploaded.publicId, displayOrder: 0 });
-        return updated;
-      });
-      return res.status(201).json({ entryId: created.entryCode, message: "Registration successful." });
-    } catch (submissionError) {
-      console.error("Public competition registration failed", submissionError);
-      return res.status(502).json({ error: "Something went wrong. Please try again." });
-    }
-  })
-);
-router.post("/competitions/:id/register", publicFormRateLimiter, (req, res) =>
-  upload.array("images", 5)(req, res, async (error) => {
-    const competitionId = id(req.params.id);
-    const data = residentSchema.safeParse({ ...req.body, wingId: req.body.wingId || null });
-    const title = String(req.body.title || "").trim();
-    const description = String(req.body.description || "").trim();
-    const files = (req.files || []) as Express.Multer.File[];
-
-    const c = competitionId && (await db.select().from(competitionsTable).where(eq(competitionsTable.id, competitionId)).limit(1))[0];
-
-    if (!c || !isRegistrationOpen(c)) {
-      res.status(403).json({ error: "Registration is closed for this competition." });
-      return;
-    }
-
-    if (
-      error ||
-      !data.success ||
-      title.length < 2 ||
-      title.length > 150 ||
-      description.length < 10 ||
-      description.length > 2000 ||
-      !files.length
-    ) {
-      res.status(400).json({ error: "Please provide valid participant details, entry title (max 150 chars), description (max 2000 chars), and images." });
-      return;
-    }
-
-    if (!isCloudinaryConfigured) {
-      res.status(503).json({ error: "Image upload service is not configured." });
-      return;
-    }
-
-    const r = await findOrCreateResident(data.data);
-
-    try {
-      const imgs = await Promise.all(files.slice(0, c.maxImages || 3).map((f) => cloudUpload(f.buffer)));
-      const entry = await db.transaction(async (tx) => {
-        const [e] = await tx
-          .insert(competitionEntriesTable)
-          .values({
-            competitionId,
-            residentId: r.id,
-            title,
-            description,
-            status: "pending",
-          })
-          .returning();
-
-        await tx.insert(competitionEntryImagesTable).values(
-          imgs.map((image, displayOrder) => ({
-            entryId: e.id,
-            imageUrl: image.url,
-            cloudinaryPublicId: image.publicId,
-            displayOrder,
-          }))
-        );
-
-        return e;
-      });
-
-      res.status(201).json({ id: entry.id, status: "pending", message: "Your entry has been submitted successfully. Our Admin team will verify your details and approve your entry before it becomes visible publicly." });
-    } catch (e: any) {
-      if (e?.code === "23505") {
-        res.status(409).json({ error: "An entry for this participant already exists in this competition." });
-      } else {
-        res.status(502).json({ error: "Unable to submit your entry." });
-      }
-    }
-  })
-);
 router.post("/competitions/:id/vote", votingRateLimiter, async (req, res) => {
   try {
     const competitionId = id(req.params.id);
