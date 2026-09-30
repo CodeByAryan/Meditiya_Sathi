@@ -58,17 +58,12 @@ interface SearchResident {
 }
 
 interface FestivalHistory {
+  donationId: number;
   festivalName: string;
   year: number;
   festivalId: number;
-  status: 'Paid' | 'Pending';
   amount: number | null;
-  receiptNumber: string | null;
-  paymentDate: string | null;
   createdAt: string;
-  paymentMethod: string | null;
-  collectedBy: string;
-  notes: string | null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -117,23 +112,6 @@ function formatCurrency(amount: number | null): string {
   }).format(amount);
 }
 
-function formatDonationDate(date: string | null): string {
-  if (!date) return 'Date unavailable';
-
-  const parsed = new Date(date.includes('T') ? date : `${date}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return 'Date unavailable';
-
-  return parsed.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-}
-
-function paymentMethodLabel(method: string | null): string | null {
-  if (!method || method === 'pending') return null;
-  return method.replace('_', ' ').replace(/\\b\\w/g, (character) => character.toUpperCase());
-}
 
 /* -------------------------------------------------------------------------- */
 /* Reusable UI                                                                */
@@ -717,13 +695,11 @@ function SelectedResidentCard({
   festivalHistory,
   historyLoading,
   historyError,
-  selectedFestival,
 }: {
   resident: SearchResident;
   festivalHistory: FestivalHistory[];
   historyLoading: boolean;
   historyError: boolean;
-  selectedFestival: FestivalOption | null;
 }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/50 dark:bg-emerald-950/10">
@@ -773,8 +749,8 @@ function SelectedResidentCard({
           <div className="mb-3 flex items-center gap-2">
             <History className="h-4 w-4 text-muted-foreground" />
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Previous Donation History
- </p>
+              Previous Festival Donations
+            </p>
           </div>
 
           {historyLoading ? (
@@ -782,45 +758,22 @@ function SelectedResidentCard({
           ) : historyError ? (
             <p className="text-sm text-destructive">Unable to load previous donation history.</p>
           ) : festivalHistory.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No previous donations found.</p>
+            <p className="text-sm text-muted-foreground">No previous festival donations found.</p>
           ) : (
             <div className="space-y-2">
-              {festivalHistory.map((history) => {
-                const isCurrentFestival = selectedFestival?.id === history.festivalId;
-                const method = paymentMethodLabel(history.paymentMethod);
-
-                return (
-                  <div key={`${history.festivalId}-${history.createdAt}`} className={cn(
-                    'rounded-xl bg-background/70 px-3 py-2.5',
-                    isCurrentFestival && 'border border-amber-400/70 bg-amber-50/60 dark:bg-amber-950/20',
-                  )}>
-                    {isCurrentFestival && (
-                      <p className="mb-1 text-xs font-bold text-amber-700 dark:text-amber-300">
-                        ⚠ Previous donation for {history.festivalName} {history.year}
-                      </p>
-                    )}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-foreground">
-                          {history.festivalName} {history.year}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDonationDate(history.paymentDate || history.createdAt)}
-                        </p>
-                      </div>
-                      <div className="shrink-0 text-right text-xs">
-                        <p className="font-bold text-foreground">{formatCurrency(history.amount)}</p>
-                        <p className={cn(
-                          'font-semibold',
-                          history.status === 'Paid' ? 'text-emerald-600' : 'text-amber-600',
-                        )}>
-                          {history.status}{method ? ` • ${method}` : ''}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {festivalHistory.map((history) => (
+                <div
+                  key={history.donationId}
+                  className="flex items-center justify-between gap-3 rounded-xl bg-background/70 px-3 py-2.5"
+                >
+                  <p className="min-w-0 truncate text-sm font-semibold text-foreground">
+                    {history.festivalName} {history.year}
+                  </p>
+                  <p className="shrink-0 text-sm font-bold text-foreground">
+                    {formatCurrency(history.amount)}
+                  </p>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -1231,7 +1184,6 @@ export default function AdminAddDonation() {
                   festivalHistory={festivalHistory}
                   historyLoading={historyLoading}
                   historyError={historyError}
-                  selectedFestival={selectedFestival}
                 />
               </div>
             )}

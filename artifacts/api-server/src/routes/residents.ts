@@ -547,8 +547,8 @@ router.get("/admin/residents/:id/festival-history", requireRole("Super Admin", "
     }
 
     const rows = await db.execute(
-      sql`SELECT f.name as festival_name, f.year, f.id as festival_id,
-          fd.payment_method, fd.amount, fd.receipt_number, fd.payment_date,
+    sql`SELECT fd.id as donation_id, f.name as festival_name, f.year, f.id as festival_id,
+        fd.payment_method, fd.amount, fd.receipt_number, fd.payment_date,
           fd.created_at, fd.collected_by_admin_name, fd.notes
           FROM festival_donations fd
           JOIN festivals f ON fd.festival_id = f.id
@@ -557,12 +557,13 @@ router.get("/admin/residents/:id/festival-history", requireRole("Super Admin", "
     );
 
     const history = (rows.rows || []).map((row: any) => ({
-      festivalName: row.festival_name,
-      year: row.year,
-      festivalId: row.festival_id,
+    donationId: row.donation_id,
+    festivalName: row.festival_name,
+    year: row.year,
+    festivalId: row.festival_id,
       paymentMethod: row.payment_method,
       status: row.payment_method === "pending" ? "Pending" : "Paid",
-      amount: row.amount ? parseFloat(String(row.amount)) : null,
+      amount: row.amount != null ? parseFloat(String(row.amount)) : null,
       receiptNumber: row.receipt_number,
       paymentDate: row.payment_date,
       createdAt: row.created_at,
