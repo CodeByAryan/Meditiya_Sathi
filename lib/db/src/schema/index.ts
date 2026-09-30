@@ -22,3 +22,4 @@ export * from "./wings";
 export * from "./residents";
 export * from "./tshirtRegistrations";
 export * from "./volunteerAssignments";
+export * from "./navratriCompetition";

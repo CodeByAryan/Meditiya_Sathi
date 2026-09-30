@@ -18,6 +18,7 @@
     "migrate:gallery-albums": "node ./scripts/migrate-gallery-albums.mjs",
     "migrate:public-competition-entries": "node ./scripts/migrate-public-competition-entries.mjs",
     "migrate:navratri-registrations": "node ./scripts/migrate-navratri-registrations.mjs",
+    "migrate:navratri-competition-content": "node ./scripts/migrate-navratri-competition-content.mjs",
     "verify:volunteer-assignments": "node ./scripts/verify-volunteer-assignments.mjs"
   },
 

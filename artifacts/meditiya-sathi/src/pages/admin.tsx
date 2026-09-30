@@ -311,6 +311,12 @@ export default function Admin() {
             icon: Trophy,
              href: '/admin/competitions',
           },
+          {
+            name: 'Navratri Competition Content',
+            description: 'Manage rules, contacts and the Google Form',
+            icon: Trophy,
+            href: '/admin/navratri-competition',
+          },
           // {
           //   name: 'Complaints',
           //   description: 'Review resident complaints',

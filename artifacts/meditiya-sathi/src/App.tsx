@@ -48,6 +48,7 @@ const TshirtCollectionCash = lazy(() => import('@/pages/tshirt-collection-cash')
 const AdminManagement = lazy(() => import('@/pages/admin/admin-management'));
 const AdminVolunteersCrud = lazy(() => import('@/pages/admin/volunteers-crud'));
 const AdminCompetitions = lazy(() => import('@/pages/admin/competitions'));
+const AdminNavratriCompetition = lazy(() => import('@/pages/admin/navratri-competition'));
 const AdminLogin = lazy(() => import('@/pages/admin-login'));
 const NotFound = lazy(() => import('@/pages/not-found'));
 
@@ -221,6 +222,9 @@ function AppRoutes() {
         </Route>
         <Route path="/admin/competitions">
           <AdminShell><AdminCompetitions /></AdminShell>
+        </Route>
+        <Route path="/admin/navratri-competition">
+          <AdminShell><AdminNavratriCompetition /></AdminShell>
         </Route>
 
         <Route>

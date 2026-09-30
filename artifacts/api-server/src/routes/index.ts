@@ -28,6 +28,7 @@ import tshirtCollectionRouter from "./tshirt-collection";
 import uploadsRouter from "./uploads";
 import donationShowcaseRouter from "./donation-showcase";
 import festivalCountdownsRouter from "./festival-countdowns";
+import navratriCompetitionRouter from "./navratri-competition";
 
 const router: IRouter = Router();
 
@@ -60,5 +61,6 @@ router.use(tshirtCollectionRouter);
 router.use(uploadsRouter);
 router.use(donationShowcaseRouter);
 router.use(festivalCountdownsRouter);
+router.use(navratriCompetitionRouter);
 
 export default router;
