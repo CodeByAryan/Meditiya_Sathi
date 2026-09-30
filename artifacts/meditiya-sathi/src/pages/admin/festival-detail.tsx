@@ -45,10 +45,11 @@ interface SearchResident {
 }
 
 interface FestivalHistory {
-  festivalName: string; year: number; festivalId: number;
-  status: string; amount: number | null;
-  receiptNumber: string | null; paymentDate: string | null;
-  paymentMethod: string | null; collectedBy: string; notes: string | null;
+  donationId: number;
+  festivalName: string;
+  year: number;
+  festivalId: number;
+  amount: number | null;
 }
 
 interface Pagination { page: number; limit: number; total: number; totalPages: number; }
@@ -372,16 +373,13 @@ function SelectedResidentCard({ resident, festivalHistory }: {
             <div className="mt-3 pt-3 border-t border-white/8">
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Previous Festival Donations</p>
           <div className="space-y-1.5">
-            {festivalHistory.map((h, hi) => (
-              <div key={hi} className="flex items-center justify-between text-sm">
+            {festivalHistory.map((h) => (
+              <div key={h.donationId} className="flex items-center justify-between text-sm">
                 <span className="text-foreground">
                   {h.festivalName} {h.year}
                 </span>
-                    <span className={cn(
-                      "font-semibold",
-                      h.status === 'paid' ? 'text-white' : 'text-amber-600'
-                    )}>
-                  {h.status === 'paid' ? `Paid ${formatCurrency(h.amount)}` : 'Pending'}
+                <span className="font-semibold text-white">
+                  {formatCurrency(h.amount)}
                 </span>
               </div>
             ))}
@@ -1439,7 +1437,7 @@ const fetchStats = useCallback(async () => {
       const q = new URLSearchParams({ festivalId: String(festivalId) }); if (donationSearch) q.set('search', donationSearch); if (filterDonationStatus) q.set('donationStatus', filterDonationStatus); if (filterBuildingId) q.set('buildingId', filterBuildingId); if (filterWingId) q.set('wingId', filterWingId); if (filterPaymentMethod) q.set('paymentMethod', filterPaymentMethod); if (filterPendingReason) q.set('pendingReason', filterPendingReason); if (filterDateFrom) q.set('dateFrom', filterDateFrom); if (filterDateTo) q.set('dateTo', filterDateTo); if (filterAmountMin) q.set('amountMin', filterAmountMin); if (filterAmountMax) q.set('amountMax', filterAmountMax); if (filterAdminId) q.set('adminId', filterAdminId);
       const response = await fetch(getApiUrl() + '/api/admin/festival-donations/export?' + q.toString(), { headers: authHeaders() }); if (!response.ok) throw new Error('Failed to export donations'); const data = await response.json();
       const rows = (data.donations || []).map((d: any) => ({ Name: d.resident_name || '', Mobile: d.resident_mobile || '', Building: d.building_name || '', Wing: d.wing_name || '', Flat: d.flat_no || '', Amount: d.amount ?? '', 'Payment Method': d.payment_method || '', 'Receipt Number': d.receipt_number || '', 'Pending Reason': d.pending_reason || '', Notes: d.notes || '', 'Donation Date': d.payment_date || d.created_at || '', 'Collected By': d.collected_by_admin_name || '' })); const ws = XLSX.utils.json_to_sheet(rows); const safe = ((festival?.name || 'festival') + '-' + (festival?.year || '')).replace(/[^a-zA-Z0-9_-]/g, '_');
-      if (format === 'excel') { const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Donations'); XLSX.writeFile(wb, 'Donations-' + safe + '.xlsx'); } else { const blob = new Blob(['﻿' + XLSX.utils.sheet_to_csv(ws)], { type: 'text/csv;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Donations-' + safe + '.csv'; a.click(); URL.revokeObjectURL(a.href); }
+      if (format === 'excel') { const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Donations'); XLSX.writeFile(wb, 'Donations-' + safe + '.xlsx'); } else { const blob = new Blob(['' + XLSX.utils.sheet_to_csv(ws)], { type: 'text/csv;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Donations-' + safe + '.csv'; a.click(); URL.revokeObjectURL(a.href); }
       toast.success((format === 'excel' ? 'Excel' : 'CSV') + ' downloaded successfully');
     } catch (err: any) { toast.error(err?.message || 'Failed to export donations'); } finally { setExportingDonations(null); }
   };
