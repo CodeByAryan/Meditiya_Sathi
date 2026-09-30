@@ -36,11 +36,26 @@ async function getContent() {
 }
 
 router.get("/navratri-competition", async (_req, res) => {
-  try { res.json(await getContent()); } catch (error) { console.error("GET Navratri competition content failed", error); res.status(500).json({ error: "Unable to load competition information." }); }
+  try {
+    res.json(await getContent());
+  } catch (error) {
+    console.error("[Navratri Competition] Public GET failed:", error);
+    res.status(500).json({ error: "Unable to load competition information." });
+  }
 });
 
-router.get("/admin/navratri-competition", requireRole("Super Admin", "Admin"), async (_req, res) => {
-  try { res.json(await getContent()); } catch (error) { console.error("GET admin Navratri competition content failed", error); res.status(500).json({ error: "Unable to load competition content." }); }
+router.get("/admin/navratri-competition", requireRole("Super Admin", "Admin"), async (req, res) => {
+  try {
+    res.json(await getContent());
+  } catch (error) {
+    const admin = (req as any).admin;
+    console.error("[Navratri Competition] Admin GET failed:", {
+      error,
+      adminId: admin?.id,
+      adminRole: admin?.role,
+    });
+    res.status(500).json({ error: "Unable to load competition content." });
+  }
 });
 
 router.patch("/admin/navratri-competition", requireRole("Super Admin", "Admin"), async (req, res) => {
@@ -53,7 +68,15 @@ router.patch("/admin/navratri-competition", requireRole("Super Admin", "Admin"),
       ? await db.update(navratriCompetitionContentTable).set(value).where(eq(navratriCompetitionContentTable.id, existing.id)).returning(publicFields)
       : await db.insert(navratriCompetitionContentTable).values(value).returning(publicFields);
     res.json(saved);
-  } catch (error) { console.error("PATCH Navratri competition content failed", error); res.status(500).json({ error: "Unable to save competition content." }); }
+  } catch (error) {
+    const admin = (req as any).admin;
+    console.error("[Navratri Competition] Admin PATCH failed:", {
+      error,
+      adminId: admin?.id,
+      adminRole: admin?.role,
+    });
+    res.status(500).json({ error: "Unable to save competition content." });
+  }
 });
 
 export default router;
