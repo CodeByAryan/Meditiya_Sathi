@@ -560,15 +560,7 @@ router.get("/admin/residents/:id/festival-history", requireRole("Super Admin", "
     donationId: row.donation_id,
     festivalName: row.festival_name,
     year: row.year,
-    festivalId: row.festival_id,
-      paymentMethod: row.payment_method,
-      status: row.payment_method === "pending" ? "Pending" : "Paid",
-      amount: row.amount != null ? parseFloat(String(row.amount)) : null,
-      receiptNumber: row.receipt_number,
-      paymentDate: row.payment_date,
-      createdAt: row.created_at,
-      collectedBy: row.collected_by_admin_name,
-      notes: row.notes,
+    amount: row.amount != null ? parseFloat(String(row.amount)) : null,
     }));
 
     res.json(history);

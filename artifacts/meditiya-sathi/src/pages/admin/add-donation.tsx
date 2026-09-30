@@ -63,7 +63,6 @@ interface FestivalHistory {
   year: number;
   festivalId: number;
   amount: number | null;
-  createdAt: string;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1575,7 +1574,7 @@ export default function AdminAddDonation() {
               <div className="flex w-full gap-2 sm:w-auto">
                 <button
                   type="button"
-                  onClick={clearForm}
+                  onClick={() => clearForm()}
                   disabled={isSaving}
                   className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border px-5 py-3 font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
                 >
