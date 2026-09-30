@@ -10,7 +10,6 @@ import FAQSection from './FAQSection';
 import { pageFade } from './motionVariants';
 import WhatsAppFloatingButton from '@/components/WhatsAppFloatingButton';
 import GallerySection from './GallerySection';
-import CompetitionRegistrationSection from './CompetitionRegistrationSection';
 
 export default function HomePage() {
   return (
@@ -22,7 +21,6 @@ export default function HomePage() {
       <FeaturesBento />
       <VolunteersSection />
       <GallerySection />
-      <CompetitionRegistrationSection />
       <FAQSection />
       <WhatsAppFloatingButton />
     </motion.div>

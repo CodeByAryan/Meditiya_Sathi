@@ -82,6 +82,9 @@ const getStatusBadge = (status: string) => {
 };
 
 export default function Competitions() {
+  return <main className="min-h-screen bg-[var(--page-bg)] text-foreground"><CompetitionRegistrationSection /></main>;
+
+  /* Legacy competition listing intentionally remains unreachable; the public page is now the Navratri information page. */
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 

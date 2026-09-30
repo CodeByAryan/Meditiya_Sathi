@@ -3,15 +3,21 @@ import { Mail, Phone, Trophy, ExternalLink } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getApiUrl } from "@/lib/utils";
 
+type CompetitionRuleSection = { key: string; title: string; eventId: number | null; content: string; displayOrder: number; enabled: boolean };
 type CompetitionContent = {
   title: string;
   introduction: string;
-  rules: string[];
+  generalRules: string;
+  ruleSections: CompetitionRuleSection[];
   googleFormUrl: string | null;
   contactName: string;
   contactPhone: string;
   contactEmail: string;
 };
+
+function RuleBlock({ title, content }: { title: string; content: string }) {
+  return <article className="mt-6 rounded-2xl border-white/[0.08] bg-white/[0.03] p-5 sm:p-6"><h4 className="font-serif text-lg font-bold uppercase tracking-wide text-amber-200">{title}</h4><div className="mt-4 whitespace-pre-wrap text-sm leading-7 text-white/75">{content}</div></article>;
+}
 
 export default function CompetitionRegistrationSection() {
   const contentQuery = useQuery<CompetitionContent>({
@@ -41,7 +47,9 @@ export default function CompetitionRegistrationSection() {
               <>
                 <div>
                   <h3 className="font-serif text-xl font-bold uppercase tracking-wide text-amber-200 sm:text-2xl">Rules &amp; Regulations</h3>
-                  {content?.rules?.length ? <ol className="mt-5 space-y-3">{content.rules.map((rule, index) => <li key={`${index}-${rule}`} className="flex gap-3 rounded-xl border-white/[0.08] bg-white/[0.03] p-4 text-sm leading-6 text-white/75"><span className="shrink-0 font-mono font-bold text-amber-300">{String(index + 1).padStart(2, "0")}</span><span>{rule}</span></li>)}</ol> : <p className="mt-4 text-sm text-white/55">Rules &amp; regulations will be announced soon.</p>}
+                  {content?.generalRules?.trim() ? <RuleBlock title="General Rules" content={content.generalRules} /> : null}
+                  {content?.ruleSections?.filter((section) => section.enabled && section.content.trim()).sort((a, b) => a.displayOrder - b.displayOrder).map((section) => <RuleBlock key={section.key} title={section.title} content={section.content} />)}
+                  {!content?.generalRules?.trim() && !content?.ruleSections?.some((section) => section.enabled && section.content.trim()) ? <p className="mt-4 text-sm text-white/55">Rules &amp; regulations will be announced soon.</p> : null}
                 </div>
                 <div className="mt-8 border-t border-white/[0.08] pt-7">
                   <h3 className="font-serif text-xl font-bold uppercase tracking-wide text-amber-200 sm:text-2xl">Contact</h3>
