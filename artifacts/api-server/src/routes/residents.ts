@@ -536,9 +536,9 @@ router.delete("/admin/buildings/:id/wings/:wingId", requireRole("Super Admin"), 
 
 // ── GET /api/admin/residents/:id/festival-history ─────────────────────────────
 // Get festival donation history for a specific resident
-// Volunteers can view festival history for donation entry purposes
+// Donation entry history is restricted to Admin and Super Admin users.
 
-router.get("/admin/residents/:id/festival-history", requireRole("Super Admin", "Admin", "Volunteer"), async (req, res): Promise<void> => {
+router.get("/admin/residents/:id/festival-history", requireRole("Super Admin", "Admin"), async (req, res): Promise<void> => {
   try {
     const residentId = parseInt(req.params.id as string, 10);
     if (isNaN(residentId)) {
@@ -549,11 +549,11 @@ router.get("/admin/residents/:id/festival-history", requireRole("Super Admin", "
     const rows = await db.execute(
       sql`SELECT f.name as festival_name, f.year, f.id as festival_id,
           fd.payment_method, fd.amount, fd.receipt_number, fd.payment_date,
-          fd.collected_by_admin_name, fd.notes
+          fd.created_at, fd.collected_by_admin_name, fd.notes
           FROM festival_donations fd
           JOIN festivals f ON fd.festival_id = f.id
           WHERE fd.resident_id = ${residentId}
-          ORDER BY f.year DESC, f.name`
+          ORDER BY COALESCE(fd.payment_date, CAST(fd.created_at AS date)) DESC, fd.created_at DESC`
     );
 
     const history = (rows.rows || []).map((row: any) => ({
@@ -561,9 +561,11 @@ router.get("/admin/residents/:id/festival-history", requireRole("Super Admin", "
       year: row.year,
       festivalId: row.festival_id,
       paymentMethod: row.payment_method,
+      status: row.payment_method === "pending" ? "Pending" : "Paid",
       amount: row.amount ? parseFloat(String(row.amount)) : null,
       receiptNumber: row.receipt_number,
       paymentDate: row.payment_date,
+      createdAt: row.created_at,
       collectedBy: row.collected_by_admin_name,
       notes: row.notes,
     }));
